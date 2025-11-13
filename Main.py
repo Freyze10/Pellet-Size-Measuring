@@ -25,13 +25,16 @@ class PelletMeasurementApp(QMainWindow):
         self.setWindowTitle("Real-Time Pellet Size Measurement")
         self.setGeometry(100, 100, 1000, 700)
 
-        # Initialize webcam
-        self.capture = cv2.VideoCapture(0)
-        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        # Initialize webcam with better error handling
+        self.capture = None
+        self.camera_index = 0
+        self.init_camera()
 
         # Calibration: pixels per millimeter (default value, adjustable)
         self.px_per_mm = 10.0  # Adjust based on camera distance
+
+        # Frame skip counter for stability
+        self.frame_skip = 0
 
         # UI Setup
         self.setup_ui()
@@ -40,6 +43,38 @@ class PelletMeasurementApp(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
         self.timer.start(50)  # 20 FPS - reduced to prevent freezing
+
+    def init_camera(self):
+        """Initialize camera with proper configuration."""
+        try:
+            # Release existing camera if any
+            if self.capture is not None:
+                self.capture.release()
+
+            # Try to open camera with CAP_DSHOW backend (Windows specific - more stable)
+            self.capture = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
+
+            # If DSHOW fails, try default
+            if not self.capture.isOpened():
+                self.capture = cv2.VideoCapture(self.camera_index)
+
+            # Configure camera settings
+            if self.capture.isOpened():
+                self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer to prevent lag
+                self.capture.set(cv2.CAP_PROP_FPS, 20)  # Set FPS
+
+                # Warm up camera
+                for _ in range(5):
+                    self.capture.read()
+
+                print("Camera initialized successfully")
+            else:
+                print("Failed to open camera")
+
+        except Exception as e:
+            print(f"Error initializing camera: {e}")
 
     def setup_ui(self):
         """Initialize the user interface components."""
@@ -94,14 +129,28 @@ class PelletMeasurementApp(QMainWindow):
     def update_frame(self):
         """Capture and process a frame from the webcam."""
         try:
-            ret, frame = self.capture.read()
-            if not ret:
-                # Try to reconnect to camera if read fails
-                self.capture.release()
-                self.capture = cv2.VideoCapture(0)
-                self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            # Check if camera is opened
+            if self.capture is None or not self.capture.isOpened():
+                self.frame_skip += 1
+                if self.frame_skip > 10:  # Try to reinit every 10 frames
+                    print("Attempting to reinitialize camera...")
+                    self.init_camera()
+                    self.frame_skip = 0
                 return
+
+            # Read frame
+            ret, frame = self.capture.read()
+
+            if not ret or frame is None:
+                self.frame_skip += 1
+                if self.frame_skip > 20:  # After 20 failed attempts, try to reconnect
+                    print("Too many failed frames, reinitializing camera...")
+                    self.init_camera()
+                    self.frame_skip = 0
+                return
+
+            # Reset frame skip counter on success
+            self.frame_skip = 0
 
             # Process frame to detect pellets
             processed_frame, all_within_tolerance = self.process_frame(frame)
@@ -112,12 +161,9 @@ class PelletMeasurementApp(QMainWindow):
             # Convert frame to QPixmap and display
             self.display_frame(processed_frame)
 
-            # Force GUI to process events to prevent freezing
-            QApplication.processEvents()
-
         except Exception as e:
             print(f"Error in update_frame: {e}")
-            # Continue running even if there's an error
+            self.frame_skip += 1
 
     def process_frame(self, frame):
         """
@@ -301,8 +347,13 @@ class PelletMeasurementApp(QMainWindow):
 
     def closeEvent(self, event):
         """Clean up resources when closing the application."""
-        self.timer.stop()
-        self.capture.release()
+        try:
+            self.timer.stop()
+            if self.capture is not None:
+                self.capture.release()
+            cv2.destroyAllWindows()
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
         event.accept()
 
 
