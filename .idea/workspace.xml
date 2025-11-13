@@ -44,6 +44,7 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Python.Main.executor": "Run",
+    "Python.test_new.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "main",
     "last_opened_file_path": "C:/Users/Brant/PycharmProjects/FG-INV"
@@ -56,6 +57,58 @@
     ]
   }
 }]]></component>
+  <component name="RunManager" selected="Python.test_new">
+    <configuration name="Main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Pellet_Measure" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="test_new" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Pellet_Measure" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test_new.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.test_new" />
+        <item itemvalue="Python.Main" />
+      </list>
+    </recent_temporary>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -96,7 +149,111 @@
       <option name="project" value="LOCAL" />
       <updated>1762994336545</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="removed extreme out of tolerance">
+      <option name="closed" value="true" />
+      <created>1762995173056</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1762995173056</updated>
+    </task>
+    <task id="LOCAL-00005" summary="updated camera use">
+      <option name="closed" value="true" />
+      <created>1762995305083</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1762995305083</updated>
+    </task>
+    <task id="LOCAL-00006" summary="removed unnecessary texts">
+      <option name="closed" value="true" />
+      <created>1762995893489</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1762995893489</updated>
+    </task>
+    <task id="LOCAL-00007" summary="testing cv2 only">
+      <option name="closed" value="true" />
+      <created>1763000235936</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1763000235936</updated>
+    </task>
+    <task id="LOCAL-00008" summary="testing cv2 only">
+      <option name="closed" value="true" />
+      <created>1763000242049</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1763000242049</updated>
+    </task>
+    <task id="LOCAL-00009" summary="changed the calibration px">
+      <option name="closed" value="true" />
+      <created>1763001002802</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1763001002802</updated>
+    </task>
+    <task id="LOCAL-00010" summary="modified the runtime">
+      <option name="closed" value="true" />
+      <created>1763001009875</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1763001009875</updated>
+    </task>
+    <task id="LOCAL-00011" summary="modified the runtime">
+      <option name="closed" value="true" />
+      <created>1763001326948</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1763001326948</updated>
+    </task>
+    <task id="LOCAL-00012" summary="changed the status message">
+      <option name="closed" value="true" />
+      <created>1763001340402</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1763001340402</updated>
+    </task>
+    <task id="LOCAL-00013" summary="modified status">
+      <option name="closed" value="true" />
+      <created>1763002091054</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1763002091054</updated>
+    </task>
+    <task id="LOCAL-00014" summary="added live calibration">
+      <option name="closed" value="true" />
+      <created>1763002789422</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1763002789422</updated>
+    </task>
+    <task id="LOCAL-00015" summary="updated arrow up and down for calib">
+      <option name="closed" value="true" />
+      <created>1763003629728</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1763003629728</updated>
+    </task>
+    <task id="LOCAL-00016" summary="updated calibration and guides">
+      <option name="closed" value="true" />
+      <created>1763003964183</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1763003964183</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -113,6 +270,17 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="init main" />
     <MESSAGE value="initial program" />
-    <option name="LAST_COMMIT_MESSAGE" value="initial program" />
+    <MESSAGE value="removed extreme out of tolerance" />
+    <MESSAGE value="updated camera use" />
+    <MESSAGE value="removed unnecessary texts" />
+    <MESSAGE value="testing cv2 only" />
+    <MESSAGE value="changed the calibration px" />
+    <MESSAGE value="modified the runtime" />
+    <MESSAGE value="changed the status message" />
+    <MESSAGE value="modified status" />
+    <MESSAGE value="added live calibration" />
+    <MESSAGE value="updated arrow up and down for calib" />
+    <MESSAGE value="updated calibration and guides" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated calibration and guides" />
   </component>
 </project>
