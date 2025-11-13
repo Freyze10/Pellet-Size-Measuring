@@ -3,7 +3,7 @@ import numpy as np
 import time
 
 # Configuration
-PIXEL_TO_MM = 1 / 20  # Calibration: 20 pixels = 1 mm
+PIXEL_TO_MM = 1 / 10  # Calibration: 20 pixels = 1 mm
 TARGET_DIAMETER = 3.0  # mm
 TARGET_LENGTH = 3.0  # mm
 TOLERANCE = 0.5  # mm
