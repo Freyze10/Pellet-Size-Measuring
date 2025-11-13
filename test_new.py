@@ -4,15 +4,14 @@ import time
 import sys
 
 # ----------------------------------------------------------------------
-# Global Calibration (will be adjusted with arrows)
+# Global Calibration
 # ----------------------------------------------------------------------
-PIXELS_PER_MM = 6.0          # Default: 6 px = 1 mm (will be changed live)
+PIXELS_PER_MM = 6.0          # Default – will be changed with arrows
 TARGET_DIAMETER = 3.0
 TARGET_LENGTH   = 3.0
 TOLERANCE       = 0.5
 EXCLUSION_THRESHOLD = 1.0
 
-# Recalculate tolerance ranges
 def update_ranges():
     global DIAMETER_MIN, DIAMETER_MAX, LENGTH_MIN, LENGTH_MAX
     global DIAMETER_EXCLUDE_MIN, DIAMETER_EXCLUDE_MAX
@@ -34,35 +33,34 @@ MIN_CONTOUR_AREA = 100
 MAX_CONTOUR_AREA = 10000
 
 # ----------------------------------------------------------------------
-# Calibration Panel State
+# Calibration Panel Geometry
 # ----------------------------------------------------------------------
 show_calib_panel = False
-calib_rect = (10, 350, 220, 120)  # x, y, w, h
-up_arrow_rect   = (190, 370, 25, 25)
-down_arrow_rect = (190, 415, 25, 25)
+CALIB_X, CALIB_Y, CALIB_W, CALIB_H = 10, 350, 220, 120
+UP_RECT   = (CALIB_X + 190, CALIB_Y + 20, 25, 25)   # inside panel
+DOWN_RECT = (CALIB_X + 190, CALIB_Y + 65, 25, 25)
 
-# Mouse callback for up/down arrows
+# ----------------------------------------------------------------------
+# Mouse callback – click the arrows
+# ----------------------------------------------------------------------
 def mouse_callback(event, x, y, flags, param):
     global PIXELS_PER_MM, show_calib_panel
 
     if not show_calib_panel:
         return
 
-    # Helper: check if point is in rect
     def in_rect(px, py, rect):
         rx, ry, rw, rh = rect
         return rx <= px <= rx + rw and ry <= py <= ry + rh
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        if in_rect(x, y, up_arrow_rect):
-            PIXELS_PER_MM += 0.1
+        if in_rect(x, y, UP_RECT):
+            PIXELS_PER_MM = round(PIXELS_PER_MM + 0.1, 2)
             update_ranges()
-            print(f"Calibration: {PIXELS_PER_MM:.2f} px/mm")
-        elif in_rect(x, y, down_arrow_rect):
-            if PIXELS_PER_MM > 0.5:  # Prevent too low
-                PIXELS_PER_MM -= 0.1
+        elif in_rect(x, y, DOWN_RECT):
+            if PIXELS_PER_MM > 0.5:
+                PIXELS_PER_MM = round(PIXELS_PER_MM - 0.1, 2)
                 update_ranges()
-                print(f"Calibration: {PIXELS_PER_MM:.2f} px/mm")
 
 # ----------------------------------------------------------------------
 # Helper checks
@@ -117,7 +115,7 @@ def detect_pellets(frame):
 # Draw Calibration Panel
 # ----------------------------------------------------------------------
 def draw_calib_panel(frame):
-    x, y, w, h = calib_rect
+    x, y, w, h = CALIB_X, CALIB_Y, CALIB_W, CALIB_H
     overlay = frame.copy()
 
     # Background
@@ -130,19 +128,23 @@ def draw_calib_panel(frame):
 
     # Current value
     cv2.putText(overlay, f"{PIXELS_PER_MM:.2f} px/mm", (x + 10, y + 55),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 255), 2)
 
-    # Up/Down arrows
-    cv2.arrowedLine(overlay, (202, 382), (202, 372), (0, 255, 0), 2, tipLength=0.3)
-    cv2.arrowedLine(overlay, (202, 428), (202, 438), (255, 0, 0), 2, tipLength=0.3)
+    # Up arrow
+    cv2.arrowedLine(overlay,
+                    (x + 202, y + 32), (x + 202, y + 22),
+                    (0, 255, 0), 2, tipLength=0.3)
+    # Down arrow
+    cv2.arrowedLine(overlay,
+                    (x + 202, y + 77), (x + 202, y + 87),
+                    (255, 0, 0), 2, tipLength=0.3)
 
     # Instructions
-    cv2.putText(overlay, "Click arrows", (x + 10, y + 85),
+    cv2.putText(overlay, "Click arrows or", (x + 10, y + 85),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
-    cv2.putText(overlay, "to adjust", (x + 10, y + 105),
+    cv2.putText(overlay, "use Up/Down keys", (x + 10, y + 105),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
 
-    # Blend
     cv2.addWeighted(overlay, 0.9, frame, 0.1, 0, frame)
 
 # ----------------------------------------------------------------------
@@ -181,7 +183,6 @@ def draw_overlay(frame, pellets):
             cv2.putText(frame, "!", (x + w - 14, y + 16),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-    # Draw calibration panel if active
     if show_calib_panel:
         draw_calib_panel(frame)
 
@@ -201,12 +202,12 @@ def get_camera():
 # Main
 # ----------------------------------------------------------------------
 def main():
-    global show_calib_panel
+    global show_calib_panel, PIXELS_PER_MM
 
     print("\nPellet Inspector + On-Screen Calibration")
     print("=" * 55)
     print("Press 'c' → Toggle calibration panel")
-    print("Click up/down arrows to adjust px/mm")
+    print("Click arrows or use Up/Down keys to adjust")
     print("Press 'q' or click X to quit")
     print("=" * 55)
 
@@ -246,18 +247,29 @@ def main():
             fps_counter = 0
             fps_start   = time.time()
 
-        cv2.putText(display_frame, f"FPS: {fps_display}", (display_frame.shape[1] - 130, 30),
+        cv2.putText(display_frame, f"FPS: {fps_display}",
+                    (display_frame.shape[1] - 130, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
         cv2.imshow(window_name, display_frame)
 
-        # Key handling
+        # ------------------- KEY HANDLING -------------------
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
         if key == ord('c'):
             show_calib_panel = not show_calib_panel
             print(f"Calibration panel: {'ON' if show_calib_panel else 'OFF'}")
+
+        # Arrow keys work only when panel is visible
+        if show_calib_panel:
+            if key == 82:   # Up arrow
+                PIXELS_PER_MM = round(PIXELS_PER_MM + 0.1, 2)
+                update_ranges()
+            elif key == 84: # Down arrow
+                if PIXELS_PER_MM > 0.5:
+                    PIXELS_PER_MM = round(PIXELS_PER_MM - 0.1, 2)
+                    update_ranges()
 
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
             break
