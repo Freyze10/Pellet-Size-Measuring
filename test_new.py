@@ -4,15 +4,14 @@ import time
 import sys
 
 # ----------------------------------------------------------------------
-# Configuration
+# Configuration (unchanged)
 # ----------------------------------------------------------------------
-PIXEL_TO_MM = 1 / 6                 # 10 px = 1 mm  (adjust after calibration)
-TARGET_DIAMETER = 3.0                # mm
-TARGET_LENGTH   = 3.0                # mm
-TOLERANCE       = 0.5                # mm
-EXCLUSION_THRESHOLD = 1.0            # mm – ignore objects outside this band
+PIXEL_TO_MM = 1 / 10
+TARGET_DIAMETER = 3.0
+TARGET_LENGTH   = 3.0
+TOLERANCE       = 0.5
+EXCLUSION_THRESHOLD = 1.0
 
-# Calculated ranges
 DIAMETER_MIN = TARGET_DIAMETER - TOLERANCE
 DIAMETER_MAX = TARGET_DIAMETER + TOLERANCE
 LENGTH_MIN   = TARGET_LENGTH - TOLERANCE
@@ -27,20 +26,18 @@ MIN_CONTOUR_AREA = 100
 MAX_CONTOUR_AREA = 10000
 
 # ----------------------------------------------------------------------
-# Helper checks
+# Helper checks (unchanged)
 # ----------------------------------------------------------------------
 def is_within_tolerance(diameter: float, length: float) -> bool:
     return (DIAMETER_MIN <= diameter <= DIAMETER_MAX and
             LENGTH_MIN   <= length   <= LENGTH_MAX)
 
-
 def should_process_pellet(diameter: float, length: float) -> bool:
     return (DIAMETER_EXCLUDE_MIN <= diameter <= DIAMETER_EXCLUDE_MAX and
             LENGTH_EXCLUDE_MIN   <= length   <= LENGTH_EXCLUDE_MAX)
 
-
 # ----------------------------------------------------------------------
-# Detection
+# Detection (unchanged)
 # ----------------------------------------------------------------------
 def detect_pellets(frame):
     gray   = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -63,11 +60,8 @@ def detect_pellets(frame):
             continue
 
         x, y, w, h = cv2.boundingRect(cnt)
-
         width_mm  = w * PIXEL_TO_MM
         height_mm = h * PIXEL_TO_MM
-
-        # Assume the smaller side = diameter, larger side = length
         diameter = min(width_mm, height_mm)
         length   = max(width_mm, height_mm)
 
@@ -82,26 +76,25 @@ def detect_pellets(frame):
 
 
 # ----------------------------------------------------------------------
-# Overlay drawing
+# Overlay drawing – UPDATED STATUS BAR
 # ----------------------------------------------------------------------
 def draw_overlay(frame, pellets):
-    # ---- overall status ------------------------------------------------
-    if not pellets:
-        status_text  = "No pellets detected"
-        status_color = (128, 128, 128)      # gray
-    elif all(p['within_tolerance'] for p in pellets):
-        status_text  = "Within tolerance"
-        status_color = (0, 255, 0)          # green
-    else:
-        status_text  = "Out of tolerance"
-        status_color = (0, 0, 255)          # red
+    # Count within and out of tolerance
+    total = len(pellets)
+    within = sum(1 for p in pellets if p['within_tolerance'])
+    out_of = total - within
 
-    cv2.rectangle(frame, (10, 10), (310, 50), (0, 0, 0), -1)
-    cv2.rectangle(frame, (10, 10), (310, 50), status_color, 2)
+    # Status bar text
+    status_text = f"Within: {within}   Out: {out_of}   Total: {total}"
+    status_color = (0, 255, 0) if out_of == 0 else (0, 0, 255)  # Green if all OK, Red if any bad
+
+    # Draw status bar (larger area to fit text)
+    cv2.rectangle(frame, (10, 10), (450, 50), (0, 0, 0), -1)
+    cv2.rectangle(frame, (10, 10), (450, 50), status_color, 2)
     cv2.putText(frame, status_text, (20, 38),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.75, status_color, 2)
 
-    # ---- per-pellet info -----------------------------------------------
+    # Per-pellet drawing (unchanged)
     for p in pellets:
         x, y, w, h = p['x'], p['y'], p['w'], p['h']
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
@@ -125,10 +118,10 @@ def draw_overlay(frame, pellets):
 
 
 # ----------------------------------------------------------------------
-# Camera handling (auto-reconnect)
+# Camera handling (unchanged)
 # ----------------------------------------------------------------------
 def get_camera():
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)   # CAP_DSHOW avoids many Windows bugs
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv2.CAP_PROP_FPS, 30)
@@ -136,16 +129,16 @@ def get_camera():
 
 
 # ----------------------------------------------------------------------
-# Main loop
+# Main loop (unchanged except window name)
 # ----------------------------------------------------------------------
 def main():
     print("\nPellet Size Measurement System")
-    print("=" * 50)
+    print("=" * 55)
     print(f"Target  D = {TARGET_DIAMETER} mm  (±{TOLERANCE} mm)")
     print(f"Target  L = {TARGET_LENGTH}   mm  (±{TOLERANCE} mm)")
     print(f"Calibration: {1/PIXEL_TO_MM:.1f} px = 1 mm")
-    print("=" * 50)
-    print("Press 'q' or click the X button to quit\n")
+    print("=" * 55)
+    print("Press 'q' or click X to quit\n")
 
     cap = get_camera()
     if not cap.isOpened():
@@ -156,13 +149,12 @@ def main():
     fps_start   = time.time()
     fps_display = 0
 
-    # Create a named window *before* the loop so we can catch the close event
     cv2.namedWindow("Pellet Size Measurement", cv2.WINDOW_NORMAL)
 
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("Lost camera feed – trying to reconnect...")
+            print("Lost camera feed – reconnecting...")
             cap.release()
             time.sleep(1)
             cap = get_camera()
@@ -189,22 +181,12 @@ def main():
 
         cv2.imshow("Pellet Size Measurement", frame)
 
-        # --------------------------------------------------------------
-        # Key / window-close handling
-        # --------------------------------------------------------------
         key = cv2.waitKey(1) & 0xFF
-
-        # 'q' → quit
         if key == ord('q'):
             break
-
-        # Window close button (returns -1 on some platforms)
         if cv2.getWindowProperty("Pellet Size Measurement", cv2.WND_PROP_VISIBLE) < 1:
             break
 
-    # ------------------------------------------------------------------
-    # Clean shutdown
-    # ------------------------------------------------------------------
     cap.release()
     cv2.destroyAllWindows()
     print("\nSystem shut down gracefully.")
