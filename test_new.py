@@ -39,16 +39,18 @@ in_calib_mode = False
 
 # Panel layout
 PANEL_X, PANEL_Y = 10, 300
-PANEL_W, PANEL_H = 300, 140
+PANEL_W, PANEL_H = 300, 180
 
-# Button rect
-BACK_BTN = (PANEL_X + 20, PANEL_Y + 90, 80, 35)   # Back
+# Button rects
+UP_BTN     = (PANEL_X + 230, PANEL_Y + 40, 50, 40)
+DOWN_BTN   = (PANEL_X + 230, PANEL_Y + 90, 50, 40)
+BACK_BTN   = (PANEL_X + 20, PANEL_Y + 130, 80, 35)
 
 # ----------------------------------------------------------------------
-# Mouse Callback (only for BACK button)
+# Mouse Callback
 # ----------------------------------------------------------------------
 def mouse_callback(event, x, y, flags, param):
-    global in_calib_mode
+    global PIXELS_PER_MM, in_calib_mode
 
     if not in_calib_mode:
         return
@@ -58,7 +60,14 @@ def mouse_callback(event, x, y, flags, param):
         return rx <= px <= rx + rw and ry <= py <= ry + rh
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        if in_rect(x, y, BACK_BTN):
+        if in_rect(x, y, UP_BTN):
+            PIXELS_PER_MM = round(PIXELS_PER_MM + 0.1, 2)
+            update_ranges()
+        elif in_rect(x, y, DOWN_BTN):
+            if PIXELS_PER_MM > 0.5:
+                PIXELS_PER_MM = round(PIXELS_PER_MM - 0.1, 2)
+                update_ranges()
+        elif in_rect(x, y, BACK_BTN):
             in_calib_mode = False
 
 # ----------------------------------------------------------------------
@@ -127,14 +136,22 @@ def draw_calibration_mode(frame):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
     # Current value
-    cv2.putText(overlay, f"{PIXELS_PER_MM:.2f} px/mm", (PANEL_X + 15, PANEL_Y + 70),
+    cv2.putText(overlay, f"{PIXELS_PER_MM:.2f} px/mm", (PANEL_X + 15, PANEL_Y + 75),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
 
-    # Instructions
-    cv2.putText(overlay, "Use Up/Down keys", (PANEL_X + 15, PANEL_Y + 100),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 255, 200), 1)
+    # UP Button
+    cv2.rectangle(overlay, (UP_BTN[0], UP_BTN[1]), (UP_BTN[0]+UP_BTN[2], UP_BTN[1]+UP_BTN[3]),
+                  (0, 200, 0), -1)
+    cv2.putText(overlay, "UP", (UP_BTN[0] + 12, UP_BTN[1] + 28),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-    # Back Button
+    # DOWN Button
+    cv2.rectangle(overlay, (DOWN_BTN[0], DOWN_BTN[1]), (DOWN_BTN[0]+DOWN_BTN[2], DOWN_BTN[1]+DOWN_BTN[3]),
+                  (200, 0, 0), -1)
+    cv2.putText(overlay, "DOWN", (DOWN_BTN[0] + 5, DOWN_BTN[1] + 28),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+    # BACK Button
     cv2.rectangle(overlay, (BACK_BTN[0], BACK_BTN[1]), (BACK_BTN[0]+BACK_BTN[2], BACK_BTN[1]+BACK_BTN[3]),
                   (100, 100, 100), -1)
     cv2.putText(overlay, "BACK", (BACK_BTN[0] + 10, BACK_BTN[1] + 25),
@@ -158,30 +175,30 @@ def draw_overlay(frame, pellets):
     cv2.putText(frame, status_text, (20, 38),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.75, status_color, 2)
 
-    # Pellets – NARROWER TEXT BOX
+    # Pellets - REDUCED TEXT BOX WIDTH
     for p in pellets:
         x, y, w, h = p['x'], p['y'], p['w'], p['h']
         color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)
         cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
 
+        # Smaller background (120 px wide)
         bg_y = max(y - 45, 0)
-        # Reduced width from 155 → 110
-        cv2.rectangle(frame, (x, bg_y), (x + 110, y - 5), (0, 0, 0), -1)
+        cv2.rectangle(frame, (x, bg_y), (x + 120, y - 5), (0, 0, 0), -1)
         cv2.putText(frame, f"D: {p['diameter']:.2f}", (x + 5, bg_y + 18),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
         cv2.putText(frame, f"L: {p['length']:.2f}", (x + 5, bg_y + 36),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
         if not p['within_tolerance']:
             cv2.circle(frame, (x + w - 10, y + 10), 8, (0, 0, 255), -1)
             cv2.putText(frame, "!", (x + w - 14, y + 16),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-    # Calibration hint (always visible when not in mode)
+    # Calibration hint - CLEAR & READABLE
     if not in_calib_mode:
-        cv2.putText(frame, "Press 'c' → Calibration Mode (Up/Down keys)",
-                    (10, frame.shape[0] - 15),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 220, 255), 1)
+        cv2.putText(frame, "Press 'c' to enter calibration mode",
+                    (10, frame.shape[0] - 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 220, 255), 2)
 
     # Draw calibration panel
     if in_calib_mode:
@@ -204,6 +221,13 @@ def get_camera():
 # ----------------------------------------------------------------------
 def main():
     global in_calib_mode, PIXELS_PER_MM
+
+    print("\nPellet Inspector + Clean GUI Calibration")
+    print("=" * 55)
+    print("Press 'c' → Enter calibration mode")
+    print("Click UP/DOWN to adjust | Click BACK to exit")
+    print("Press 'q' to quit")
+    print("=" * 55)
 
     cap = get_camera()
     if not cap.isOpened():
@@ -254,21 +278,12 @@ def main():
         if key == ord('c') and not in_calib_mode:
             in_calib_mode = True
 
-        # Up/Down keys in calibration
-        if in_calib_mode:
-            if key == 82:  # Up arrow
-                PIXELS_PER_MM = round(PIXELS_PER_MM + 0.1, 2)
-                update_ranges()
-            elif key == 84:  # Down arrow
-                if PIXELS_PER_MM > 0.5:
-                    PIXELS_PER_MM = round(PIXELS_PER_MM - 0.1, 2)
-                    update_ranges()
-
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
             break
 
     cap.release()
     cv2.destroyAllWindows()
+    print("Shutdown complete.")
 
 
 if __name__ == "__main__":
