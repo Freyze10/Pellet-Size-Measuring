@@ -6,7 +6,7 @@ import sys
 # ----------------------------------------------------------------------
 # Configuration (unchanged)
 # ----------------------------------------------------------------------
-PIXEL_TO_MM = 1 / 10
+PIXEL_TO_MM = 1 / 6
 TARGET_DIAMETER = 3.0
 TARGET_LENGTH   = 3.0
 TOLERANCE       = 0.5
@@ -85,7 +85,7 @@ def draw_overlay(frame, pellets):
     out_of = total - within
 
     # Status bar text
-    status_text = f"Within: {within}   Out: {out_of}   Total: {total}"
+    status_text = f"In: {within}   Out: {out_of}   Total: {total}"
     status_color = (0, 255, 0) if out_of == 0 else (0, 0, 255)  # Green if all OK, Red if any bad
 
     # Draw status bar (larger area to fit text)
