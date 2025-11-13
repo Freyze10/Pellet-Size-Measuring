@@ -7,7 +7,7 @@ import sys
 import cv2
 import numpy as np
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
-                             QHBoxLayout, QLabel, QPushButton, QSpinBox, QGroupBox)
+                              QHBoxLayout, QLabel, QPushButton, QSpinBox, QGroupBox)
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtGui import QImage, QPixmap
 
@@ -39,7 +39,7 @@ class PelletMeasurementApp(QMainWindow):
         # Timer for frame capture
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
-        self.timer.start(33)  # ~30 FPS
+        self.timer.start(50)  # 20 FPS - reduced to prevent freezing
 
     def setup_ui(self):
         """Initialize the user interface components."""
@@ -93,18 +93,31 @@ class PelletMeasurementApp(QMainWindow):
 
     def update_frame(self):
         """Capture and process a frame from the webcam."""
-        ret, frame = self.capture.read()
-        if not ret:
-            return
+        try:
+            ret, frame = self.capture.read()
+            if not ret:
+                # Try to reconnect to camera if read fails
+                self.capture.release()
+                self.capture = cv2.VideoCapture(0)
+                self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                return
 
-        # Process frame to detect pellets
-        processed_frame, all_within_tolerance = self.process_frame(frame)
+            # Process frame to detect pellets
+            processed_frame, all_within_tolerance = self.process_frame(frame)
 
-        # Update status label
-        self.update_status(all_within_tolerance)
+            # Update status label
+            self.update_status(all_within_tolerance)
 
-        # Convert frame to QPixmap and display
-        self.display_frame(processed_frame)
+            # Convert frame to QPixmap and display
+            self.display_frame(processed_frame)
+
+            # Force GUI to process events to prevent freezing
+            QApplication.processEvents()
+
+        except Exception as e:
+            print(f"Error in update_frame: {e}")
+            # Continue running even if there's an error
 
     def process_frame(self, frame):
         """
@@ -159,12 +172,27 @@ class PelletMeasurementApp(QMainWindow):
             length_ok = self.MIN_SIZE <= length_mm <= self.MAX_SIZE
             within_tolerance = diameter_ok and length_ok
 
+            # Skip objects that are way out of tolerance (too big or too small)
+            # Define exclusion range: ignore if > 2x max or < 0.5x min
+            max_acceptable = self.MAX_SIZE * 2.0  # 7mm
+            min_acceptable = self.MIN_SIZE * 0.5  # 1.25mm
+
+            if (diameter_mm > max_acceptable or length_mm > max_acceptable or
+                diameter_mm < min_acceptable or length_mm < min_acceptable):
+                continue  # Skip this object entirely
+
             if not within_tolerance:
                 all_within_tolerance = False
 
             # Draw bounding box
             color = (0, 255, 0) if within_tolerance else (0, 0, 255)  # Green or Red
-            cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 2)
+
+            # Only draw if within tolerance OR slightly out (not way out)
+            if within_tolerance:
+                cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 2)
+            else:
+                # Still show red box for slightly out of tolerance pellets
+                cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 2)
 
             # Add measurement text
             label_bg_color = (0, 200, 0) if within_tolerance else (0, 0, 200)
@@ -250,22 +278,26 @@ class PelletMeasurementApp(QMainWindow):
 
     def display_frame(self, frame):
         """Convert OpenCV frame to QPixmap and display in label."""
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb_frame.shape
-        bytes_per_line = ch * w
+        try:
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w, ch = rgb_frame.shape
+            bytes_per_line = ch * w
 
-        qt_image = QImage(
-            rgb_frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888
-        )
+            qt_image = QImage(
+                rgb_frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888
+            )
 
-        pixmap = QPixmap.fromImage(qt_image)
-        scaled_pixmap = pixmap.scaled(
-            self.video_label.size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
-        )
+            pixmap = QPixmap.fromImage(qt_image)
+            scaled_pixmap = pixmap.scaled(
+                self.video_label.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.FastTransformation  # Faster transformation
+            )
 
-        self.video_label.setPixmap(scaled_pixmap)
+            self.video_label.setPixmap(scaled_pixmap)
+
+        except Exception as e:
+            print(f"Error displaying frame: {e}")
 
     def closeEvent(self, event):
         """Clean up resources when closing the application."""
