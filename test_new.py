@@ -6,7 +6,7 @@ import sys
 # ----------------------------------------------------------------------
 # Configuration
 # ----------------------------------------------------------------------
-PIXEL_TO_MM = 1 / 10                 # 10 px = 1 mm  (adjust after calibration)
+PIXEL_TO_MM = 1 / 6                 # 10 px = 1 mm  (adjust after calibration)
 TARGET_DIAMETER = 3.0                # mm
 TARGET_LENGTH   = 3.0                # mm
 TOLERANCE       = 0.5                # mm
