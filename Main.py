@@ -100,7 +100,7 @@ class PelletMeasurementApp(QMainWindow):
         self.calib_spinbox.valueChanged.connect(self.update_calibration)
         calib_layout.addWidget(self.calib_spinbox)
 
-        calib_info = QLabel("💡 Adjust based on a known reference (e.g., 10mm = X pixels)")
+        calib_info = QLabel("Adjust based on a known reference (e.g., 10mm = X pixels)")
         calib_info.setStyleSheet("color: #666; font-size: 10px;")
         calib_layout.addWidget(calib_info)
         calib_layout.addStretch()
@@ -109,7 +109,7 @@ class PelletMeasurementApp(QMainWindow):
         main_layout.addWidget(calib_group)
 
         # Status label
-        self.status_label = QLabel("⏳ Initializing...")
+        self.status_label = QLabel("Initializing...")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet("""
             QLabel {
@@ -232,15 +232,9 @@ class PelletMeasurementApp(QMainWindow):
 
             # Draw bounding box
             color = (0, 255, 0) if within_tolerance else (0, 0, 255)  # Green or Red
+            cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 2)
 
-            # Only draw if within tolerance OR slightly out (not way out)
-            if within_tolerance:
-                cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 2)
-            else:
-                # Still show red box for slightly out of tolerance pellets
-                cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 2)
-
-            # Add measurement text
+            # Background color for text
             label_bg_color = (0, 200, 0) if within_tolerance else (0, 0, 200)
 
             # Diameter label
@@ -265,12 +259,7 @@ class PelletMeasurementApp(QMainWindow):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, label_bg_color, 1
             )
 
-            # Status indicator
-            status_text = "✓ OK" if within_tolerance else "✗ OUT"
-            cv2.putText(
-                output_frame, status_text, (x, y + h + 20),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2
-            )
+            # REMOVED: Status indicator ("OK" or "OUT") at the bottom
 
             pellets_detected.append({
                 'diameter': diameter_mm,
@@ -298,7 +287,7 @@ class PelletMeasurementApp(QMainWindow):
     def update_status(self, all_within_tolerance):
         """Update the status label based on tolerance check."""
         if all_within_tolerance:
-            self.status_label.setText("✅ All pellets within tolerance")
+            self.status_label.setText("All pellets within tolerance")
             self.status_label.setStyleSheet("""
                 QLabel {
                     font-size: 18px;
@@ -310,7 +299,7 @@ class PelletMeasurementApp(QMainWindow):
                 }
             """)
         else:
-            self.status_label.setText("❌ Out of tolerance detected")
+            self.status_label.setText("Out of tolerance detected")
             self.status_label.setStyleSheet("""
                 QLabel {
                     font-size: 18px;
@@ -337,7 +326,7 @@ class PelletMeasurementApp(QMainWindow):
             scaled_pixmap = pixmap.scaled(
                 self.video_label.size(),
                 Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.FastTransformation  # Faster transformation
+                Qt.TransformationMode.FastTransformation
             )
 
             self.video_label.setPixmap(scaled_pixmap)
