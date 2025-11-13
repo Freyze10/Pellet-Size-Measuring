@@ -1,155 +1,122 @@
 import cv2
 import numpy as np
 import time
+import sys
 
+# ----------------------------------------------------------------------
 # Configuration
-PIXEL_TO_MM = 1 / 10  # Calibration: 20 pixels = 1 mm
-TARGET_DIAMETER = 3.0  # mm
-TARGET_LENGTH = 3.0  # mm
-TOLERANCE = 0.5  # mm
-EXCLUSION_THRESHOLD = 1.0  # mm - objects beyond this are ignored
+# ----------------------------------------------------------------------
+PIXEL_TO_MM = 1 / 10                 # 10 px = 1 mm  (adjust after calibration)
+TARGET_DIAMETER = 3.0                # mm
+TARGET_LENGTH   = 3.0                # mm
+TOLERANCE       = 0.5                # mm
+EXCLUSION_THRESHOLD = 1.0            # mm – ignore objects outside this band
 
-# Calculate ranges
+# Calculated ranges
 DIAMETER_MIN = TARGET_DIAMETER - TOLERANCE
 DIAMETER_MAX = TARGET_DIAMETER + TOLERANCE
-LENGTH_MIN = TARGET_LENGTH - TOLERANCE
-LENGTH_MAX = TARGET_LENGTH + TOLERANCE
+LENGTH_MIN   = TARGET_LENGTH - TOLERANCE
+LENGTH_MAX   = TARGET_LENGTH + TOLERANCE
 
-# Exclusion ranges
 DIAMETER_EXCLUDE_MIN = TARGET_DIAMETER - EXCLUSION_THRESHOLD
 DIAMETER_EXCLUDE_MAX = TARGET_DIAMETER + EXCLUSION_THRESHOLD
-LENGTH_EXCLUDE_MIN = TARGET_LENGTH - EXCLUSION_THRESHOLD
-LENGTH_EXCLUDE_MAX = TARGET_LENGTH + EXCLUSION_THRESHOLD
+LENGTH_EXCLUDE_MIN   = TARGET_LENGTH - EXCLUSION_THRESHOLD
+LENGTH_EXCLUDE_MAX   = TARGET_LENGTH + EXCLUSION_THRESHOLD
 
-# Minimum contour area to avoid noise (in pixels)
 MIN_CONTOUR_AREA = 100
 MAX_CONTOUR_AREA = 10000
 
-
-def is_within_tolerance(diameter, length):
-    """Check if pellet is within acceptable tolerance."""
+# ----------------------------------------------------------------------
+# Helper checks
+# ----------------------------------------------------------------------
+def is_within_tolerance(diameter: float, length: float) -> bool:
     return (DIAMETER_MIN <= diameter <= DIAMETER_MAX and
-            LENGTH_MIN <= length <= LENGTH_MAX)
+            LENGTH_MIN   <= length   <= LENGTH_MAX)
 
 
-def should_process_pellet(diameter, length):
-    """Check if pellet should be processed (not excluded)."""
+def should_process_pellet(diameter: float, length: float) -> bool:
     return (DIAMETER_EXCLUDE_MIN <= diameter <= DIAMETER_EXCLUDE_MAX and
-            LENGTH_EXCLUDE_MIN <= length <= LENGTH_EXCLUDE_MAX)
+            LENGTH_EXCLUDE_MIN   <= length   <= LENGTH_EXCLUDE_MAX)
 
 
+# ----------------------------------------------------------------------
+# Detection
+# ----------------------------------------------------------------------
 def detect_pellets(frame):
-    """Detect pellets in the frame and return their measurements."""
-    # Convert to grayscale
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    # Apply Gaussian blur to reduce noise
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-
-    # Apply adaptive threshold for better edge detection
-    thresh = cv2.adaptiveThreshold(blurred, 255,
+    gray   = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    blur   = cv2.GaussianBlur(gray, (5, 5), 0)
+    thresh = cv2.adaptiveThreshold(blur, 255,
                                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 11, 2)
 
-    # Apply morphological operations to clean up
     kernel = np.ones((3, 3), np.uint8)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN,  kernel)
 
-    # Find contours
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL,
                                    cv2.CHAIN_APPROX_SIMPLE)
 
     pellets = []
-
-    for contour in contours:
-        area = cv2.contourArea(contour)
-
-        # Filter by area
-        if area < MIN_CONTOUR_AREA or area > MAX_CONTOUR_AREA:
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if not (MIN_CONTOUR_AREA <= area <= MAX_CONTOUR_AREA):
             continue
 
-        # Get bounding rectangle
-        x, y, w, h = cv2.boundingRect(contour)
+        x, y, w, h = cv2.boundingRect(cnt)
 
-        # Calculate dimensions in mm
-        # For cylindrical pellets viewed from side:
-        # - Diameter is typically the smaller dimension
-        # - Length is typically the larger dimension
-        width_mm = w * PIXEL_TO_MM
+        width_mm  = w * PIXEL_TO_MM
         height_mm = h * PIXEL_TO_MM
 
-        # Assign diameter and length based on orientation
-        if w < h:  # Vertical orientation
-            diameter = width_mm
-            length = height_mm
-        else:  # Horizontal orientation
-            diameter = height_mm
-            length = width_mm
+        # Assume the smaller side = diameter, larger side = length
+        diameter = min(width_mm, height_mm)
+        length   = max(width_mm, height_mm)
 
-        # Check if pellet should be processed
         if should_process_pellet(diameter, length):
-            within_tolerance = is_within_tolerance(diameter, length)
-
             pellets.append({
-                'x': x,
-                'y': y,
-                'w': w,
-                'h': h,
+                'x': x, 'y': y, 'w': w, 'h': h,
                 'diameter': diameter,
-                'length': length,
-                'within_tolerance': within_tolerance
+                'length':   length,
+                'within_tolerance': is_within_tolerance(diameter, length)
             })
-
     return pellets
 
 
+# ----------------------------------------------------------------------
+# Overlay drawing
+# ----------------------------------------------------------------------
 def draw_overlay(frame, pellets):
-    """Draw measurements and status on the frame."""
-    # Determine overall status
+    # ---- overall status ------------------------------------------------
     if not pellets:
-        status_text = "No pellets detected"
-        status_color = (128, 128, 128)  # Gray
+        status_text  = "No pellets detected"
+        status_color = (128, 128, 128)      # gray
     elif all(p['within_tolerance'] for p in pellets):
-        status_text = "✅ Within tolerance"
-        status_color = (0, 255, 0)  # Green
+        status_text  = "Within tolerance"
+        status_color = (0, 255, 0)          # green
     else:
-        status_text = "❌ Out of tolerance"
-        status_color = (0, 0, 255)  # Red
+        status_text  = "Out of tolerance"
+        status_color = (0, 0, 255)          # red
 
-    # Draw status indicator at top-left
-    cv2.rectangle(frame, (10, 10), (300, 50), (0, 0, 0), -1)
-    cv2.rectangle(frame, (10, 10), (300, 50), status_color, 2)
+    cv2.rectangle(frame, (10, 10), (310, 50), (0, 0, 0), -1)
+    cv2.rectangle(frame, (10, 10), (310, 50), status_color, 2)
     cv2.putText(frame, status_text, (20, 38),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.75, status_color, 2)
 
-    # Draw each pellet
-    for pellet in pellets:
-        x, y, w, h = pellet['x'], pellet['y'], pellet['w'], pellet['h']
-        diameter = pellet['diameter']
-        length = pellet['length']
-        within_tolerance = pellet['within_tolerance']
+    # ---- per-pellet info -----------------------------------------------
+    for p in pellets:
+        x, y, w, h = p['x'], p['y'], p['w'], p['h']
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-        # Draw rectangle around pellet (green for valid)
-        color = (0, 255, 0)
-        cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+        txt_d = f"D: {p['diameter']:.2f} mm"
+        txt_l = f"L: {p['length']:.2f} mm"
 
-        # Prepare measurement text
-        text_diameter = f"Dia: {diameter:.2f} mm"
-        text_length = f"Len: {length:.2f} mm"
+        bg_y = max(y - 45, 0)
+        cv2.rectangle(frame, (x, bg_y), (x + 155, y - 5), (0, 0, 0), -1)
+        cv2.putText(frame, txt_d, (x + 5, bg_y + 18),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+        cv2.putText(frame, txt_l, (x + 5, bg_y + 36),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
 
-        # Draw background for text
-        text_bg_y = max(y - 45, 0)
-        cv2.rectangle(frame, (x, text_bg_y), (x + 150, y - 5), (0, 0, 0), -1)
-
-        # Draw text
-        cv2.putText(frame, text_diameter, (x + 5, text_bg_y + 18),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-        cv2.putText(frame, text_length, (x + 5, text_bg_y + 35),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-
-        # Add warning indicator if out of tolerance
-        if not within_tolerance:
+        if not p['within_tolerance']:
             cv2.circle(frame, (x + w - 10, y + 10), 8, (0, 0, 255), -1)
             cv2.putText(frame, "!", (x + w - 14, y + 16),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
@@ -157,74 +124,90 @@ def draw_overlay(frame, pellets):
     return frame
 
 
-def main():
-    """Main function to run the pellet measurement system."""
-    # Initialize camera
-    cap = cv2.VideoCapture(0)
-
-    if not cap.isOpened():
-        print("Error: Could not open camera")
-        return
-
-    # Set camera resolution for better performance
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+# ----------------------------------------------------------------------
+# Camera handling (auto-reconnect)
+# ----------------------------------------------------------------------
+def get_camera():
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)   # CAP_DSHOW avoids many Windows bugs
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_FPS, 30)
+    return cap
 
-    # FPS calculation variables
-    fps_start_time = time.time()
+
+# ----------------------------------------------------------------------
+# Main loop
+# ----------------------------------------------------------------------
+def main():
+    print("\nPellet Size Measurement System")
+    print("=" * 50)
+    print(f"Target  D = {TARGET_DIAMETER} mm  (±{TOLERANCE} mm)")
+    print(f"Target  L = {TARGET_LENGTH}   mm  (±{TOLERANCE} mm)")
+    print(f"Calibration: {1/PIXEL_TO_MM:.1f} px = 1 mm")
+    print("=" * 50)
+    print("Press 'q' or click the X button to quit\n")
+
+    cap = get_camera()
+    if not cap.isOpened():
+        print("Cannot open camera – exiting.")
+        sys.exit(1)
+
     fps_counter = 0
+    fps_start   = time.time()
     fps_display = 0
 
-    print("Pellet Size Measurement System")
-    print("=" * 50)
-    print(f"Target Diameter: {TARGET_DIAMETER} mm (±{TOLERANCE} mm)")
-    print(f"Target Length: {TARGET_LENGTH} mm (±{TOLERANCE} mm)")
-    print(f"Acceptable Range: {DIAMETER_MIN}-{DIAMETER_MAX} mm")
-    print(f"Calibration: {1 / PIXEL_TO_MM} pixels = 1 mm")
-    print("=" * 50)
-    print("Press 'q' to quit")
-    print("Press 'c' to adjust calibration (coming soon)")
-    print()
+    # Create a named window *before* the loop so we can catch the close event
+    cv2.namedWindow("Pellet Size Measurement", cv2.WINDOW_NORMAL)
 
     while True:
         ret, frame = cap.read()
-
         if not ret:
-            print("Error: Failed to capture frame")
-            break
+            print("Lost camera feed – trying to reconnect...")
+            cap.release()
+            time.sleep(1)
+            cap = get_camera()
+            if not cap.isOpened():
+                print("Reconnect failed – exiting.")
+                break
+            continue
 
-        # Detect pellets
         pellets = detect_pellets(frame)
+        frame   = draw_overlay(frame, pellets)
 
-        # Draw overlay
-        frame = draw_overlay(frame, pellets)
-
-        # Calculate and display FPS
+        # FPS
         fps_counter += 1
-        if time.time() - fps_start_time >= 1.0:
-            fps_display = fps_counter
+        elapsed = time.time() - fps_start
+        if elapsed >= 1.0:
+            fps_display = fps_counter // int(elapsed)
             fps_counter = 0
-            fps_start_time = time.time()
+            fps_start   = time.time()
 
-        cv2.putText(frame, f"FPS: {fps_display}", (frame.shape[1] - 120, 30),
+        cv2.putText(frame, f"FPS: {fps_display}", (frame.shape[1] - 130, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
-        # Display pellet count
-        cv2.putText(frame, f"Pellets: {len(pellets)}", (frame.shape[1] - 120, 55),
+        cv2.putText(frame, f"Pellets: {len(pellets)}", (frame.shape[1] - 130, 55),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
-        # Show frame
         cv2.imshow("Pellet Size Measurement", frame)
 
-        # Handle key presses
+        # --------------------------------------------------------------
+        # Key / window-close handling
+        # --------------------------------------------------------------
         key = cv2.waitKey(1) & 0xFF
+
+        # 'q' → quit
         if key == ord('q'):
             break
 
-    # Cleanup
+        # Window close button (returns -1 on some platforms)
+        if cv2.getWindowProperty("Pellet Size Measurement", cv2.WND_PROP_VISIBLE) < 1:
+            break
+
+    # ------------------------------------------------------------------
+    # Clean shutdown
+    # ------------------------------------------------------------------
     cap.release()
     cv2.destroyAllWindows()
-    print("\nSystem shutdown complete")
+    print("\nSystem shut down gracefully.")
 
 
 if __name__ == "__main__":
