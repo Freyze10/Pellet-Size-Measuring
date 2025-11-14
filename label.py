@@ -4,8 +4,6 @@ import time
 import sys
 import json
 import os
-from sklearn import svm
-from skimage.feature import hog
 
 # ----------------------------------------------------------------------
 # Global Calibration
@@ -17,20 +15,225 @@ TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 200.0
 
 # ----------------------------------------------------------------------
-# COCO & Training
+# SIFT-based Pellet Detector (exact copy of the PyQt class)
 # ----------------------------------------------------------------------
-coco_data = None
-detector = None
+class PelletDetector:
+    """Robust pellet detector using SIFT + multi-scale + contour fallback"""
+
+    def __init__(self):
+        self.trained_samples = []
+        self.feature_detector = cv2.SIFT_create(nfeatures=500)
+        self.bf_matcher = cv2.BFMatcher()
+
+    def train_from_coco(self, coco_data, images_folder=""):
+        self.trained_samples = []
+        images_dict = {img['id']: img for img in coco_data.get('images', [])}
+
+        for ann in coco_data.get('annotations', []):
+            image_id = ann['image_id']
+            if image_id not in images_dict:
+                continue
+
+            img_info = images_dict[image_id]
+            img_path = os.path.join(images_folder, img_info['file_name'])
+            if not os.path.exists(img_path):
+                continue
+
+            image = cv2.imread(img_path)
+            if image is None:
+                continue
+
+            if 'segmentation' in ann and ann['segmentation']:
+                for seg in ann['segmentation']:
+                    polygon = np.array(seg).reshape(-1, 2).astype(np.int32)
+                    x, y, w, h = cv2.boundingRect(polygon)
+
+                    padding = 15
+                    x1 = max(0, x - padding)
+                    y1 = max(0, y - padding)
+                    x2 = min(image.shape[1], x + w + padding)
+                    y2 = min(image.shape[0], y + h + padding)
+
+                    pellet_sample = image[y1:y2, x1:x2].copy()
+                    if pellet_sample.size == 0:
+                        continue
+
+                    mask = np.zeros(pellet_sample.shape[:2], dtype=np.uint8)
+                    polygon_shifted = polygon - [x1, y1]
+                    cv2.fillPoly(mask, [polygon_shifted], 255)
+
+                    gray_sample = cv2.cvtColor(pellet_sample, cv2.COLOR_BGR2GRAY)
+                    kp, desc = self.feature_detector.detectAndCompute(gray_sample, mask)
+
+                    if desc is not None and len(kp) > 10:
+                        self.trained_samples.append({
+                            'image': pellet_sample,
+                            'gray': gray_sample,
+                            'mask': mask,
+                            'keypoints': kp,
+                            'descriptors': desc,
+                            'size': (w, h),
+                            'polygon': polygon_shifted,
+                            'bbox': (x1, y1, x2 - x1, y2 - y1)
+                        })
+
+        print(f"SIFT training finished – {len(self.trained_samples)} samples")
+        return len(self.trained_samples) > 0
+
+    # --------------------------------------------------------------
+    # Detection (multi-scale SIFT + contour fallback)
+    # --------------------------------------------------------------
+    def detect_pellets(self, image):
+        if not self.trained_samples:
+            return []
+
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        detections = []
+
+        # ---- multi-scale SIFT matching ---------------------------------
+        scales = [0.8, 1.0, 1.2, 1.4]
+        for scale in scales:
+            if scale != 1.0:
+                h, w = gray.shape
+                resized = cv2.resize(gray, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_LINEAR)
+            else:
+                resized = gray
+
+            kp2, desc2 = self.feature_detector.detectAndCompute(resized, None)
+            if desc2 is None:
+                continue
+
+            for sample in self.trained_samples:
+                matches = self.bf_matcher.knnMatch(sample['descriptors'], desc2, k=2)
+
+                good = [m for m, n in matches if len([m, n]) == 2 and m.distance < 0.8 * n.distance]
+                if len(good) < 12:
+                    continue
+
+                src_pts = np.float32([sample['keypoints'][m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+                dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+
+                if scale != 1.0:
+                    dst_pts /= scale
+
+                M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 3.0)
+                if M is None:
+                    continue
+
+                h, w = sample['gray'].shape
+                pts = np.float32([[0, 0], [w, 0], [w, h], [0, h]]).reshape(-1, 1, 2)
+                dst = cv2.perspectiveTransform(pts, M)
+                poly = dst.reshape(-1, 2).astype(np.int32)
+
+                x, y, bw, bh = cv2.boundingRect(poly)
+                if bw < 20 or bh < 20:
+                    continue
+
+                # deduplicate across scales
+                if any(self._iou((x, y, bw, bh), d['bbox']) > 0.5 for d in detections):
+                    continue
+
+                detections.append({
+                    'bbox': (x, y, bw, bh),
+                    'polygon': poly,
+                    'confidence': len(good),
+                    'method': 'sift'
+                })
+
+        # ---- contour fallback (shape similarity) -----------------------
+        contour_dets = self._contour_fallback(image, gray)
+        for d in contour_dets:
+            if not any(self._iou(d['bbox'], ex['bbox']) > 0.5 for ex in detections):
+                detections.append(d)
+
+        # ---- final NMS -------------------------------------------------
+        detections = self._nms(detections, overlap_thr=0.4)
+        return detections
+
+    # ------------------------------------------------------------------
+    # Helper utilities
+    # ------------------------------------------------------------------
+    def _iou(self, box1, box2):
+        x1, y1, w1, h1 = box1
+        x2, y2, w2, h2 = box2
+        xi1 = max(x1, x2); yi1 = max(y1, y2)
+        xi2 = min(x1 + w1, x2 + w2); yi2 = min(y1 + h1, y2 + h2)
+        inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+        union = w1 * h1 + w2 * h2 - inter
+        return inter / union if union > 0 else 0
+
+    def _contour_fallback(self, image, gray):
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        thresh = cv2.adaptiveThreshold(blurred, 255,
+                                       cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                       cv2.THRESH_BINARY_INV, 11, 2)
+        kernel = np.ones((3, 3), np.uint8)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        if self.trained_samples:
+            sizes = [s['size'] for s in self.trained_samples]
+            avg_area = np.mean([w * h for w, h in sizes])
+            min_area, max_area = avg_area * 0.4, avg_area * 3.0
+        else:
+            min_area, max_area = 100, 10000
+
+        dets = []
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if not (min_area <= area <= max_area):
+                continue
+            x, y, w, h = cv2.boundingRect(cnt)
+            if w < 20 or h < 20:
+                continue
+            aspect = max(w, h) / min(w, h)
+            if not (1.0 <= aspect <= 3.5):
+                continue
+
+            score = self._shape_score(cnt)
+            if score > 0.6:
+                dets.append({
+                    'bbox': (x, y, w, h),
+                    'polygon': cnt.reshape(-1, 2),
+                    'confidence': int(score * 100),
+                    'method': 'contour'
+                })
+        return dets
+
+    def _shape_score(self, contour):
+        if not self.trained_samples:
+            return 0.0
+        scores = []
+        for s in self.trained_samples:
+            ref = s['polygon'].reshape(-1, 1, 2)
+            try:
+                sim = cv2.matchShapes(contour, ref, cv2.CONTOURS_MATCH_I1, 0)
+                scores.append(1.0 / (1.0 + sim))
+            except:
+                pass
+        return max(scores) if scores else 0.0
+
+    def _nms(self, detections, overlap_thr=0.4):
+        if not detections:
+            return []
+        detections = sorted(detections, key=lambda x: x['confidence'], reverse=True)
+        keep = []
+        for d in detections:
+            if not any(self._iou(d['bbox'], k['bbox']) > overlap_thr for k in keep):
+                keep.append(d)
+        return keep
+
+
+# ----------------------------------------------------------------------
+# Global detector instance
+# ----------------------------------------------------------------------
+detector = PelletDetector()
 is_trained = False
 trained_samples = 0
 
-# HOG parameters
-HOG_ORIENTATIONS = 9
-HOG_PIXELS_PER_CELL = (8, 8)
-HOG_CELLS_PER_BLOCK = (2, 2)
-
 # ----------------------------------------------------------------------
-# Update Ranges
+# Calibration helpers
 # ----------------------------------------------------------------------
 def update_ranges():
     global DIAMETER_MIN, DIAMETER_MAX, LENGTH_MIN, LENGTH_MAX
@@ -49,27 +252,16 @@ def update_ranges():
 
 update_ranges()
 
-MIN_CONTOUR_AREA = 100
-MAX_CONTOUR_AREA = 10000
-
 # ----------------------------------------------------------------------
-# Calibration Panel State
+# Calibration panel UI
 # ----------------------------------------------------------------------
 in_calib_mode = False
-
-# Panel layout
 PANEL_X, PANEL_Y = 10, 300
 PANEL_W, PANEL_H = 300, 180
-
-# Button rects
 UP_BTN = (PANEL_X + 230, PANEL_Y + 40, 50, 40)
 DOWN_BTN = (PANEL_X + 230, PANEL_Y + 90, 50, 40)
 BACK_BTN = (PANEL_X + 20, PANEL_Y + 130, 80, 35)
 
-
-# ----------------------------------------------------------------------
-# Mouse Callback
-# ----------------------------------------------------------------------
 def mouse_callback(event, x, y, flags, param):
     global PIXELS_PER_MM, in_calib_mode
 
@@ -92,270 +284,6 @@ def mouse_callback(event, x, y, flags, param):
             in_calib_mode = False
 
 
-# ----------------------------------------------------------------------
-# HOG Feature Extractor
-# ----------------------------------------------------------------------
-def extract_hog_features(img):
-    img = cv2.resize(img, (64, 64), interpolation=cv2.INTER_AREA)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    features = hog(img, orientations=HOG_ORIENTATIONS,
-                   pixels_per_cell=HOG_PIXELS_PER_CELL,
-                   cells_per_block=HOG_CELLS_PER_BLOCK,
-                   block_norm='L2-Hys', visualize=False)
-    return features
-
-
-# ----------------------------------------------------------------------
-# Train Detector from COCO
-# ----------------------------------------------------------------------
-def train_from_coco(coco_json_path="pellets_label.json", images_folder="training_images"):
-    global detector, is_trained, trained_samples, coco_data
-
-    if not os.path.exists(coco_json_path):
-        print(f"Warning: {coco_json_path} not found. Running without training.")
-        return False
-
-    if not os.path.exists(images_folder):
-        print(f"Error: {images_folder} folder not found!")
-        return False
-
-    try:
-        with open(coco_json_path, 'r') as f:
-            coco_data = json.load(f)
-
-        X = []
-        y = []
-
-        print("Loading training samples from COCO annotations...")
-
-        for ann in coco_data.get('annotations', []):
-            img_id = ann['image_id']
-            bbox = ann.get('bbox', None)  # [x, y, width, height]
-            if not bbox or len(bbox) != 4:
-                continue
-
-            # Find image info
-            img_info = None
-            for img in coco_data.get('training_images', []):
-                if img['id'] == img_id:
-                    img_info = img
-                    break
-            if not img_info:
-                continue
-
-            img_path = os.path.join(images_folder, img_info['file_name'])
-            if not os.path.exists(img_path):
-                continue
-
-            img = cv2.imread(img_path)
-            if img is None:
-                continue
-
-            x, y, w, h = map(int, bbox)
-            roi = img[y:y+h, x:x+w]
-            if roi.size == 0:
-                continue
-
-            # Extract HOG features
-            features = extract_hog_features(roi)
-            X.append(features)
-            y.append(1)  # Positive sample (pellet)
-
-        if len(X) == 0:
-            print("No valid training samples found.")
-            return False
-
-        # Add negative samples (random non-pellet regions)
-        for img_info in coco_data.get('training_images', []):
-            img_path = os.path.join(images_folder, img_info['file_name'])
-            if not os.path.exists(img_path):
-                continue
-            img = cv2.imread(img_path)
-            if img is None:
-                continue
-
-            h, w = img.shape[:2]
-            for _ in range(3):  # 3 negative patches per image
-                nx = np.random.randint(0, w - 64)
-                ny = np.random.randint(0, h - 64)
-                patch = img[ny:ny+64, nx:nx+64]
-                if patch.shape[0] < 64 or patch.shape[1] < 64:
-                    continue
-                features = extract_hog_features(patch)
-                X.append(features)
-                y.append(0)  # Negative
-
-        X = np.array(X)
-        y = np.array(y)
-
-        print(f"Training SVM with {len(X)} samples ({sum(y)} positive, {len(y)-sum(y)} negative)...")
-        detector = svm.SVC(kernel='linear', probability=True, C=1.0, random_state=42)
-        detector.fit(X, y)
-
-        is_trained = True
-        trained_samples = sum(y)
-        print(f"Training complete. {trained_samples} pellet samples trained.")
-        return True
-
-    except Exception as e:
-        print(f"Error during training: {e}")
-        return False
-
-
-# ----------------------------------------------------------------------
-# Predict if ROI is a pellet
-# ----------------------------------------------------------------------
-def is_pellet_roi(roi):
-    if not is_trained or detector is None:
-        return False
-
-    try:
-        features = extract_hog_features(roi)
-        features = features.reshape(1, -1)
-        prob = detector.predict_proba(features)[0]
-        confidence = prob[1]  # Probability of being pellet
-        return confidence > 0.7  # Threshold
-    except:
-        return False
-
-
-# ----------------------------------------------------------------------
-# Helper Checks
-# ----------------------------------------------------------------------
-def is_within_tolerance(diameter: float, length: float) -> bool:
-    return (DIAMETER_MIN <= diameter <= DIAMETER_MAX and
-            LENGTH_MIN <= length <= LENGTH_MAX)
-
-
-def should_process_pellet(diameter: float, length: float) -> bool:
-    return (DIAMETER_EXCLUDE_MIN <= diameter <= DIAMETER_EXCLUDE_MAX and
-            LENGTH_EXCLUDE_MIN <= length <= LENGTH_EXCLUDE_MAX)
-
-
-# ----------------------------------------------------------------------
-# Detection with Trained Classifier
-# ----------------------------------------------------------------------
-def detect_pellets(frame):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    thresh = cv2.adaptiveThreshold(blur, 255,
-                                   cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 11, 2)
-
-    kernel = np.ones((3, 3), np.uint8)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL,
-                                   cv2.CHAIN_APPROX_SIMPLE)
-
-    pellets = []
-    for cnt in contours:
-        area = cv2.contourArea(cnt)
-        if not (MIN_CONTOUR_AREA <= area <= MAX_CONTOUR_AREA):
-            continue
-
-        x, y, w, h = cv2.boundingRect(cnt)
-        width_mm = w / PIXELS_PER_MM
-        height_mm = h / PIXELS_PER_MM
-        diameter = min(width_mm, height_mm)
-        length = max(width_mm, height_mm)
-
-        if not should_process_pellet(diameter, length):
-            continue
-
-        # Extract ROI
-        roi = frame[y:y+h, x:x+w]
-        if roi.size == 0:
-            continue
-
-        # Resize for consistency
-        roi_resized = cv2.resize(roi, (64, 64), interpolation=cv2.INTER_AREA)
-
-        # Classify using trained model
-        if not is_pellet_roi(roi_resized):
-            continue  # Not a pellet
-
-        # Optional: match to reference polygon (from original)
-        ref_poly = match_to_reference_polygon(cnt, frame.shape)
-
-        pellets.append({
-            'x': x, 'y': y, 'w': w, 'h': h,
-            'diameter': diameter,
-            'length': length,
-            'within_tolerance': is_within_tolerance(diameter, length),
-            'contour': cnt,
-            'reference_polygon': ref_poly
-        })
-    return pellets
-
-
-# ----------------------------------------------------------------------
-# Polygon Matching (Kept from original)
-# ----------------------------------------------------------------------
-reference_polygons = []
-
-def match_to_reference_polygon(contour, frame_shape):
-    if not reference_polygons:
-        return None
-
-    M = cv2.moments(contour)
-    if M["m00"] == 0:
-        return None
-    cx = int(M["m10"] / M["m00"])
-    cy = int(M["m01"] / M["m00"])
-
-    min_dist = float('inf')
-    closest_poly = None
-
-    for ref_poly in reference_polygons:
-        poly = ref_poly['polygon']
-        ref_M = cv2.moments(poly)
-        if ref_M["m00"] == 0:
-            continue
-        ref_cx = int(ref_M["m10"] / ref_M["m00"])
-        ref_cy = int(ref_M["m01"] / ref_M["m00"])
-        dist = np.sqrt((cx - ref_cx) ** 2 + (cy - ref_cy) ** 2)
-        if dist < min_dist:
-            min_dist = dist
-            closest_poly = ref_poly
-
-    if min_dist < 50:
-        return closest_poly
-    return None
-
-
-# ----------------------------------------------------------------------
-# Load Reference Polygons (from COCO)
-# ----------------------------------------------------------------------
-def load_reference_polygons(json_path="pellets_label.json"):
-    global reference_polygons
-    if not os.path.exists(json_path):
-        return False
-
-    try:
-        with open(json_path, 'r') as f:
-            data = json.load(f)
-
-        for ann in data.get('annotations', []):
-            if 'segmentation' in ann and ann['segmentation']:
-                for seg in ann['segmentation']:
-                    polygon = np.array(seg).reshape(-1, 2).astype(np.int32)
-                    reference_polygons.append({
-                        'polygon': polygon,
-                        'bbox': ann.get('bbox', []),
-                        'category_id': ann.get('category_id', 1)
-                    })
-        print(f"Loaded {len(reference_polygons)} reference polygons.")
-        return True
-    except Exception as e:
-        print(f"Error loading polygons: {e}")
-        return False
-
-
-# ----------------------------------------------------------------------
-# Draw Calibration Mode
-# ----------------------------------------------------------------------
 def draw_calibration_mode(frame):
     overlay = frame.copy()
     cv2.rectangle(overlay, (PANEL_X, PANEL_Y), (PANEL_X + PANEL_W, PANEL_Y + PANEL_H),
@@ -387,14 +315,101 @@ def draw_calibration_mode(frame):
 
 
 # ----------------------------------------------------------------------
-# Main Overlay
+# Measurement from exact polygon (rotated min-area rect)
+# ----------------------------------------------------------------------
+def rotated_rect_dimensions(polygon):
+    rect = cv2.minAreaRect(polygon.astype(np.float32))
+    return rect[1]                     # (width, height) in pixels
+
+def measure_pellet(polygon, pixels_per_mm):
+    w_px, h_px = rotated_rect_dimensions(polygon)
+    width_mm  = w_px / pixels_per_mm
+    height_mm = h_px / pixels_per_mm
+    diameter = min(width_mm, height_mm)
+    length   = max(width_mm, height_mm)
+
+    within = (
+        (TARGET_DIAMETER - TOLERANCE <= diameter <= TARGET_DIAMETER + TOLERANCE) and
+        (TARGET_LENGTH   - TOLERANCE <= length   <= TARGET_LENGTH   + TOLERANCE)
+    )
+    return {"diameter": diameter, "length": length, "within": within}
+
+
+# ----------------------------------------------------------------------
+# Reference-polygon overlay (optional)
+# ----------------------------------------------------------------------
+reference_polygons = []
+
+def load_reference_polygons(json_path="pellets_label.json"):
+    global reference_polygons
+    if not os.path.exists(json_path):
+        return False
+    try:
+        with open(json_path, 'r') as f:
+            data = json.load(f)
+        for ann in data.get('annotations', []):
+            if 'segmentation' in ann and ann['segmentation']:
+                for seg in ann['segmentation']:
+                    poly = np.array(seg).reshape(-1, 2).astype(np.int32)
+                    reference_polygons.append({'polygon': poly})
+        print(f"Loaded {len(reference_polygons)} reference polygons.")
+        return True
+    except Exception as e:
+        print(f"Error loading reference polygons: {e}")
+        return False
+
+
+# ----------------------------------------------------------------------
+# Main detection (calls the SIFT detector)
+# ----------------------------------------------------------------------
+def detect_pellets(frame):
+    if not is_trained:
+        return []                     # fall-back to nothing if training failed
+
+    detections = detector.detect_pellets(frame)
+
+    pellets = []
+    for idx, det in enumerate(detections, 1):
+        poly = det['polygon']
+        meas = measure_pellet(poly, PIXELS_PER_MM)
+
+        # find nearest reference polygon (if any) – just for visual overlay
+        ref_poly = None
+        if reference_polygons:
+            M = cv2.moments(poly)
+            cx = int(M["m10"] / M["m00"]) if M["m00"] else int(poly[:, 0].mean())
+            cy = int(M["m01"] / M["m00"]) if M["m00"] else int(poly[:, 1].mean())
+            best_dist = float('inf')
+            for rp in reference_polygons:
+                rm = cv2.moments(rp['polygon'])
+                rcx = int(rm["m10"] / rm["m00"]) if rm["m00"] else int(rp['polygon'][:, 0].mean())
+                rcy = int(rm["m01"] / rm["m00"]) if rm["m00"] else int(rp['polygon'][:, 1].mean())
+                d = (cx - rcx) ** 2 + (cy - rcy) ** 2
+                if d < best_dist:
+                    best_dist, ref_poly = d, rp
+
+        pellets.append({
+            'id': idx,
+            'polygon': poly,
+            'bbox': det['bbox'],
+            'diameter': meas['diameter'],
+            'length': meas['length'],
+            'within_tolerance': meas['within'],
+            'confidence': det['confidence'],
+            'reference_polygon': ref_poly
+        })
+    return pellets
+
+
+# ----------------------------------------------------------------------
+# Overlay drawing (same look as original script)
 # ----------------------------------------------------------------------
 def draw_overlay(frame, pellets):
     total = len(pellets)
-    within = sum(1 for p in pellets if p['within_tolerance'])
-    out_of = total - within
-    status_text = f"In: {within}   Out: {out_of}   Total: {total}"
-    status_color = (0, 255, 0) if out_of == 0 else (0, 0, 255)
+    within = sum(p['within_tolerance'] for p in pellets)
+    out = total - within
+    status_text = f"In: {within}   Out: {out}   Total: {total}"
+    status_color = (0, 255, 0) if out == 0 else (0, 0, 255)
 
     cv2.rectangle(frame, (10, 10), (460, 50), (0, 0, 0), -1)
     cv2.rectangle(frame, (10, 10), (460, 50), status_color, 2)
@@ -402,35 +417,47 @@ def draw_overlay(frame, pellets):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.75, status_color, 2)
 
     for p in pellets:
-        x, y, w, h = p['x'], p['y'], p['w'], p['h']
+        poly = p['polygon']
         color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)
 
+        # optional reference polygon overlay
         if p['reference_polygon']:
-            polygon = p['reference_polygon']['polygon']
-            overlay = frame.copy()
-            cv2.fillPoly(overlay, [polygon], (255, 255, 0))
-            cv2.addWeighted(overlay, 0.3, frame, 0.7, 0, frame)
-            cv2.polylines(frame, [polygon], True, (0, 255, 255), 2)
+            rp = p['reference_polygon']['polygon']
+            ov = frame.copy()
+            cv2.fillPoly(ov, [rp], (255, 255, 0))
+            cv2.addWeighted(ov, 0.3, frame, 0.7, 0, frame)
+            cv2.polylines(frame, [rp], True, (0, 255, 255), 2)
 
-        cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+        # exact mask fill + outline
+        overlay = frame.copy()
+        cv2.fillPoly(overlay, [poly.reshape(-1, 1, 2)], color)
+        cv2.addWeighted(overlay, 0.25, frame, 0.75, 0, frame)
+        cv2.polylines(frame, [poly.reshape(-1, 1, 2)], True, color, 2)
 
-        bg_y = max(y - 45, 0)
-        cv2.rectangle(frame, (x, bg_y), (x + 120, y - 5), (0, 0, 0), -1)
-        cv2.putText(frame, f"D: {p['diameter']:.2f}", (x + 5, bg_y + 18),
+        # centered ID
+        M = cv2.moments(poly)
+        cx = int(M["m10"] / M["m00"]) if M["m00"] else int(poly[:, 0].mean())
+        cy = int(M["m01"] / M["m00"]) if M["m00"] else int(poly[:, 1].mean())
+        cv2.putText(frame, str(p['id']), (cx - 12, cy + 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+
+        # size info
+        bg_y = max(cy - 55, 0)
+        cv2.rectangle(frame, (cx - 70, bg_y), (cx + 70, bg_y + 40), (0, 0, 0), -1)
+        cv2.putText(frame, f"D:{p['diameter']:.2f}", (cx - 65, bg_y + 18),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-        cv2.putText(frame, f"L: {p['length']:.2f}", (x + 5, bg_y + 36),
+        cv2.putText(frame, f"L:{p['length']:.2f}", (cx - 65, bg_y + 36),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
         if not p['within_tolerance']:
-            cv2.circle(frame, (x + w - 10, y + 10), 8, (0, 0, 255), -1)
-            cv2.putText(frame, "!", (x + w - 14, y + 16),
+            cv2.circle(frame, (cx + 55, cy - 30), 8, (0, 0, 255), -1)
+            cv2.putText(frame, "!", (cx + 51, cy - 24),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-    status = "TRAINED" if is_trained else "NO MODEL"
-    hint_text = f"Press 'c' for calibration | {status}: {trained_samples} samples"
+    hint = f"Press 'c' for calibration | SIFT: {trained_samples} samples"
     if reference_polygons:
-        hint_text += f" | {len(reference_polygons)} ref polygons"
-    cv2.putText(frame, hint_text,
+        hint += f" | {len(reference_polygons)} ref polys"
+    cv2.putText(frame, hint,
                 (10, frame.shape[0] - 20),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 220, 255), 2)
 
@@ -441,7 +468,7 @@ def draw_overlay(frame, pellets):
 
 
 # ----------------------------------------------------------------------
-# Camera
+# Camera handling
 # ----------------------------------------------------------------------
 def get_camera():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
@@ -452,37 +479,44 @@ def get_camera():
 
 
 # ----------------------------------------------------------------------
-# Main Loop
+# Main loop
 # ----------------------------------------------------------------------
 def main():
-    global in_calib_mode, PIXELS_PER_MM
+    global in_calib_mode, is_trained, trained_samples
 
-    print("\nPellet Inspector + Trained Recognition (HOG+SVM)")
-    print("=" * 60)
+    print("\n=== Pellet Live Inspector (SIFT + exact mask) ===")
+    print("=" * 55)
 
-    # Train model
-    success = train_from_coco("pellets_label.json", "training_images")
-    if not success:
-        print("Continuing without trained model (will use contours only).")
+    # ---- train the SIFT model ------------------------------------------------
+    json_path = "pellets_label.json"
+    img_folder = "training_images"
+    if os.path.exists(json_path) and os.path.isdir(img_folder):
+        with open(json_path, 'r') as f:
+            coco = json.load(f)
+        is_trained = detector.train_from_coco(coco, img_folder)
+        trained_samples = len(detector.trained_samples)
+    else:
+        print("pellets_label.json or training_images folder missing – running without model.")
+        is_trained = False
 
-    # Load reference polygons for overlay
-    load_reference_polygons("pellets_label.json")
+    # ---- load reference polygons for visual overlay -------------------------
+    load_reference_polygons(json_path)
 
-    print("Press 'c' → Calibration | 'q' → Quit")
-    print("=" * 60)
+    print("Press 'c' → calibration | 'q' → quit")
+    print("=" * 55)
 
     cap = get_camera()
     if not cap.isOpened():
         print("Cannot open camera.")
         sys.exit(1)
 
-    fps_counter = 0
+    fps_cnt = 0
     fps_start = time.time()
-    fps_display = 0
+    fps = 0
 
-    window_name = "Pellet Size Measurement"
-    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-    cv2.setMouseCallback(window_name, mouse_callback)
+    win = "Pellet Live Inspector"
+    cv2.namedWindow(win, cv2.WINDOW_NORMAL)
+    cv2.setMouseCallback(win, mouse_callback)
 
     while True:
         ret, frame = cap.read()
@@ -491,27 +525,22 @@ def main():
             cap.release()
             time.sleep(1)
             cap = get_camera()
-            if not cap.isOpened():
-                break
             continue
 
-        display_frame = frame.copy()
-        pellets = detect_pellets(display_frame)
-        display_frame = draw_overlay(display_frame, pellets)
+        disp = frame.copy()
+        pellets = detect_pellets(disp)
+        disp = draw_overlay(disp, pellets)
 
         # FPS
-        fps_counter += 1
-        elapsed = time.time() - fps_start
-        if elapsed >= 1.0:
-            fps_display = fps_counter // int(elapsed)
-            fps_counter = 0
+        fps_cnt += 1
+        if time.time() - fps_start >= 1.0:
+            fps = fps_cnt
+            fps_cnt = 0
             fps_start = time.time()
-
-        cv2.putText(display_frame, f"FPS: {fps_display}",
-                    (display_frame.shape[1] - 130, 30),
+        cv2.putText(disp, f"FPS: {fps}", (disp.shape[1] - 130, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-        cv2.imshow(window_name, display_frame)
+        cv2.imshow(win, disp)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
@@ -519,7 +548,7 @@ def main():
         if key == ord('c') and not in_calib_mode:
             in_calib_mode = True
 
-        if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+        if cv2.getWindowProperty(win, cv2.WND_PROP_VISIBLE) < 1:
             break
 
     cap.release()
