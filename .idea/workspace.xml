@@ -535,7 +535,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763108462485</updated>
     </task>
-    <option name="localTasksCounter" value="42" />
+    <task id="LOCAL-00042" summary="modifying label">
+      <option name="closed" value="true" />
+      <created>1763109501279</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1763109501279</updated>
+    </task>
+    <option name="localTasksCounter" value="43" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -550,7 +558,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="removed unnecessary texts" />
     <MESSAGE value="testing cv2 only" />
     <MESSAGE value="changed the calibration px" />
     <MESSAGE value="modified the runtime" />
@@ -575,6 +582,7 @@
     <MESSAGE value="updated scanner with ml" />
     <MESSAGE value="added new scanner" />
     <MESSAGE value="updated new scanner without ml" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated new scanner without ml" />
+    <MESSAGE value="modifying label" />
+    <option name="LAST_COMMIT_MESSAGE" value="modifying label" />
   </component>
 </project>
