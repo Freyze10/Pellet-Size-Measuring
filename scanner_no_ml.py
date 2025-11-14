@@ -10,77 +10,77 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap, QImage
 
+# ----------------------------------------------------------------------
+# Core Heuristic Parameters from Camera Script
+# ----------------------------------------------------------------------
+# Note: These values are used as initial defaults in the PyQt app's state.
+DEFAULT_PIXELS_PER_MM = 6.0
+DEFAULT_TARGET_DIAMETER = 3.0
+DEFAULT_TARGET_LENGTH = 3.0
+DEFAULT_TOLERANCE = 0.5
+MIN_CONTOUR_AREA_HEURISTIC = 100
+MAX_CONTOUR_AREA_HEURISTIC = 10000
+
 
 class PelletDetector:
     """Contour-based detector using geometric heuristics and filtering."""
 
-    def __init__(self, min_area=500, max_area=15000, aspect_ratio_max=4.0):
-        # Removed SIFT and trained_samples - no training is done.
-        # Set default geometric limits for filtering contours
+    def __init__(self, min_area=MIN_CONTOUR_AREA_HEURISTIC, max_area=MAX_CONTOUR_AREA_HEURISTIC, aspect_ratio_max=4.0):
+        # Initial detector heuristics, can be fine-tuned via the UI if needed
         self.min_area = min_area
         self.max_area = max_area
         self.aspect_ratio_max = aspect_ratio_max
 
-    # --------------------------------------------------------------------- #
-    # <<<--- REMOVED: train_from_coco and feature_detector/trained_samples ---
-    # --------------------------------------------------------------------- #
     def train_from_coco(self, coco_data, images_folder=""):
         """Dummy method - no training is performed in this version."""
         print("Detector uses heuristics, no training required.")
         return True
 
     def detect_pellets(self, image):
-        """Detect pellets in a new image using contour and shape analysis"""
+        """Detect pellets in a new image using the camera script's image processing steps."""
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # Now only relies on the contour method
-        detections = self.detect_by_contours(image, gray)
-
-        # Non-max suppression still useful to clean up multiple hits
-        detections = self.non_max_suppression(detections)
-        return detections
-
-    def detect_by_contours(self, image, gray):
-        detections = []
-
-        # Image pre-processing for better contour finding
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        thresh = cv2.adaptiveThreshold(blurred, 255,
+        # --- Image Processing Pipeline from the Camera Script ---
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        thresh = cv2.adaptiveThreshold(blur, 255,
                                        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                        cv2.THRESH_BINARY_INV, 11, 2)
         kernel = np.ones((3, 3), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+        # --------------------------------------------------------
 
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # Filtering contours based on heuristic geometric limits
+        detections = []
+
+        # Filtering contours based on the camera script's geometric limits
         for contour in contours:
             area = cv2.contourArea(contour)
 
-            # 1. Area filtering (must be within reasonable limits for a pellet)
+            # 1. Area filtering (MIN_CONTOUR_AREA_HEURISTIC <= area <= MAX_CONTOUR_AREA_HEURISTIC)
             if self.min_area <= area <= self.max_area:
                 x, y, w, h = cv2.boundingRect(contour)
                 aspect = max(w, h) / min(w, h) if min(w, h) > 0 else 0
 
-                # 2. Aspect Ratio filtering (pellets are typically not long and thin)
+                # 2. Aspect Ratio filtering (added for robustness, as in the previous contour version)
                 if 1.0 <= aspect <= self.aspect_ratio_max:
-                    # Since we removed the ML-based comparison, we use a fixed, high confidence score
+                    # Use fixed confidence score since there's no feature matching
                     match_score = 0.95
 
                     detections.append({
                         'bbox': (x, y, w, h),
-                        'polygon': contour.reshape(-1, 2),
+                        'polygon': contour.reshape(-1, 2),  # Use the full contour as the mask/polygon
                         'confidence': match_score * 100,
                         'method': 'geometric_contour'
                     })
+
+        # Non-max suppression still useful to clean up multiple hits
+        detections = self.non_max_suppression(detections)
         return detections
 
-    # --------------------------------------------------------------------- #
-    # <<<--- REMOVED: compare_with_samples (depended on trained data) ---
-    # --------------------------------------------------------------------- #
+    # Dummy method for compatibility (not used)
     def compare_with_samples(self, contour):
-        """Dummy method for compatibility, returns fixed confidence."""
         return 0.95
 
     # non_max_suppression remains unchanged
@@ -113,30 +113,37 @@ class PelletDetector:
 class PelletMeasurementApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Pellet Size Measurement System - Heuristic Contour")
+        self.setWindowTitle("Pellet Size Measurement System - Camera Heuristics")
         self.setGeometry(100, 100, 1400, 800)
 
-        # ---- configuration -------------------------------------------------
-        self.pixels_per_mm = 6.0
-        self.target_diameter = 3.0
-        self.target_length = 3.0
-        self.tolerance = 0.5
+        # ---- configuration: Using Camera Script Defaults --------------------
+        self.pixels_per_mm = DEFAULT_PIXELS_PER_MM
+        self.target_diameter = DEFAULT_TARGET_DIAMETER
+        self.target_length = DEFAULT_TARGET_LENGTH
+        self.tolerance = DEFAULT_TOLERANCE
+        self.diameter_min, self.diameter_max = 0, 0
+        self.length_min, self.length_max = 0, 0
+        self.update_ranges()
 
         # ---- data -----------------------------------------------------------
         self.current_image = None
         self.current_image_path = None
         self.detected_pellets = []
-        # Removed: self.coco_data, self.images_folder
 
         # ---- detector -------------------------------------------------------
-        # Initialize detector with heuristic parameters
-        self.detector = PelletDetector(min_area=500, max_area=15000, aspect_ratio_max=4.0)
-        self.is_trained = True  # Always True, as no training is needed
+        self.detector = PelletDetector()
+        self.is_trained = True  # Always True for heuristic-based detector
 
         self.init_ui()
-        # Removed: self.load_and_train() - direct initialization
 
-    # Rotated and measure methods remain unchanged as they are purely geometry-based
+    def update_ranges(self):
+        """Recalculate tolerance ranges based on current settings."""
+        self.diameter_min = self.target_diameter - self.tolerance
+        self.diameter_max = self.target_diameter + self.tolerance
+        self.length_min = self.target_length - self.tolerance
+        self.length_max = self.target_length + self.tolerance
+
+    # Rotated and measure methods (Using the more precise minAreaRect approach)
     def rotated_rect_dimensions(self, polygon):
         """Return (width_px, height_px) of the rotated min-area rectangle."""
         rect = cv2.minAreaRect(polygon.astype(np.float32))  # ((cx,cy),(w,h),angle)
@@ -153,19 +160,15 @@ class PelletMeasurementApp(QMainWindow):
         length = max(width_mm, height_mm)
 
         within = (
-                (self.target_diameter - self.tolerance <= diameter <= self.target_diameter + self.tolerance) and
-                (self.target_length - self.tolerance <= length <= self.target_length + self.tolerance)
+                (self.diameter_min <= diameter <= self.diameter_max) and
+                (self.length_min <= length <= self.length_max)
         )
         return {"diameter": diameter, "length": length, "within": within}
 
     # --------------------------------------------------------------------- #
 
     # --------------------------------------------------------------------- #
-    # <<<--- REMOVED: load_and_train (no training data used) ---
-    # --------------------------------------------------------------------- #
-
-    # --------------------------------------------------------------------- #
-    # UI (Modified to reflect non-training status)
+    # UI (Modified to reflect non-training status and use current ranges)
     # --------------------------------------------------------------------- #
     def init_ui(self):
         central = QWidget()
@@ -183,16 +186,16 @@ class PelletMeasurementApp(QMainWindow):
         layout = QVBoxLayout()
         panel.setLayout(layout)
 
-        # ---- status label (modified) ----------------------------------------
-        self.progress_label = QLabel("Detector initialized with geometric heuristics.")
+        # ---- status label ----------------------------------------
+        self.progress_label = QLabel("Detector initialized with camera script heuristics.")
         self.progress_label.setStyleSheet("padding: 5px; background-color: #e0e0e0;")
         layout.addWidget(self.progress_label)
 
-        # ---- load image (enabled by default) --------------------------------
+        # ---- load image ------------------------------------------------
         self.load_btn = QPushButton("Load Pellet Image for Detection")
         self.load_btn.clicked.connect(self.load_image)
         self.load_btn.setStyleSheet("QPushButton { padding: 10px; font-size: 14px; }")
-        self.load_btn.setEnabled(True)  # Always enabled now
+        self.load_btn.setEnabled(True)
         layout.addWidget(self.load_btn)
 
         # ---- calibration ----------------------------------------------------
@@ -211,19 +214,23 @@ class PelletMeasurementApp(QMainWindow):
         calib.setLayout(calib_l)
         layout.addWidget(calib)
 
-        # ---- target specs (unchanged) ---------------------------------------
-        spec = QGroupBox("Target Specifications")
-        spec_l = QVBoxLayout()
-        spec_l.addWidget(QLabel(f"Target Diameter: {self.target_diameter} mm"))
-        spec_l.addWidget(QLabel(f"Target Length: {self.target_length} mm"))
-        spec_l.addWidget(QLabel(f"Tolerance: ±{self.tolerance} mm"))
-        spec_l.addWidget(QLabel(
-            f"Acceptable: {self.target_diameter - self.tolerance:.1f}-"
-            f"{self.target_diameter + self.tolerance:.1f} mm"))
-        spec.setLayout(spec_l)
-        layout.addWidget(spec)
+        # ---- target specs (dynamic labels) ----------------------------------
+        self.spec_group = QGroupBox("Target Specifications")
+        self.spec_l = QVBoxLayout()
 
-        # ---- statistics (unchanged) -----------------------------------------
+        self.target_d_label = QLabel()
+        self.target_l_label = QLabel()
+        self.tolerance_label = QLabel()
+        self.acceptable_range_label = QLabel()
+
+        for w in (self.target_d_label, self.target_l_label, self.tolerance_label, self.acceptable_range_label):
+            self.spec_l.addWidget(w)
+
+        self.spec_group.setLayout(self.spec_l)
+        layout.addWidget(self.spec_group)
+        self.update_spec_labels()
+
+        # ---- statistics, details, etc. (unchanged structure) ---------------
         self.stats_group = QGroupBox("Detection Statistics")
         self.stats_layout = QVBoxLayout()
         self.total_label = QLabel("Total Pellets: 0")
@@ -236,7 +243,6 @@ class PelletMeasurementApp(QMainWindow):
         self.stats_group.setLayout(self.stats_layout)
         layout.addWidget(self.stats_group)
 
-        # ---- pellet details (scrollable) (unchanged) ------------------------
         details = QGroupBox("Pellet Details")
         details_l = QVBoxLayout()
         self.details_scroll = QScrollArea()
@@ -247,10 +253,19 @@ class PelletMeasurementApp(QMainWindow):
         self.details_scroll.setWidget(self.details_widget)
         details_l.addWidget(self.details_scroll)
         details.setLayout(details_l)
-        layout.addWidget(details)
+        layout.addWidget(details, stretch=1)
 
         layout.addStretch()
         return panel
+
+    def update_spec_labels(self):
+        """Updates the labels in the Target Specifications group box."""
+        self.target_d_label.setText(f"Target Diameter: {self.target_diameter} mm")
+        self.target_l_label.setText(f"Target Length: {self.target_length} mm")
+        self.tolerance_label.setText(f"Tolerance: ±{self.tolerance} mm")
+        self.acceptable_range_label.setText(
+            f"Acceptable D/L: {self.diameter_min:.1f}-"
+            f"{self.diameter_max:.1f} mm")
 
     def create_right_panel(self):
         panel = QWidget()
@@ -268,16 +283,14 @@ class PelletMeasurementApp(QMainWindow):
         layout.addWidget(scroll)
         return panel
 
-    # --------------------------------------------------------------------- #
     def load_image(self):
-        # The check for is_trained is now mostly redundant but harmless
         path, _ = QFileDialog.getOpenFileName(
             self, "Select Pellet Image", "", "Image Files (*.png *.jpg *.jpeg *.bmp)")
         if path:
             self.current_image_path = path
             self.current_image = cv2.imread(path)
             if self.current_image is not None:
-                self.progress_label.setText("Detecting pellets using contour analysis...")
+                self.progress_label.setText("Detecting pellets using camera script heuristics...")
                 QApplication.processEvents()
                 self.process_image()
                 self.progress_label.setText("Detection complete")
@@ -286,6 +299,8 @@ class PelletMeasurementApp(QMainWindow):
 
     def update_calibration(self, value):
         self.pixels_per_mm = value
+        self.update_ranges()  # Update acceptable ranges
+        self.update_spec_labels()
         if self.current_image is not None:
             self.process_image()
 
