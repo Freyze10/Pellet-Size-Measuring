@@ -34,8 +34,8 @@ def load_coco_annotations(json_path="pellets_label.json"):
         with open(json_path, 'r') as f:
             coco_data = json.load(f)
 
-        # Store images info
-        for img in coco_data.get('images', []):
+        # Store training_images info
+        for img in coco_data.get('training_images', []):
             coco_images[img['id']] = img
 
         # Store annotations

@@ -62,6 +62,11 @@
     ]
   }
 }</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
+    </key>
+  </component>
   <component name="RunManager" selected="Python.scanner">
     <configuration name="Main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
@@ -441,7 +446,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763101019498</updated>
     </task>
-    <option name="localTasksCounter" value="34" />
+    <task id="LOCAL-00034" summary="refactored pictures">
+      <option name="closed" value="true" />
+      <created>1763101197567</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1763101197567</updated>
+    </task>
+    <task id="LOCAL-00035" summary="changed images">
+      <option name="closed" value="true" />
+      <created>1763101638720</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1763101638720</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -456,7 +477,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="init main" />
     <MESSAGE value="initial program" />
     <MESSAGE value="removed extreme out of tolerance" />
     <MESSAGE value="updated camera use" />
@@ -480,6 +500,8 @@
     <MESSAGE value="updating the interface" />
     <MESSAGE value="updating the scanner with label" />
     <MESSAGE value="modifying labeled" />
-    <option name="LAST_COMMIT_MESSAGE" value="modifying labeled" />
+    <MESSAGE value="refactored pictures" />
+    <MESSAGE value="changed images" />
+    <option name="LAST_COMMIT_MESSAGE" value="changed images" />
   </component>
 </project>
