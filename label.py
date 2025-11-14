@@ -4,6 +4,7 @@ import time
 import sys
 import json
 import os
+from pathlib import Path
 
 # ----------------------------------------------------------------------
 # Global Calibration
@@ -15,19 +16,22 @@ TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 200.0
 
 # ----------------------------------------------------------------------
-# COCO Annotations Storage
+# COCO Annotations & Feature Storage
 # ----------------------------------------------------------------------
 coco_annotations = []
 coco_images = {}
-reference_polygons = []
+reference_features = []  # Store Hu moments + area + aspect ratio for each labeled pellet
+training_images_dir = "training_images"
 
-
-def load_coco_annotations(json_path="pellets_label.json"):
-    """Load COCO format annotations from makesense.ai export."""
-    global coco_annotations, coco_images, reference_polygons
+# ----------------------------------------------------------------------
+# Load COCO + Extract Features from Training Images
+# ----------------------------------------------------------------------
+def load_coco_annotations_and_features(json_path="pellets_label.json"):
+    """Load COCO annotations and extract visual features from training images."""
+    global coco_annotations, coco_images, reference_features
 
     if not os.path.exists(json_path):
-        print(f"Warning: {json_path} not found. Running without reference polygons.")
+        print(f"Warning: {json_path} not found. Running without reference features.")
         return False
 
     try:
@@ -36,28 +40,93 @@ def load_coco_annotations(json_path="pellets_label.json"):
 
         # Store training_images info
         for img in coco_data.get('training_images', []):
-            coco_images[img['id']] = img
+            img_id = img['id']
+            file_name = img.get('file_name', '')
+            if not file_name:
+                continue
+            img_path = os.path.join(training_images_dir, file_name)
+            if not os.path.exists(img_path):
+                print(f"Warning: Image {img_path} not found. Skipping.")
+                continue
+            coco_images[img_id] = {
+                'file_name': file_name,
+                'path': img_path,
+                'width': img.get('width', 0),
+                'height': img.get('height', 0)
+            }
 
         # Store annotations
         coco_annotations = coco_data.get('annotations', [])
 
-        # Extract polygon data for reference
+        # Extract features from each annotated pellet in training images
         for ann in coco_annotations:
-            if 'segmentation' in ann and ann['segmentation']:
-                for seg in ann['segmentation']:
-                    # seg is a flat list: [x1,y1,x2,y2,...]
-                    polygon = np.array(seg).reshape(-1, 2).astype(np.int32)
-                    reference_polygons.append({
-                        'polygon': polygon,
-                        'bbox': ann.get('bbox', []),
-                        'category_id': ann.get('category_id', 1)
-                    })
+            image_id = ann.get('image_id')
+            if image_id not in coco_images:
+                continue
 
-        print(f"✓ Loaded {len(reference_polygons)} reference polygons from {json_path}")
+            img_info = coco_images[image_id]
+            img_path = img_info['path']
+            img = cv2.imread(img_path)
+            if img is None:
+                continue
+
+            # Extract mask from segmentation
+            if 'segmentation' not in ann or not ann['segmentation']:
+                continue
+
+            # Create binary mask from polygon
+            mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
+            for seg in ann['segmentation']:
+                poly = np.array(seg, dtype=np.int32).reshape((-1, 2))
+                cv2.fillPoly(mask, [poly], 255)
+
+            # Find contours in mask
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not contours:
+                continue
+            cnt = contours[0]
+
+            # Compute features
+            area = cv2.contourArea(cnt)
+            if area < 50:
+                continue
+
+            # Hu moments (rotation, scale, translation invariant)
+            moments = cv2.moments(cnt)
+            if moments["m00"] == 0:
+                continue
+            hu_moments = cv2.HuMoments(moments).flatten()
+            hu_moments = -np.sign(hu_moments) * np.log10(np.abs(hu_moments) + 1e-8)  # Stabilize
+
+            # Bounding box aspect ratio
+            x, y, w, h = cv2.boundingRect(cnt)
+            aspect_ratio = w / h if h != 0 else 1.0
+
+            # Perimeter
+            perimeter = cv2.arcLength(cnt, True)
+
+            # Compactness
+            compactness = (perimeter ** 2) / (4 * np.pi * area) if area > 0 else 0
+
+            # Store feature vector
+            feature_vec = np.concatenate([
+                hu_moments,  # 7 values
+                [area, aspect_ratio, compactness]  # 3 more
+            ])
+
+            reference_features.append({
+                'features': feature_vec,
+                'area': area,
+                'bbox': [x, y, w, h],
+                'image_id': image_id,
+                'file_name': img_info['file_name']
+            })
+
+        print(f"Loaded {len(reference_features)} reference pellet features from {len(coco_images)} training images.")
         return True
 
     except Exception as e:
-        print(f"Error loading COCO annotations: {e}")
+        print(f"Error loading COCO annotations or features: {e}")
         return False
 
 
@@ -136,51 +205,73 @@ def should_process_pellet(diameter: float, length: float) -> bool:
 
 
 # ----------------------------------------------------------------------
-# Polygon Matching - Match detected contours to reference polygons
+# Feature Matching - Match detected contour to trained pellet features
 # ----------------------------------------------------------------------
-def match_to_reference_polygon(contour, frame_shape):
-    """Find the closest reference polygon to the detected contour."""
-    if not reference_polygons:
+def extract_features(contour):
+    """Extract same features as in training."""
+    area = cv2.contourArea(contour)
+    if area < 50:
         return None
 
-    # Get center of detected contour
-    M = cv2.moments(contour)
-    if M["m00"] == 0:
+    moments = cv2.moments(contour)
+    if moments["m00"] == 0:
+        return None
+    hu_moments = cv2.HuMoments(moments).flatten()
+    hu_moments = -np.sign(hu_moments) * np.log10(np.abs(hu_moments) + 1e-8)
+
+    x, y, w, h = cv2.boundingRect(contour)
+    aspect_ratio = w / h if h != 0 else 1.0
+    perimeter = cv2.arcLength(contour, True)
+    compactness = (perimeter ** 2) / (4 * np.pi * area) if area > 0 else 0
+
+    return np.concatenate([hu_moments, [area, aspect_ratio, compactness]])
+
+
+def match_to_reference_feature(contour):
+    """Match contour to closest trained pellet using feature distance."""
+    if not reference_features:
         return None
 
-    cx = int(M["m10"] / M["m00"])
-    cy = int(M["m01"] / M["m00"])
+    features = extract_features(contour)
+    if features is None:
+        return None
 
-    # Find closest reference polygon (by centroid distance)
+    # Normalize features (same scale as training)
+    ref_areas = np.array([rf['area'] for rf in reference_features])
+    if len(ref_areas) == 0:
+        return None
+    area_mean, area_std = ref_areas.mean(), ref_areas.std()
+    if area_std == 0:
+        area_std = 1.0
+
+    # Normalize area
+    features[-3] = (features[-3] - area_mean) / area_std
+
     min_dist = float('inf')
-    closest_poly = None
+    best_match = None
 
-    for ref_poly in reference_polygons:
-        poly = ref_poly['polygon']
-        # Calculate centroid of reference polygon
-        ref_M = cv2.moments(poly)
-        if ref_M["m00"] == 0:
-            continue
+    for ref in reference_features:
+        ref_feat = ref['features'].copy()
+        ref_feat[-3] = (ref_feat[-3] - area_mean) / area_std  # Normalize same way
 
-        ref_cx = int(ref_M["m10"] / ref_M["m00"])
-        ref_cy = int(ref_M["m01"] / ref_M["m00"])
-
-        # Distance between centroids
-        dist = np.sqrt((cx - ref_cx) ** 2 + (cy - ref_cy) ** 2)
+        # Weighted Euclidean distance (Hu moments more important)
+        diff = features - ref_feat
+        weights = np.array([1.0]*7 + [0.5, 0.3, 0.2])  # Hu > area > aspect > compactness
+        dist = np.sqrt(np.sum(weights * (diff ** 2)))
 
         if dist < min_dist:
             min_dist = dist
-            closest_poly = ref_poly
+            best_match = ref
 
-    # Return if reasonably close (within 50 pixels)
-    if min_dist < 50:
-        return closest_poly
+    # Threshold: only accept good matches
+    if min_dist < 2.5:  # Tuned threshold
+        return best_match
 
     return None
 
 
 # ----------------------------------------------------------------------
-# Detection with Polygon Overlay
+# Detection with Feature-Based Recognition
 # ----------------------------------------------------------------------
 def detect_pellets(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -208,18 +299,27 @@ def detect_pellets(frame):
         diameter = min(width_mm, height_mm)
         length = max(width_mm, height_mm)
 
-        if should_process_pellet(diameter, length):
-            # Try to match with reference polygon
-            ref_poly = match_to_reference_polygon(cnt, frame.shape)
+        if not should_process_pellet(diameter, length):
+            continue
 
-            pellets.append({
-                'x': x, 'y': y, 'w': w, 'h': h,
-                'diameter': diameter,
-                'length': length,
-                'within_tolerance': is_within_tolerance(diameter, length),
-                'contour': cnt,
-                'reference_polygon': ref_poly
-            })
+        # Feature-based matching
+        ref_match = match_to_reference_feature(cnt)
+
+        # Only accept if it matches a trained pellet
+        if ref_match is None:
+            continue
+
+        within_tol = is_within_tolerance(diameter, length)
+
+        pellets.append({
+            'x': x, 'y': y, 'w': w, 'h': h,
+            'diameter': diameter,
+            'length': length,
+            'within_tolerance': within_tol,
+            'contour': cnt,
+            'reference_match': ref_match,
+            'match_confidence': min_dist if 'min_dist' in locals() else 0
+        })
     return pellets
 
 
@@ -265,7 +365,7 @@ def draw_calibration_mode(frame):
 
 
 # ----------------------------------------------------------------------
-# Main Overlay with Polygon Drawing
+# Main Overlay
 # ----------------------------------------------------------------------
 def draw_overlay(frame, pellets):
     # Status bar
@@ -280,45 +380,43 @@ def draw_overlay(frame, pellets):
     cv2.putText(frame, status_text, (20, 38),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.75, status_color, 2)
 
-    # Draw pellets with polygon overlays
+    # Draw pellets
     for p in pellets:
         x, y, w, h = p['x'], p['y'], p['w'], p['h']
         color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)
 
-        # Draw reference polygon if available (semi-transparent overlay)
-        if p['reference_polygon']:
-            polygon = p['reference_polygon']['polygon']
-            overlay = frame.copy()
-            cv2.fillPoly(overlay, [polygon], (255, 255, 0))  # Yellow fill
-            cv2.addWeighted(overlay, 0.3, frame, 0.7, 0, frame)
-            cv2.polylines(frame, [polygon], True, (0, 255, 255), 2)  # Cyan outline
-
         # Draw bounding rectangle
         cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
 
-        # Smaller background (120 px wide)
-        bg_y = max(y - 45, 0)
-        cv2.rectangle(frame, (x, bg_y), (x + 120, y - 5), (0, 0, 0), -1)
+        # Smaller background (140 px wide to fit source info)
+        bg_y = max(y - 55, 0)
+        cv2.rectangle(frame, (x, bg_y), (x + 140, y - 5), (0, 0, 0), -1)
         cv2.putText(frame, f"D: {p['diameter']:.2f}", (x + 5, bg_y + 18),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
         cv2.putText(frame, f"L: {p['length']:.2f}", (x + 5, bg_y + 36),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+
+        # Show source image name
+        src = p['reference_match']['file_name']
+        short_src = src.split('_')[-1]  # e.g., Pro.jpg
+        cv2.putText(frame, f"Src: {short_src}", (x + 5, bg_y + 52),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (200, 255, 200), 1)
 
         if not p['within_tolerance']:
             cv2.circle(frame, (x + w - 10, y + 10), 8, (0, 0, 255), -1)
             cv2.putText(frame, "!", (x + w - 14, y + 16),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-    # Calibration hint
+    # Hint
     if not in_calib_mode:
         hint_text = "Press 'c' for calibration"
-        if reference_polygons:
-            hint_text += f" | {len(reference_polygons)} ref polygons loaded"
+        if reference_features:
+            hint_text += f" | {len(reference_features)} trained pellets"
         cv2.putText(frame, hint_text,
                     (10, frame.shape[0] - 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 220, 255), 2)
 
-    # Draw calibration panel
+    # Calibration panel
     if in_calib_mode:
         draw_calibration_mode(frame)
 
@@ -342,16 +440,20 @@ def get_camera():
 def main():
     global in_calib_mode, PIXELS_PER_MM
 
-    print("\nPellet Inspector + COCO Polygon Overlay")
-    print("=" * 55)
+    print("\nPellet Inspector + Trained Feature Recognition")
+    print("=" * 60)
 
-    # Load COCO annotations
-    load_coco_annotations("pellets_label.json")
+    # Load COCO + extract features
+    success = load_coco_annotations_and_features("pellets_label.json")
+    if not success or not reference_features:
+        print("No trained pellet features loaded. Detection disabled.")
+        print("Place 'pellets_label.json' and 'training_images/' folder in project root.")
+        sys.exit(1)
 
     print("Press 'c' → Enter calibration mode")
     print("Click UP/DOWN to adjust | Click BACK to exit")
     print("Press 'q' to quit")
-    print("=" * 55)
+    print("=" * 60)
 
     cap = get_camera()
     if not cap.isOpened():
