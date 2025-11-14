@@ -3,7 +3,7 @@ import numpy as np
 import time
 import sys
 import json
-from pathlib import Path
+import os
 
 # ----------------------------------------------------------------------
 # Global Calibration
@@ -14,103 +14,51 @@ TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 200.0
 
-# ML Model parameters
-ANNOTATION_FILE = "pellets_label.json"
-annotations_data = None
-template_features = []
+# ----------------------------------------------------------------------
+# COCO Annotations Storage
+# ----------------------------------------------------------------------
+coco_annotations = []
+coco_images = {}
+reference_polygons = []
 
 
-def load_annotations():
-    """Load COCO format annotations from MakeSense.ai"""
-    global annotations_data, template_features
+def load_coco_annotations(json_path="pellets_label.json"):
+    """Load COCO format annotations from makesense.ai export."""
+    global coco_annotations, coco_images, reference_polygons
+
+    if not os.path.exists(json_path):
+        print(f"Warning: {json_path} not found. Running without reference polygons.")
+        return False
 
     try:
-        with open(ANNOTATION_FILE, 'r') as f:
-            annotations_data = json.load(f)
+        with open(json_path, 'r') as f:
+            coco_data = json.load(f)
 
-        print(f"✓ Loaded annotations: {len(annotations_data.get('annotations', []))} objects")
-        print(f"✓ Images in dataset: {len(annotations_data.get('images', []))}")
-        print(f"✓ Categories: {[cat['name'] for cat in annotations_data.get('categories', [])]}")
+        # Store images info
+        for img in coco_data.get('images', []):
+            coco_images[img['id']] = img
 
-        # Extract features from annotated pellets for template matching
-        extract_template_features()
+        # Store annotations
+        coco_annotations = coco_data.get('annotations', [])
+
+        # Extract polygon data for reference
+        for ann in coco_annotations:
+            if 'segmentation' in ann and ann['segmentation']:
+                for seg in ann['segmentation']:
+                    # seg is a flat list: [x1,y1,x2,y2,...]
+                    polygon = np.array(seg).reshape(-1, 2).astype(np.int32)
+                    reference_polygons.append({
+                        'polygon': polygon,
+                        'bbox': ann.get('bbox', []),
+                        'category_id': ann.get('category_id', 1)
+                    })
+
+        print(f"✓ Loaded {len(reference_polygons)} reference polygons from {json_path}")
         return True
-    except FileNotFoundError:
-        print(f"⚠ Warning: {ANNOTATION_FILE} not found. Using traditional detection.")
+
+    except Exception as e:
+        print(f"Error loading COCO annotations: {e}")
         return False
-    except json.JSONDecodeError as e:
-        print(f"⚠ Error parsing JSON: {e}")
-        return False
-
-
-def extract_template_features():
-    """Extract features from annotated pellets to use as templates"""
-    global template_features
-
-    if not annotations_data:
-        return
-
-    # Create a mapping of image_id to annotations
-    image_map = {img['id']: img for img in annotations_data.get('images', [])}
-
-    for ann in annotations_data.get('annotations', []):
-        if 'segmentation' in ann and ann['segmentation']:
-            # Get polygon points
-            segmentation = ann['segmentation'][0]
-            points = np.array(segmentation).reshape(-1, 2)
-
-            # Calculate bounding box from polygon
-            x_coords = points[:, 0]
-            y_coords = points[:, 1]
-            x_min, x_max = int(x_coords.min()), int(x_coords.max())
-            y_min, y_max = int(y_coords.min()), int(y_coords.max())
-
-            width = x_max - x_min
-            height = y_max - y_min
-
-            # Store template feature
-            template_features.append({
-                'width': width,
-                'height': height,
-                'aspect_ratio': width / height if height > 0 else 1.0,
-                'area': ann.get('area', width * height),
-                'points': points,
-                'bbox': (x_min, y_min, width, height)
-            })
-
-    print(f"✓ Extracted {len(template_features)} template features")
-
-
-def match_to_templates(contour, bbox):
-    """Check if detected contour matches learned templates"""
-    if not template_features:
-        return True, 1.0  # No templates, accept all
-
-    x, y, w, h = bbox
-    aspect_ratio = w / h if h > 0 else 1.0
-    area = cv2.contourArea(contour)
-
-    best_match_score = 0.0
-
-    for template in template_features:
-        # Compare aspect ratio
-        aspect_diff = abs(aspect_ratio - template['aspect_ratio'])
-        aspect_score = max(0, 1.0 - aspect_diff)
-
-        # Compare size
-        size_ratio = min(w, template['width']) / max(w, template['width'])
-        size_score = size_ratio
-
-        # Compare area
-        area_ratio = min(area, template['area']) / max(area, template['area'])
-        area_score = area_ratio
-
-        # Combined score
-        match_score = (aspect_score * 0.3 + size_score * 0.4 + area_score * 0.3)
-        best_match_score = max(best_match_score, match_score)
-
-    # Threshold for accepting a match
-    return best_match_score > 0.5, best_match_score
 
 
 def update_ranges():
@@ -138,7 +86,6 @@ MAX_CONTOUR_AREA = 10000
 # Calibration Panel State
 # ----------------------------------------------------------------------
 in_calib_mode = False
-show_templates = False
 
 # Panel layout
 PANEL_X, PANEL_Y = 10, 300
@@ -189,7 +136,51 @@ def should_process_pellet(diameter: float, length: float) -> bool:
 
 
 # ----------------------------------------------------------------------
-# ML-Enhanced Detection
+# Polygon Matching - Match detected contours to reference polygons
+# ----------------------------------------------------------------------
+def match_to_reference_polygon(contour, frame_shape):
+    """Find the closest reference polygon to the detected contour."""
+    if not reference_polygons:
+        return None
+
+    # Get center of detected contour
+    M = cv2.moments(contour)
+    if M["m00"] == 0:
+        return None
+
+    cx = int(M["m10"] / M["m00"])
+    cy = int(M["m01"] / M["m00"])
+
+    # Find closest reference polygon (by centroid distance)
+    min_dist = float('inf')
+    closest_poly = None
+
+    for ref_poly in reference_polygons:
+        poly = ref_poly['polygon']
+        # Calculate centroid of reference polygon
+        ref_M = cv2.moments(poly)
+        if ref_M["m00"] == 0:
+            continue
+
+        ref_cx = int(ref_M["m10"] / ref_M["m00"])
+        ref_cy = int(ref_M["m01"] / ref_M["m00"])
+
+        # Distance between centroids
+        dist = np.sqrt((cx - ref_cx) ** 2 + (cy - ref_cy) ** 2)
+
+        if dist < min_dist:
+            min_dist = dist
+            closest_poly = ref_poly
+
+    # Return if reasonably close (within 50 pixels)
+    if min_dist < 50:
+        return closest_poly
+
+    return None
+
+
+# ----------------------------------------------------------------------
+# Detection with Polygon Overlay
 # ----------------------------------------------------------------------
 def detect_pellets(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -212,65 +203,24 @@ def detect_pellets(frame):
             continue
 
         x, y, w, h = cv2.boundingRect(cnt)
-
-        # ML-based template matching
-        is_match, confidence = match_to_templates(cnt, (x, y, w, h))
-
-        if not is_match:
-            continue  # Skip if doesn't match learned templates
-
         width_mm = w / PIXELS_PER_MM
         height_mm = h / PIXELS_PER_MM
         diameter = min(width_mm, height_mm)
         length = max(width_mm, height_mm)
 
         if should_process_pellet(diameter, length):
-            # Approximate polygon for smoother contour
-            epsilon = 0.01 * cv2.arcLength(cnt, True)
-            approx = cv2.approxPolyDP(cnt, epsilon, True)
+            # Try to match with reference polygon
+            ref_poly = match_to_reference_polygon(cnt, frame.shape)
 
             pellets.append({
                 'x': x, 'y': y, 'w': w, 'h': h,
                 'diameter': diameter,
                 'length': length,
                 'within_tolerance': is_within_tolerance(diameter, length),
-                'contour': approx,
-                'confidence': confidence
+                'contour': cnt,
+                'reference_polygon': ref_poly
             })
     return pellets
-
-
-# ----------------------------------------------------------------------
-# Draw Template Visualization
-# ----------------------------------------------------------------------
-def draw_templates(frame):
-    """Draw learned template shapes for reference"""
-    if not template_features or not show_templates:
-        return
-
-    start_x = frame.shape[1] - 150
-    start_y = 100
-
-    cv2.rectangle(frame, (start_x - 10, start_y - 30),
-                  (start_x + 140, start_y + len(template_features) * 60 + 10),
-                  (40, 40, 40), -1)
-    cv2.putText(frame, "Templates", (start_x, start_y - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
-
-    for i, template in enumerate(template_features[:5]):  # Show first 5
-        y_offset = start_y + i * 60
-
-        # Draw mini rectangle representing template
-        scale = 0.3
-        tw = int(template['width'] * scale)
-        th = int(template['height'] * scale)
-
-        cv2.rectangle(frame, (start_x, y_offset),
-                      (start_x + tw, y_offset + th), (0, 255, 255), 1)
-
-        cv2.putText(frame, f"{template['width']}x{template['height']}px",
-                    (start_x + tw + 5, y_offset + 15),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.3, (200, 200, 200), 1)
 
 
 # ----------------------------------------------------------------------
@@ -322,56 +272,50 @@ def draw_overlay(frame, pellets):
     total = len(pellets)
     within = sum(1 for p in pellets if p['within_tolerance'])
     out_of = total - within
-
-    ml_status = "ML-Enhanced" if template_features else "Traditional"
-    status_text = f"{ml_status} | In: {within} Out: {out_of} Total: {total}"
+    status_text = f"In: {within}   Out: {out_of}   Total: {total}"
     status_color = (0, 255, 0) if out_of == 0 else (0, 0, 255)
 
-    cv2.rectangle(frame, (10, 10), (560, 50), (0, 0, 0), -1)
-    cv2.rectangle(frame, (10, 10), (560, 50), status_color, 2)
+    cv2.rectangle(frame, (10, 10), (460, 50), (0, 0, 0), -1)
+    cv2.rectangle(frame, (10, 10), (460, 50), status_color, 2)
     cv2.putText(frame, status_text, (20, 38),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.65, status_color, 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.75, status_color, 2)
 
-    # Draw pellets with polygons
+    # Draw pellets with polygon overlays
     for p in pellets:
         x, y, w, h = p['x'], p['y'], p['w'], p['h']
         color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)
 
-        # Draw polygon contour instead of rectangle
-        if 'contour' in p:
-            cv2.drawContours(frame, [p['contour']], -1, color, 2)
-        else:
-            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+        # Draw reference polygon if available (semi-transparent overlay)
+        if p['reference_polygon']:
+            polygon = p['reference_polygon']['polygon']
+            overlay = frame.copy()
+            cv2.fillPoly(overlay, [polygon], (255, 255, 0))  # Yellow fill
+            cv2.addWeighted(overlay, 0.3, frame, 0.7, 0, frame)
+            cv2.polylines(frame, [polygon], True, (0, 255, 255), 2)  # Cyan outline
 
-        # Info background
-        bg_y = max(y - 55, 0)
-        cv2.rectangle(frame, (x, bg_y), (x + 130, y - 5), (0, 0, 0), -1)
+        # Draw bounding rectangle
+        cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
 
-        # Display measurements
-        cv2.putText(frame, f"D: {p['diameter']:.2f}mm", (x + 5, bg_y + 15),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
-        cv2.putText(frame, f"L: {p['length']:.2f}mm", (x + 5, bg_y + 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
+        # Smaller background (120 px wide)
+        bg_y = max(y - 45, 0)
+        cv2.rectangle(frame, (x, bg_y), (x + 120, y - 5), (0, 0, 0), -1)
+        cv2.putText(frame, f"D: {p['diameter']:.2f}", (x + 5, bg_y + 18),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+        cv2.putText(frame, f"L: {p['length']:.2f}", (x + 5, bg_y + 36),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
-        # Confidence score
-        if 'confidence' in p:
-            conf_color = (0, 255, 0) if p['confidence'] > 0.7 else (255, 255, 0)
-            cv2.putText(frame, f"Conf: {p['confidence']:.2f}", (x + 5, bg_y + 45),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.35, conf_color, 1)
-
-        # Warning indicator
         if not p['within_tolerance']:
             cv2.circle(frame, (x + w - 10, y + 10), 8, (0, 0, 255), -1)
             cv2.putText(frame, "!", (x + w - 14, y + 16),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-    # Draw template visualization
-    draw_templates(frame)
-
     # Calibration hint
     if not in_calib_mode:
-        hint_text = "c:Calib | t:Templates" if template_features else "c:Calib"
-        cv2.putText(frame, hint_text, (10, frame.shape[0] - 20),
+        hint_text = "Press 'c' for calibration"
+        if reference_polygons:
+            hint_text += f" | {len(reference_polygons)} ref polygons loaded"
+        cv2.putText(frame, hint_text,
+                    (10, frame.shape[0] - 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 220, 255), 2)
 
     # Draw calibration panel
@@ -396,38 +340,36 @@ def get_camera():
 # Main Loop
 # ----------------------------------------------------------------------
 def main():
-    global in_calib_mode, show_templates
+    global in_calib_mode, PIXELS_PER_MM
 
-    print("\n" + "=" * 60)
-    print("ML-ENHANCED PELLET INSPECTOR")
-    print("=" * 60)
+    print("\nPellet Inspector + COCO Polygon Overlay")
+    print("=" * 55)
 
-    # Load ML annotations
-    has_ml = load_annotations()
+    # Load COCO annotations
+    load_coco_annotations("pellets_label.json")
 
-    print("\nControls:")
-    print("  'c' → Calibration mode")
-    print("  't' → Toggle template visualization")
-    print("  'q' → Quit")
-    print("=" * 60 + "\n")
+    print("Press 'c' → Enter calibration mode")
+    print("Click UP/DOWN to adjust | Click BACK to exit")
+    print("Press 'q' to quit")
+    print("=" * 55)
 
     cap = get_camera()
     if not cap.isOpened():
-        print("❌ Cannot open camera.")
+        print("Cannot open camera.")
         sys.exit(1)
 
     fps_counter = 0
     fps_start = time.time()
     fps_display = 0
 
-    window_name = "ML Pellet Size Measurement"
+    window_name = "Pellet Size Measurement"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     cv2.setMouseCallback(window_name, mouse_callback)
 
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("⚠ Camera lost – reconnecting...")
+            print("Camera lost – reconnecting...")
             cap.release()
             time.sleep(1)
             cap = get_camera()
@@ -459,15 +401,13 @@ def main():
             break
         if key == ord('c') and not in_calib_mode:
             in_calib_mode = True
-        if key == ord('t'):
-            show_templates = not show_templates
 
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
             break
 
     cap.release()
     cv2.destroyAllWindows()
-    print("\n✓ Shutdown complete.")
+    print("Shutdown complete.")
 
 
 if __name__ == "__main__":
