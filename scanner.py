@@ -3,245 +3,228 @@ import cv2
 import numpy as np
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QLineEdit, QFileDialog, QMessageBox,
-    QGroupBox, QFormLayout, QDoubleSpinBox, QScrollArea,
-    QSpacerItem, QSizePolicy
+    QPushButton, QLabel, QLineEdit, QFileDialog, QMessageBox, QScrollArea
 )
-from PyQt6.QtGui import QPixmap, QImage, QIcon
+from PyQt6.QtGui import QPixmap, QImage, QDoubleValidator
 from PyQt6.QtCore import Qt, QSize
 
 
-# === Convert OpenCV → QPixmap ===
+# Helper Function (remains the same)
 def cv_to_qpixmap(cv_img, target_size=None):
-    if cv_img is None:
-        return QPixmap()
-    h, w = cv_img.shape[:2]
+    # ... (same function as before)
+    if cv_img is None: return QPixmap()
     if len(cv_img.shape) == 3:
-        rgb = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-        qimg = QImage(rgb.data, w, h, w * 3, QImage.Format.Format_RGB888)
+        rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb_image.shape
+        bytes_per_line = ch * w
+        convert_to_Qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
     else:
-        qimg = QImage(cv_img.data, w, h, w, QImage.Format.Format_Grayscale8)
-    pixmap = QPixmap.fromImage(qimg)
+        h, w = cv_img.shape
+        convert_to_Qt_format = QImage(cv_img.data, w, h, w, QImage.Format.Format_Grayscale8)
+
+    qpixmap = QPixmap.fromImage(convert_to_Qt_format)
     if target_size and not target_size.isNull():
-        return pixmap.scaled(target_size, Qt.AspectRatioMode.KeepAspectRatio,
-                             Qt.TransformationMode.SmoothTransformation)
-    return pixmap
+        return qpixmap.scaled(target_size, Qt.AspectRatioMode.KeepAspectRatio,
+                              Qt.TransformationMode.SmoothTransformation)
+    return qpixmap
 
 
-# === Main App ===
+# --- Main Application Window ---
+
 class PelletAnalyzer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Pellet Size Analyzer")
-        self.setGeometry(100, 100, 1300, 800)
+        self.setWindowTitle("Pellet Size Analyzer (Scanner/DPI Mode)")
+        self.setGeometry(100, 100, 1200, 800)
+
         self.raw_image = None
-        self.pixels_per_mm = 0.0
-        self.calib_pt1 = None
-        self.calib_pt2 = None
+        self.PPM = 0.0  # Pixels Per Millimeter
 
         self.init_ui()
-        self.apply_light_theme()
-
-    def apply_light_theme(self):
-        self.setStyleSheet("""
-            QMainWindow { background-color: #f8f9fc; }
-            QLabel { color: #2c3e50; font-family: 'Segoe UI'; }
-            QGroupBox { 
-                font-weight: bold; 
-                border: 2px solid #e0e6ed; 
-                border-radius: 10px; 
-                margin-top: 10px; 
-                padding-top: 10px;
-                background-color: white;
-            }
-            QGroupBox::title { 
-                subcontrol-origin: margin; 
-                left: 15px; 
-                padding: 0 10px;
-                color: #3498db;
-            }
-            QPushButton {
-                background-color: #3498db; 
-                color: white; 
-                border: none; 
-                padding: 12px; 
-                border-radius: 8px; 
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #2980b9; }
-            QLineEdit, QDoubleSpinBox {
-                padding: 8px; 
-                border: 1.5px solid #bdc3c7; 
-                border-radius: 6px;
-                font-size: 14px;
-            }
-            QScrollArea { border: none; background: white; }
-        """)
 
     def init_ui(self):
-        central = QWidget()
-        self.setCentralWidget(central)
-        main_layout = QHBoxLayout(central)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(20)
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
 
-        # === LEFT: Controls ===
-        left_panel = QWidget()
-        left_panel.setMaximumWidth(360)
-        left_layout = QVBoxLayout(left_panel)
+        main_layout = QHBoxLayout(central_widget)
 
-        # 1. Load Image
-        load_group = QGroupBox("1. Load Scanned Image")
-        load_layout = QVBoxLayout()
-        self.load_btn = QPushButton("Choose Image")
-        self.load_btn.setIcon(QIcon.fromTheme("document-open"))
+        # --- Left Panel: Controls and Results ---
+        control_panel = QWidget()
+        control_layout = QVBoxLayout(control_panel)
+        control_panel.setMaximumWidth(300)
+
+        self.load_btn = QPushButton("Load Scanned Image")
         self.load_btn.clicked.connect(self.load_image)
-        load_layout.addWidget(self.load_btn)
+        control_layout.addWidget(self.load_btn)
 
-        self.img_label = QLabel("No image selected")
-        self.img_label.setStyleSheet("color: #7f8c8d; font-size: 12px;")
-        self.img_label.setWordWrap(True)
-        load_layout.addWidget(self.img_label)
-        load_group.setLayout(load_layout)
-        left_layout.addWidget(load_group)
+        # 1. DPI (Scanner Resolution) Input (Replaced PPM)
+        control_layout.addWidget(QLabel("Scanner Resolution (DPI):"))
+        self.dpi_input = QLineEdit("600")  # Common high resolution setting
+        # Validator for standard DPI values
+        self.dpi_input.setValidator(QDoubleValidator(1.0, 4800.0, 0))
+        control_layout.addWidget(self.dpi_input)
 
-        # 2. Calibration
-        calib_group = QGroupBox("2. Calibrate Scale (Click 2 Points)")
-        calib_layout = QFormLayout()
+        control_layout.addSpacing(10)
 
-        self.length_input = QDoubleSpinBox()
-        self.length_input.setRange(0.1, 1000.0)
-        self.length_input.setDecimals(2)
-        self.length_input.setValue(10.0)
-        self.length_input.setSuffix(" mm")
-        calib_layout.addRow("Known Length:", self.length_input)
+        # 2. Analysis Parameters (Min Area)
+        control_layout.addWidget(QLabel("Min Pellet Area (pixels^2, e.g., 1000):"))
+        self.min_area_input = QLineEdit("1000")
+        self.min_area_input.setValidator(QDoubleValidator(1.0, 100000.0, 0))
+        control_layout.addWidget(self.min_area_input)
 
-        self.calib_status = QLabel("Click first point on image...")
-        self.calib_status.setStyleSheet("color: #e67e22; font-weight: bold;")
-        calib_layout.addRow("Status:", self.calib_status)
+        control_layout.addSpacing(20)
 
-        self.scale_label = QLabel("Scale: Not set")
-        self.scale_label.setStyleSheet("color: #27ae60; font-weight: bold;")
-        calib_layout.addRow("Scale:", self.scale_label)
+        # 3. Analysis Button
+        self.analyze_btn = QPushButton("Analyze Pellets")
+        self.analyze_btn.clicked.connect(self.analyze_image)
+        control_layout.addWidget(self.analyze_btn)
 
-        self.reset_btn = QPushButton("Reset Calibration")
-        self.reset_btn.clicked.connect(self.reset_calibration)
-        calib_layout.addRow(self.reset_btn)
+        control_layout.addSpacing(20)
 
-        calib_group.setLayout(calib_layout)
-        left_layout.addWidget(calib_group)
+        # 4. Results Display
+        control_layout.addWidget(QLabel("--- Analysis Results ---"))
+        self.results_label = QLabel("Load image and enter DPI to begin.")
+        self.results_label.setWordWrap(True)
+        control_layout.addWidget(self.results_label)
 
-        left_layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
-        main_layout.addWidget(left_panel)
+        control_layout.addStretch(1)
+        main_layout.addWidget(control_panel)
 
-        # === RIGHT: Image Viewer ===
-        self.image_label = QLabel()
+        # --- Right Panel: Image Display ---
+        self.image_label = QLabel("Image Display Area")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setMinimumSize(600, 500)
-        self.image_label.setStyleSheet("""
-            background: white; 
-            border: 3px dashed #bdc3c7; 
-            border-radius: 12px;
-            font-size: 18px; 
-            color: #95a5a6;
-        """)
-        self.image_label.setText("Image will appear here\nClick to calibrate")
-        self.image_label.mousePressEvent = self.on_image_click
+        self.image_label.setStyleSheet("border: 1px solid gray;")
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(self.image_label)
-        main_layout.addWidget(scroll, 1)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(self.image_label)
 
-    # === Load Image ===
+        main_layout.addWidget(scroll_area, 3)
+
     def load_image(self):
-        file_name, _ = QFileDialog.getOpenFileName(
-            self, "Open Image", "", "Images (*.png *.jpg *.jpeg *.bmp *.tif)"
-        )
-        if not file_name:
-            return
-        img = cv2.imread(file_name)
-        if img is None:
-            QMessageBox.critical(self, "Error", "Cannot load image.")
-            return
+        # ... (Same as before)
+        file_name, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.jpeg)")
 
-        self.raw_image = img
-        self.img_label.setText(file_name.split("/")[-1])
-        self.display_image(self.raw_image)
-        self.reset_calibration()
+        if file_name:
+            self.raw_image = cv2.imread(file_name)
+            if self.raw_image is None:
+                QMessageBox.critical(self, "Error", "Could not load image.")
+                return
+
+            self.display_image(self.raw_image)
+            self.results_label.setText("Image loaded. Enter DPI (Resolution) and click Analyze.")
 
     def display_image(self, cv_img):
-        pixmap = cv_to_qpixmap(cv_img, QSize(1000, 700))
+        # ... (Same as before)
+        pixmap = cv_to_qpixmap(cv_img)
         self.image_label.setPixmap(pixmap)
-        self.image_label.setStyleSheet("background: white; border: 2px solid #3498db; border-radius: 12px;")
+        self.image_label.resize(pixmap.size())
 
-    # === Calibration Click ===
-    def on_image_click(self, event):
+    def analyze_image(self):
+        """Performs CV processing using DPI to calculate PPM."""
         if self.raw_image is None:
-            return
-        if self.pixels_per_mm > 0:
-            QMessageBox.information(self, "Already Calibrated", "Reset calibration to try again.")
+            QMessageBox.warning(self, "Warning", "Please load an image first.")
             return
 
-        pos = event.pos()
-        pw, ph = self.image_label.pixmap().width(), self.image_label.pixmap().height()
-        scale_x = self.raw_image.shape[1] / pw
-        scale_y = self.raw_image.shape[0] / ph
-        x = int(pos.x() * scale_x)
-        y = int(pos.y() * scale_y)
+        try:
+            dpi = float(self.dpi_input.text())
+            min_area = float(self.min_area_input.text())
 
-        if self.calib_pt1 is None:
-            self.calib_pt1 = (x, y)
-            self.calib_status.setText(f"Point 1: ({x}, {y}) → Click Point 2")
-        else:
-            self.calib_pt2 = (x, y)
-            self.finalize_calibration()
+            if dpi <= 0 or min_area <= 0:
+                raise ValueError("DPI and Min Area must be positive numbers.")
 
-        self.draw_calibration_line()
+            # CRITICAL CHANGE: Calculate PPM from DPI
+            self.PPM = dpi / 25.4
 
-    def draw_calibration_line(self):
-        if not self.raw_image:
+        except ValueError as e:
+            QMessageBox.critical(self, "Error", f"Invalid input value: {e}")
             return
-        img = self.raw_image.copy()
-        color = (0, 200, 255)  # Orange
-        thick = 4
-        if self.calib_pt1:
-            cv2.circle(img, self.calib_pt1, 10, color, -1)
-            cv2.circle(img, self.calib_pt1, 14, color, 4)
-        if self.calib_pt1 and self.calib_pt2:
-            cv2.line(img, self.calib_pt1, self.calib_pt2, color, thick)
-            cv2.circle(img, self.calib_pt2, 10, color, -1)
-            cv2.circle(img, self.calib_pt2, 14, color, 4)
-            mid = ((self.calib_pt1[0] + self.calib_pt2[0]) // 2, (self.calib_pt1[1] + self.calib_pt2[1]) // 2)
-            cv2.putText(img, f"{self.length_input.value():.2f} mm",
-                        (mid[0] - 60, mid[1] - 15), cv2.FONT_HERSHEY_DUPLEX, 0.9, (255, 255, 255), 2)
-        self.display_image(img)
 
-    def finalize_calibration(self):
-        dist_px = np.linalg.norm(np.array(self.calib_pt1) - np.array(self.calib_pt2))
-        real_mm = self.length_input.value()
-        if dist_px < 20:
-            QMessageBox.warning(self, "Too Short", "Select a longer reference distance.")
-            return
-        self.pixels_per_mm = dist_px / real_mm
-        self.scale_label.setText(f"Scale: {self.pixels_per_mm:.2f} px/mm")
-        self.calib_status.setText("Calibration complete!")
-        QMessageBox.information(
-            self, "Calibration Done",
-            f"Scale set: <b>{self.pixels_per_mm:.2f} pixels = 1 mm</b><br>"
-            f"Distance: {dist_px:.1f} px → {real_mm} mm"
-        )
+        display_img = self.raw_image.copy()
 
-    def reset_calibration(self):
-        self.calib_pt1 = self.calib_pt2 = None
-        self.pixels_per_mm = 0.0
-        self.scale_label.setText("Scale: Not set")
-        self.calib_status.setText("Click first point on image...")
-        if self.raw_image would not be None:
+        # --- CV PROCESSING PIPELINE (Optimized for Scanner High Contrast) ---
+        gray = cv2.cvtColor(display_img, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+        # Scanners usually provide perfect background, so simple thresholding often works best
+        # Adjust THRESH_BINARY_INV depending on whether pellets are dark or light
+        # Assuming pellets are darker than the background (common scan result):
+        _, thresh = cv2.threshold(blurred, 100, 255, cv2.THRESH_BINARY_INV)
+
+        # Close small holes
+        kernel = np.ones((3, 3), np.uint8)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+
+        # Find external contours
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        pellet_diameters_mm = []
+
+        # Define Drawing Parameters for CLEAR VISUALIZATION
+        FONT_SCALE = 1.0
+        LINE_THICKNESS = 3
+        CIRCLE_COLOR = (0, 255, 255)  # Yellow/Cyan
+        TEXT_COLOR = (255, 255, 255)  # White text
+
+        # Loop through contours to measure
+        for c in contours:
+            area = cv2.contourArea(c)
+
+            # Filter based on user input
+            if area < min_area:
+                continue
+
+            # 1. Get minimum enclosing circle
+            ((x, y), radius_pixels) = cv2.minEnclosingCircle(c)
+
+            diameter_pixels = radius_pixels * 2
+            diameter_mm = diameter_pixels / self.PPM
+
+            pellet_diameters_mm.append(diameter_mm)
+
+            # 2. Prepare coordinates for drawing
+            center = (int(x), int(y))
+            radius = int(radius_pixels)
+            text = f"{diameter_mm:.2f} mm"
+
+            # Calculate text position for centering and positioning below the pellet
+            (text_w, text_h), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, FONT_SCALE, LINE_THICKNESS)
+            text_x = int(x) - text_w // 2
+            text_y = int(y) + int(radius_pixels) + text_h + 5
+
+            # 3. Draw results on the image
+            cv2.circle(display_img, center, radius, CIRCLE_COLOR, LINE_THICKNESS)
+            cv2.putText(display_img, text, (text_x, text_y),
+                        cv2.FONT_HERSHEY_SIMPLEX, FONT_SCALE, TEXT_COLOR, LINE_THICKNESS)
+
+        # --- 4. Display Results ---
+
+        if not pellet_diameters_mm:
+            self.results_label.setText(
+                f"No pellets found that meet the minimum area requirement ({min_area} pixels^2). "
+                f"Check threshold settings or adjust min area."
+            )
             self.display_image(self.raw_image)
+            return
+
+        total_pellets = len(pellet_diameters_mm)
+        avg_diameter = np.mean(pellet_diameters_mm)
+        std_dev = np.std(pellet_diameters_mm)
+
+        results_text = (
+            f"Analysis Complete (Scanner Mode):\n"
+            f"Total Pellets Found: {total_pellets}\n"
+            f"Average Diameter: {avg_diameter:.3f} mm\n"
+            f"Standard Deviation: {std_dev:.3f} mm\n"
+            f"Scanner DPI: {dpi:.0f}\n"
+            f"PPM Calculated: {self.PPM:.2f}\n"
+            f"Min Area Filter: {min_area:.0f} pixels^2"
+        )
+        self.results_label.setText(results_text)
+
+        self.display_image(display_img)
 
 
-# === Run ===
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = PelletAnalyzer()
