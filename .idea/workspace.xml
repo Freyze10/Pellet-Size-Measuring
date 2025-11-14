@@ -462,7 +462,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763101638720</updated>
     </task>
-    <option name="localTasksCounter" value="36" />
+    <task id="LOCAL-00036" summary="updated scanner with ml">
+      <option name="closed" value="true" />
+      <created>1763103365973</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1763103365973</updated>
+    </task>
+    <task id="LOCAL-00037" summary="updated scanner with ml">
+      <option name="closed" value="true" />
+      <created>1763104204403</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1763104204403</updated>
+    </task>
+    <option name="localTasksCounter" value="38" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -477,7 +493,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="initial program" />
     <MESSAGE value="removed extreme out of tolerance" />
     <MESSAGE value="updated camera use" />
     <MESSAGE value="removed unnecessary texts" />
@@ -502,6 +517,7 @@
     <MESSAGE value="modifying labeled" />
     <MESSAGE value="refactored pictures" />
     <MESSAGE value="changed images" />
-    <option name="LAST_COMMIT_MESSAGE" value="changed images" />
+    <MESSAGE value="updated scanner with ml" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated scanner with ml" />
   </component>
 </project>
