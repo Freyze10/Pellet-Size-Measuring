@@ -273,7 +273,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763005179693</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="added json file">
+      <option name="closed" value="true" />
+      <created>1763088359950</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1763088359950</updated>
+    </task>
+    <task id="LOCAL-00020" summary="added json file">
+      <option name="closed" value="true" />
+      <created>1763088365141</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1763088365141</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -303,6 +319,7 @@
     <MESSAGE value="updated calibration and guides" />
     <MESSAGE value="updated instructions" />
     <MESSAGE value="modified calibration and instruction" />
-    <option name="LAST_COMMIT_MESSAGE" value="modified calibration and instruction" />
+    <MESSAGE value="added json file" />
+    <option name="LAST_COMMIT_MESSAGE" value="added json file" />
   </component>
 </project>
