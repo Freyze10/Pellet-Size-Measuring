@@ -299,24 +299,32 @@ class PelletMeasurementApp(QMainWindow):
             with open(json_path, 'r') as f:
                 self.coco_data = json.load(f)
 
-            # Ask for images folder
-            self.images_folder = QFileDialog.getExistingDirectory(
-                self, "Select folder with labeled training images"
-            )
+            # Automatically use training_images folder
+            self.images_folder = "training_images"
 
-            if self.images_folder:
-                self.progress_label.setText("Training detector with labeled samples...")
-                QApplication.processEvents()
+            if not os.path.exists(self.images_folder):
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Training images folder not found!\nPlease create a 'training_images' folder with your labeled images."
+                )
+                return
 
-                self.is_trained = self.detector.train_from_coco(self.coco_data, self.images_folder)
+            self.progress_label.setText("Training detector with labeled samples...")
+            QApplication.processEvents()
 
-                if self.is_trained:
-                    self.progress_label.setText(f"✓ Trained with {len(self.detector.trained_samples)} samples")
-                    self.load_btn.setEnabled(True)
-                else:
-                    self.progress_label.setText("✗ Training failed - no valid samples found")
+            self.is_trained = self.detector.train_from_coco(self.coco_data, self.images_folder)
+
+            if self.is_trained:
+                self.progress_label.setText(f"✓ Trained with {len(self.detector.trained_samples)} samples")
+                self.load_btn.setEnabled(True)
             else:
-                self.progress_label.setText("Training folder not selected")
+                self.progress_label.setText("✗ Training failed - no valid samples found")
+                QMessageBox.warning(
+                    self,
+                    "Training Failed",
+                    "No valid samples found. Make sure your training images are in the 'training_images' folder."
+                )
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error loading annotations: {e}")
