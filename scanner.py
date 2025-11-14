@@ -6,39 +6,43 @@ import os
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QWidget, QFileDialog, QSlider, QGridLayout,
-    QGroupBox, QDoubleSpinBox, QTextEdit, QFrame, QScrollArea
+    QGroupBox, QDoubleSpinBox, QTextEdit, QScrollArea, QFrame,
+    QComboBox
 )
 from PyQt6.QtGui import QPixmap, QImage, QDragEnterEvent, QDropEvent
-from PyQt6.QtCore import Qt
-from typing import List, Dict, Optional
+from PyQt6.QtCore import Qt, QMimeData
+from typing import List, Dict, Tuple
 
 
 # ----------------------------------------------------------------------
 # Global Configuration
 # ----------------------------------------------------------------------
 TARGET_DIAMETER = 3.0
-TARGET_LENGTH   = 3.0
-TOLERANCE       = 0.5
+TARGET_LENGTH = 3.0
+TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 200.0
+
 MIN_CONTOUR_AREA = 100
 MAX_CONTOUR_AREA = 10000
 
 
-class PelletInspector(QMainWindow):
+class PelletInspectorCOCO(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Pellet Inspector with COCO Reference Polygons")
+        self.setWindowTitle("Pellet Inspector - COCO Label Matching")
         self.setGeometry(100, 100, 1500, 900)
 
         self.image = None
-        self.image_path = None
+        self.pixmap = None
         self.pixels_per_mm = 6.0
         self.pellets: List[Dict] = []
-        self.reference_polygons = []
-        self.coco_images = {}
+        self.coco_data = None
+        self.categories = {}
+        self.images = {}
+        self.annotations = []
 
         self.init_ui()
-        self.update_calibration_ranges()
+        self.load_coco_labels("pellets_label.json")
 
     def init_ui(self):
         main_widget = QWidget()
@@ -50,26 +54,19 @@ class PelletInspector(QMainWindow):
         left_panel.setFixedWidth(420)
         left_layout = QVBoxLayout(left_panel)
 
-        # Upload Image Button
-        self.upload_img_btn = QPushButton("Upload Image")
-        self.upload_img_btn.clicked.connect(self.upload_image)
-        left_layout.addWidget(self.upload_img_btn)
+        # Upload
+        self.upload_btn = QPushButton("Upload Image")
+        self.upload_btn.clicked.connect(self.upload_image)
+        left_layout.addWidget(self.upload_btn)
 
-        # Upload JSON Button
-        self.upload_json_btn = QPushButton("Load COCO Labels (pellets_label.json)")
-        self.upload_json_btn.clicked.connect(self.load_coco_json)
-        left_layout.addWidget(self.upload_json_btn)
-
-        # Drag & Drop Area
-        self.drop_label = QLabel("Or drag & drop image / JSON here")
+        self.drop_label = QLabel("Or drag & drop image here")
         self.drop_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.drop_label.setStyleSheet("QLabel { border: 2px dashed #aaa; padding: 20px; margin: 10px; }")
+        self.drop_label.setStyleSheet("QLabel { border: 2px dashed #aaa; padding: 25px; margin: 5px; }")
         left_layout.addWidget(self.drop_label)
 
-        # Calibration Group
-        calib_group = QGroupBox("Calibration")
+        # Calibration
+        calib_group = QGroupBox("Scale Calibration")
         calib_layout = QGridLayout(calib_group)
-
         calib_layout.addWidget(QLabel("Pixels per mm:"), 0, 0)
         self.px_spin = QDoubleSpinBox()
         self.px_spin.setRange(0.1, 100.0)
@@ -83,42 +80,33 @@ class PelletInspector(QMainWindow):
         self.px_slider.setValue(int(self.pixels_per_mm * 10))
         self.px_slider.valueChanged.connect(self.on_slider_change)
         calib_layout.addWidget(self.px_slider, 1, 0, 1, 2)
-
         left_layout.addWidget(calib_group)
 
-        # Reference Info
-        self.ref_info = QLabel("No reference polygons loaded")
-        self.ref_info.setStyleSheet("color: #555; font-style: italic;")
-        left_layout.addWidget(self.ref_info)
+        # COCO Info
+        self.coco_info = QLabel("No COCO labels loaded")
+        self.coco_info.setWordWrap(True)
+        left_layout.addWidget(QGroupBox("Label File", self.coco_info))
 
         # Statistics
         self.stats_display = QTextEdit()
         self.stats_display.setReadOnly(True)
-        self.stats_display.setFixedHeight(200)
-        self.stats_display.setStyleSheet("font-family: Consolas; font-size: 11px;")
-        stats_group = QGroupBox("Pellet Analysis")
-        stats_group_layout = QVBoxLayout(stats_group)
-        stats_group_layout.addWidget(self.stats_display)
-        left_layout.addWidget(stats_group)
+        self.stats_display.setFixedHeight(300)
+        left_layout.addWidget(QGroupBox("Pellet Analysis", self.stats_display))
 
-        left_layout.addStretch()
-
-        # --------------------- Right Panel: Scrollable Image ---------------------
+        # --------------------- Right Panel ---------------------
         self.image_scroll = QScrollArea()
         self.image_scroll.setWidgetResizable(True)
-        self.image_scroll.setMinimumSize(800, 600)
-        self.image_label = QLabel("No image loaded")
+        self.image_label = QLabel("No image")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setStyleSheet("background-color: #f8f8f8;")
+        self.image_label.setMinimumSize(600, 400)
         self.image_scroll.setWidget(self.image_label)
 
-        # Enable drag & drop
+        # Enable drag drop
         self.setAcceptDrops(True)
         self.drop_label.setAcceptDrops(True)
         self.drop_label.dragEnterEvent = self.dragEnterEvent
         self.drop_label.dropEvent = self.dropEvent
 
-        # Layout
         main_layout.addWidget(left_panel)
         main_layout.addWidget(self.image_scroll, 1)
 
@@ -131,16 +119,11 @@ class PelletInspector(QMainWindow):
 
     def dropEvent(self, event: QDropEvent):
         files = [u.toLocalFile() for u in event.mimeData().urls()]
-        for f in files:
-            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tif')):
-                self.load_image(f)
-                break
-            elif f.lower().endswith('.json'):
-                self.load_coco_json(f)
-                break
+        if files:
+            self.load_image(files[0])
 
     # ------------------------------------------------------------------
-    # Load Image
+    # Image & COCO Loading
     # ------------------------------------------------------------------
     def upload_image(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -150,72 +133,38 @@ class PelletInspector(QMainWindow):
             self.load_image(file_path)
 
     def load_image(self, file_path: str):
-        self.image_path = file_path
         self.image = cv2.imread(file_path)
         if self.image is None:
-            self.show_error("Could not load image.")
+            self.stats_display.setText("Error: Could not load image.")
             return
         self.process_and_display()
         self.update_stats()
 
-    # ------------------------------------------------------------------
-    # Load COCO JSON
-    # ------------------------------------------------------------------
-    def load_coco_json(self, json_path=None):
-        if json_path is None:
-            json_path, _ = QFileDialog.getOpenFileName(
-                self, "Open COCO JSON", "", "JSON Files (*.json)"
-            )
-        if not json_path or not os.path.exists(json_path):
-            self.show_error("JSON file not found.")
+    def load_coco_labels(self, json_path: str):
+        if not os.path.exists(json_path):
+            self.coco_info.setText(f"<span style='color: red;'>Not found:</span> {json_path}")
             return
 
         try:
             with open(json_path, 'r') as f:
-                data = json.load(f)
+                self.coco_data = json.load(f)
 
-            self.coco_images = {img['id']: img for img in data.get('images', [])}
-            annotations = data.get('annotations', [])
-            self.reference_polygons = []
+            self.categories = {cat['id']: cat['name'] for cat in self.coco_data.get('categories', [])}
+            self.images = {img['id']: img for img in self.coco_data.get('images', [])}
+            self.annotations = self.coco_data.get('annotations', [])
 
-            for ann in annotations:
-                if 'segmentation' in ann and ann['segmentation']:
-                    for seg in ann['segmentation']:
-                        if len(seg) < 6:
-                            continue
-                        polygon = np.array(seg).reshape(-1, 2).astype(np.int32)
-                        self.reference_polygons.append({
-                            'polygon': polygon,
-                            'bbox': ann.get('bbox', []),
-                            'category_id': ann.get('category_id', 1)
-                        })
-
-            self.ref_info.setText(f"{len(self.reference_polygons)} reference polygons loaded")
-            print(f"Loaded {len(self.reference_polygons)} polygons from {os.path.basename(json_path)}")
-
-            if self.image is not None:
-                self.process_and_display()
-                self.update_stats()
-
+            cat_names = ', '.join(self.categories.values()) or "None"
+            self.coco_info.setText(
+                f"<b>Loaded:</b> {len(self.annotations)} annotations<br>"
+                f"<b>Categories:</b> {cat_names}<br>"
+                f"<b>Images:</b> {len(self.images)}"
+            )
         except Exception as e:
-            self.show_error(f"Error loading JSON: {e}")
-
-    def show_error(self, msg):
-        self.stats_display.setHtml(f"<p style='color: red;'><b>Error:</b> {msg}</p>")
+            self.coco_info.setText(f"<span style='color: red;'>Error:</span> {e}")
 
     # ------------------------------------------------------------------
     # Calibration
     # ------------------------------------------------------------------
-    def update_calibration_ranges(self):
-        self.d_min = TARGET_DIAMETER - TOLERANCE
-        self.d_max = TARGET_DIAMETER + TOLERANCE
-        self.l_min = TARGET_LENGTH - TOLERANCE
-        self.l_max = TARGET_LENGTH + TOLERANCE
-        self.ex_d_min = TARGET_DIAMETER - EXCLUSION_THRESHOLD
-        self.ex_d_max = TARGET_DIAMETER + EXCLUSION_THRESHOLD
-        self.ex_l_min = TARGET_LENGTH - EXCLUSION_THRESHOLD
-        self.ex_l_max = TARGET_LENGTH + EXCLUSION_THRESHOLD
-
     def on_calibration_change(self, value):
         self.pixels_per_mm = value
         self.px_slider.blockSignals(True)
@@ -233,38 +182,27 @@ class PelletInspector(QMainWindow):
         self.update_stats()
 
     # ------------------------------------------------------------------
-    # Match Contour to Reference Polygon
+    # COCO Matching
     # ------------------------------------------------------------------
-    def match_to_reference(self, contour) -> Optional[Dict]:
-        if not self.reference_polygons:
-            return None
-
-        M = cv2.moments(contour)
-        if M["m00"] == 0:
-            return None
-        cx = int(M["m10"] / M["m00"])
-        cy = int(M["m01"] / M["m00"])
-
+    def get_closest_annotation(self, cx: int, cy: int) -> Dict:
+        """Find closest COCO annotation by centroid distance."""
         min_dist = float('inf')
-        closest = None
-
-        for poly in self.reference_polygons:
-            ref_M = cv2.moments(poly['polygon'])
-            if ref_M["m00"] == 0:
+        best = None
+        for ann in self.annotations:
+            if 'bbox' not in ann:
                 continue
-            ref_cx = int(ref_M["m10"] / ref_M["m00"])
-            ref_cy = int(ref_M["m01"] / ref_M["m00"])
-            dist = np.sqrt((cx - ref_cx)**2 + (cy - ref_cy)**2)
+            x, y, w, h = ann['bbox']
+            ann_cx, ann_cy = x + w // 2, y + h // 2
+            dist = np.hypot(cx - ann_cx, cy - ann_cy)
             if dist < min_dist:
                 min_dist = dist
-                closest = poly
-
-        return closest if min_dist < 60 else None
+                best = ann
+        return best if min_dist < 80 else None  # threshold
 
     # ------------------------------------------------------------------
-    # Detection + Drawing
+    # Detection
     # ------------------------------------------------------------------
-    def detect_and_draw(self, img) -> List[Dict]:
+    def detect_pellets(self, img) -> List[Dict]:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (5, 5), 0)
         thresh = cv2.adaptiveThreshold(
@@ -285,85 +223,107 @@ class PelletInspector(QMainWindow):
                 continue
 
             x, y, w, h = cv2.boundingRect(cnt)
-            d_px = min(w, h)
-            l_px = max(w, h)
-            diameter = d_px / self.pixels_per_mm
-            length = l_px / self.pixels_per_mm
+            diameter_px = min(w, h)
+            length_px = max(w, h)
 
-            if not (self.ex_d_min <= diameter <= self.ex_d_max and
-                    self.ex_l_min <= length <= self.ex_l_max):
+            diameter_mm = diameter_px / self.pixels_per_mm
+            length_mm = length_px / self.pixels_per_mm
+
+            if not (TARGET_DIAMETER - EXCLUSION_THRESHOLD <= diameter_mm <= TARGET_DIAMETER + EXCLUSION_THRESHOLD):
                 continue
 
-            within_tol = (self.d_min <= diameter <= self.d_max and
-                          self.l_min <= length <= self.l_max)
+            # Centroid
+            M = cv2.moments(cnt)
+            cx = int(M["m10"] / M["m00"]) if M["m00"] != 0 else x + w // 2
+            cy = int(M["m01"] / M["m00"]) if M["m00"] != 0 else y + h // 2
 
-            ref_poly = self.match_to_reference(cnt)
+            # Match to COCO label
+            ann = self.get_closest_annotation(cx, cy)
+            category_name = self.categories.get(ann['category_id'], "Unknown") if ann else "Unlabeled"
+
+            within_tol = (
+                TARGET_DIAMETER - TOLERANCE <= diameter_mm <= TARGET_DIAMETER + TOLERANCE and
+                TARGET_LENGTH - TOLERANCE <= length_mm <= TARGET_LENGTH + TOLERANCE
+            )
 
             pellets.append({
                 'x': x, 'y': y, 'w': w, 'h': h,
-                'diameter': round(diameter, 3),
-                'length': round(length, 3),
+                'diameter': round(diameter_mm, 3),
+                'length': round(length_mm, 3),
                 'within_tolerance': within_tol,
-                'reference_polygon': ref_poly
+                'category': category_name,
+                'annotation': ann,
+                'contour': cnt
             })
-
-            # Draw reference polygon (if matched)
-            if ref_poly:
-                poly = ref_poly['polygon']
-                overlay = img.copy()
-                cv2.fillPoly(overlay, [poly], (255, 255, 0))
-                cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
-                cv2.polylines(img, [poly], True, (0, 255, 255), 2)
-
-            # Bounding box
-            color = (0, 255, 0) if within_tol else (0, 0, 255)
-            cv2.rectangle(img, (x, y), (x + w, y + h), color, 2)
-
-            # Label
-            bg_y = max(y - 50, 0)
-            cv2.rectangle(img, (x, bg_y), (x + 130, y - 5), (0, 0, 0), -1)
-            cv2.putText(img, f"D: {diameter:.3f}", (x + 5, bg_y + 18),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-            cv2.putText(img, f"L: {length:.3f}", (x + 5, bg_y + 38),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-
-            if not within_tol:
-                cv2.circle(img, (x + w - 12, y + 12), 10, (0, 0, 255), -1)
-                cv2.putText(img, "!", (x + w - 18, y + 18),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
         return pellets
 
+    # ------------------------------------------------------------------
+    # Display
+    # ------------------------------------------------------------------
     def process_and_display(self):
         if self.image is None:
             return
 
         display_img = self.image.copy()
-        self.pellets = self.detect_and_draw(display_img)
+        self.pellets = self.detect_pellets(display_img)
+
+        # Draw
+        for p in self.pellets:
+            x, y, w, h = p['x'], p['y'], p['w'], p['h']
+            color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)
+            cv2.rectangle(display_img, (x, y), (x + w, y + h), color, 2)
+
+            # Draw COCO polygon if exists
+            if p['annotation'] and 'segmentation' in p['annotation']:
+                for seg in p['annotation']['segmentation']:
+                    poly = np.array(seg, np.int32).reshape(-1, 2)
+                    cv2.polylines(display_img, [poly], True, (255, 255, 0), 2)
+                    overlay = display_img.copy()
+                    cv2.fillPoly(overlay, [poly], (255, 255, 0))
+                    cv2.addWeighted(overlay, 0.2, display_img, 0.8, 0, display_img)
+
+            # Label box
+            label = f"{p['category']}"
+            label_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            bg_y = y - 60
+            cv2.rectangle(display_img, (x, bg_y), (x + label_size[0] + 10, bg_y + 25), (0, 0, 0), -1)
+            cv2.putText(display_img, label, (x + 5, bg_y + 18),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+
+            # Measurements
+            bg_y2 = max(y - 55, 0)
+            cv2.rectangle(display_img, (x, bg_y2), (x + 130, y - 5), (0, 0, 0), -1)
+            cv2.putText(display_img, f"D: {p['diameter']}", (x + 5, bg_y2 + 18),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+            cv2.putText(display_img, f"L: {p['length']}", (x + 5, bg_y2 + 36),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+
+            if not p['within_tolerance']:
+                cv2.circle(display_img, (x + w - 12, y + 12), 9, (0, 0, 255), -1)
+                cv2.putText(display_img, "!", (x + w - 16, y + 18),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
         # Convert to QPixmap
-        h, w, ch = display_img.shape
-        bytes_per_line = ch * w
-        q_img = QImage(display_img.data, w, h, bytes_per_line, QImage.Format.Format_BGR888)
-        pixmap = QPixmap.fromImage(q_img)
-
-        # Scale to fit
-        label_size = self.image_label.size()
-        scaled = pixmap.scaled(label_size, Qt.AspectRatioMode.KeepAspectRatio,
-                               Qt.TransformationMode.SmoothTransformation)
+        height, width, _ = display_img.shape
+        q_img = QImage(display_img.data, width, height, 3 * width, QImage.Format.Format_BGR888)
+        self.pixmap = QPixmap.fromImage(q_img)
+        scaled = self.pixmap.scaled(
+            self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
         self.image_label.setPixmap(scaled)
-        self.image_label.setMinimumSize(1, 1)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if hasattr(self, 'image_label') and self.image_label.pixmap():
-            pixmap = self.image_label.pixmap()
-            scaled = pixmap.scaled(self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio,
-                                   Qt.TransformationMode.SmoothTransformation)
+        if self.pixmap:
+            scaled = self.pixmap.scaled(
+                self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
             self.image_label.setPixmap(scaled)
 
     # ------------------------------------------------------------------
-    # Update Statistics
+    # Statistics
     # ------------------------------------------------------------------
     def update_stats(self):
         if not self.pellets:
@@ -373,39 +333,38 @@ class PelletInspector(QMainWindow):
         total = len(self.pellets)
         within = sum(1 for p in self.pellets if p['within_tolerance'])
         out = total - within
-        matched = sum(1 for p in self.pellets if p['reference_polygon'])
+
+        from collections import Counter
+        cat_count = Counter(p['category'] for p in self.pellets)
 
         html = f"""
-        <b style="color: #222;">Pellet Analysis</b><br>
-        <b>Total Detected:</b> {total}<br>
-        <b style="color: green;">Within Tolerance:</b> {within}<br>
-        <b style="color: red;">Out of Tolerance:</b> {out}<br>
-        <b>Matched to Reference:</b> {matched}/{len(self.reference_polygons)}<br>
+        <b style="font-size: 13px;">Pellet Summary</b><br>
+        <b>Total:</b> {total}  <b style="color: green;">In Tolerance:</b> {within}  <b style="color: red;">Out:</b> {out}<br>
+        <b>Calibration:</b> {self.pixels_per_mm:.2f} px/mm<br>
         <hr>
-        <small>
-        <b>Target:</b> D={TARGET_DIAMETER}±{TOLERANCE}mm, L={TARGET_LENGTH}±{TOLERANCE}mm<br>
-        <b>Calibration:</b> {self.pixels_per_mm:.2f} px/mm
-        </small>
-        <hr>
+        <b>By Category:</b><br>
         """
+        for cat, count in cat_count.items():
+            color = "green" if cat != "Unlabeled" else "gray"
+            html += f"• <span style='color: {color};'><b>{cat}:</b> {count}</span><br>"
 
+        html += "<hr><b>Individual Pellets:</b><br>"
         for i, p in enumerate(self.pellets):
             status = "OK" if p['within_tolerance'] else "BAD"
             color = "green" if p['within_tolerance'] else "red"
-            ref = " (Ref)" if p['reference_polygon'] else ""
-            html += f"<span style='color: {color};'>#{i+1}: D={p['diameter']} L={p['length']} [{status}]{ref}</span><br>"
+            html += f"<span style='color: {color};'>#{i+1} [{p['category']}] D:{p['diameter']} L:{p['length']} <b>{status}</b></span><br>"
 
         self.stats_display.setHtml(html)
 
 
 # ----------------------------------------------------------------------
-# Run App
+# Run
 # ----------------------------------------------------------------------
 def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    window = PelletInspector()
+    window = PelletInspectorCOCO()
     window.show()
     sys.exit(app.exec())
 

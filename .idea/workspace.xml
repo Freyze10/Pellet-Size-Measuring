@@ -417,7 +417,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763099556852</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="updating the interface">
+      <option name="closed" value="true" />
+      <created>1763100327810</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1763100327810</updated>
+    </task>
+    <task id="LOCAL-00032" summary="updating the scanner with label">
+      <option name="closed" value="true" />
+      <created>1763100335947</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1763100335947</updated>
+    </task>
+    <option name="localTasksCounter" value="33" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -454,6 +470,7 @@
     <MESSAGE value="added scanner" />
     <MESSAGE value="updating the scanner" />
     <MESSAGE value="updating the interface" />
-    <option name="LAST_COMMIT_MESSAGE" value="updating the interface" />
+    <MESSAGE value="updating the scanner with label" />
+    <option name="LAST_COMMIT_MESSAGE" value="updating the scanner with label" />
   </component>
 </project>
