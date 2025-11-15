@@ -1,133 +1,238 @@
-# --------------------------------------------------------------
-#  Pellet Size Measurement System – YOLOv8 version
-# --------------------------------------------------------------
 import sys
+import csv
 import os
-import json
 import cv2
 import numpy as np
-import pandas as pd
-from pathlib import Path
-
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QFileDialog,
                              QSpinBox, QDoubleSpinBox, QGroupBox, QScrollArea,
-                             QMessageBox)
+                             QProgressBar, QMessageBox)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap, QImage
 
-# -------------------------- YOLO wrapper -----------------------
-from ultralytics import YOLO
 
+class PelletDetector:
+    """Machine learning-like detector using labeled samples"""
 
-class YoloPelletDetector:
-    """Very thin wrapper around YOLOv8 that mimics the old API."""
+    def __init__(self):
+        self.trained_samples = []
+        self.feature_detector = cv2.SIFT_create()
 
-    def __init__(self, model_path: str = "runs/detect/train/weights/best.pt"):
-        self.model_path = Path(model_path)
-        self.model = None
-        self.is_trained = False
+    def train_from_csv(self, csv_path, images_folder="pellet_training/"):
+        """Extract pellet samples from CSV labeled images"""
+        self.trained_samples = []
 
-    # ----------------------------------------------------------
-    # 1. Convert CSV → YOLO txt files (once, at training time)
-    # ----------------------------------------------------------
-    @staticmethod
-    def _csv_to_yolo_txt(csv_path: str, img_folder: str, out_folder: str):
-        df = pd.read_csv(csv_path, header=None,
-                         names=["label", "x", "y", "w", "h", "img_name", "img_w", "img_h"])
+        if not os.path.exists(csv_path):
+            print(f"CSV file not found: {csv_path}")
+            return False
 
-        os.makedirs(out_folder, exist_ok=True)
+        if not os.path.exists(images_folder):
+            print(f"Images folder not found: {images_folder}")
+            return False
 
-        # YOLO format:  class_id  cx_norm  cy_norm  w_norm  h_norm
-        for img_name, group in df.groupby("img_name"):
-            img_path = Path(img_folder) / img_name
-            if not img_path.exists():
-                continue
+        try:
+            with open(csv_path, 'r') as f:
+                reader = csv.DictReader(f)
 
-            txt_path = Path(out_folder) / (img_path.stem + ".txt")
-            with open(txt_path, "w") as f:
-                for _, row in group.iterrows():
-                    # class id = 0 (only one class – pellet)
-                    cx = (row["x"] + row["w"] / 2) / row["img_w"]
-                    cy = (row["y"] + row["h"] / 2) / row["img_h"]
-                    wn = row["w"] / row["img_w"]
-                    hn = row["h"] / row["img_h"]
-                    f.write(f"0 {cx:.6f} {cy:.6f} {wn:.6f} {hn:.6f}\n")
+                for row in reader:
+                    # Parse CSV row
+                    label_name = row['label_name']
+                    bbox_x = int(row['bbox_x'])
+                    bbox_y = int(row['bbox_y'])
+                    bbox_width = int(row['bbox_width'])
+                    bbox_height = int(row['bbox_height'])
+                    image_name = row['image_name']
 
-    # ----------------------------------------------------------
-    # 2. Train (or just load a pre-trained model)
-    # ----------------------------------------------------------
-    def train(self, csv_path: str, img_folder: str, epochs: int = 30, imgsz: int = 640):
-        """Convert CSV → YOLO txt → train a fresh model."""
-        label_dir = "labels_yolo"
-        self._csv_to_yolo_txt(csv_path, img_folder, label_dir)
+                    # Load image
+                    img_path = os.path.join(images_folder, image_name)
+                    if not os.path.exists(img_path):
+                        print(f"Image not found: {img_path}")
+                        continue
 
-        # create a minimal data.yaml
-        yaml_content = f"""
-path: .
-train: {img_folder}
-val: {img_folder}
-nc: 1
-names: ['pellet']
-"""
-        Path("data.yaml").write_text(yaml_content)
+                    image = cv2.imread(img_path)
+                    if image is None:
+                        print(f"Failed to load: {img_path}")
+                        continue
 
-        # Ultralytics will create the `runs/` folder automatically
-        model = YOLO("yolov8n.pt")               # start from nano (fast)
-        model.train(data="data.yaml",
-                    epochs=epochs,
-                    imgsz=imgsz,
-                    project="runs",
-                    name="detect",
-                    exist_ok=True)
+                    # Extract pellet region with padding
+                    padding = 10
+                    x1 = max(0, bbox_x - padding)
+                    y1 = max(0, bbox_y - padding)
+                    x2 = min(image.shape[1], bbox_x + bbox_width + padding)
+                    y2 = min(image.shape[0], bbox_y + bbox_height + padding)
 
-        # keep the best weights
-        self.model_path = Path("runs/detect/train/weights/best.pt")
-        self.load_model()
-        self.is_trained = True
+                    pellet_sample = image[y1:y2, x1:x2].copy()
 
-    # ----------------------------------------------------------
-    # 3. Load a ready model (skip training if you already have one)
-    # ----------------------------------------------------------
-    def load_model(self):
-        if self.model_path.exists():
-            self.model = YOLO(str(self.model_path))
-            self.is_trained = True
-        else:
-            raise FileNotFoundError(f"Model not found: {self.model_path}")
+                    if pellet_sample.size == 0:
+                        continue
 
-    # ----------------------------------------------------------
-    # 4. Inference – returns the same dict format as the old detector
-    # ----------------------------------------------------------
-    def detect_pellets(self, image: np.ndarray):
-        if not self.is_trained:
+                    # Create rectangular mask for the bounding box
+                    mask = np.zeros(pellet_sample.shape[:2], dtype=np.uint8)
+                    mask_x = bbox_x - x1
+                    mask_y = bbox_y - y1
+                    cv2.rectangle(mask, (mask_x, mask_y),
+                                  (mask_x + bbox_width, mask_y + bbox_height), 255, -1)
+
+                    # Extract features
+                    gray_sample = cv2.cvtColor(pellet_sample, cv2.COLOR_BGR2GRAY)
+                    keypoints, descriptors = self.feature_detector.detectAndCompute(gray_sample, mask)
+
+                    if descriptors is not None and len(keypoints) > 5:
+                        # Create polygon from bounding box for consistency
+                        polygon = np.array([
+                            [bbox_x - x1, bbox_y - y1],
+                            [bbox_x - x1 + bbox_width, bbox_y - y1],
+                            [bbox_x - x1 + bbox_width, bbox_y - y1 + bbox_height],
+                            [bbox_x - x1, bbox_y - y1 + bbox_height]
+                        ], dtype=np.int32)
+
+                        self.trained_samples.append({
+                            'image': pellet_sample,
+                            'mask': mask,
+                            'gray': gray_sample,
+                            'keypoints': keypoints,
+                            'descriptors': descriptors,
+                            'size': (bbox_width, bbox_height),
+                            'polygon': polygon
+                        })
+
+            print(f"Trained with {len(self.trained_samples)} pellet samples")
+            return len(self.trained_samples) > 0
+
+        except Exception as e:
+            print(f"Error reading CSV: {e}")
+            return False
+
+    def detect_pellets(self, image):
+        """Detect pellets in a new image using learned features"""
+        if not self.trained_samples:
             return []
 
-        results = self.model(image, conf=0.25, iou=0.45, imgsz=640)[0]   # first image
-
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         detections = []
-        for box in results.boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-            conf = float(box.conf[0])
-            # YOLO gives a rectangle → treat it as polygon (4 points)
-            poly = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]], dtype=np.int32)
 
-            detections.append({
-                'bbox': (x1, y1, x2 - x1, y2 - y1),
-                'polygon': poly,
-                'confidence': conf * 100,          # keep the old scale (0-100)
-                'method': 'yolo'
-            })
+        # ---------- Feature matching ----------
+        keypoints, descriptors = self.feature_detector.detectAndCompute(gray, None)
+        if descriptors is not None:
+            bf_matcher = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+
+            for sample in self.trained_samples:
+                matches = bf_matcher.knnMatch(sample['descriptors'], descriptors, k=2)
+
+                good_matches = []
+                for match_pair in matches:
+                    if len(match_pair) == 2:
+                        m, n = match_pair
+                        if m.distance < 0.75 * n.distance:
+                            good_matches.append(m)
+
+                if len(good_matches) > 8:
+                    src_pts = np.float32([sample['keypoints'][m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+                    dst_pts = np.float32([keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+
+                    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+                    if M is not None:
+                        h, w = sample['gray'].shape
+                        pts = np.float32([[0, 0], [w, 0], [w, h], [0, h]]).reshape(-1, 1, 2)
+                        dst = cv2.perspectiveTransform(pts, M)
+
+                        x, y, w_box, h_box = cv2.boundingRect(dst.astype(np.int32))
+
+                        if w_box > 10 and h_box > 10:
+                            detections.append({
+                                'bbox': (x, y, w_box, h_box),
+                                'polygon': dst.reshape(-1, 2).astype(np.int32),
+                                'confidence': len(good_matches),
+                                'method': 'feature_matching'
+                            })
+
+        # ---------- Contour matching ----------
+        contour_detections = self.detect_by_contours(image, gray)
+        detections.extend(contour_detections)
+
+        # ---------- Non-max suppression ----------
+        detections = self.non_max_suppression(detections)
         return detections
 
+    def detect_by_contours(self, image, gray):
+        detections = []
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        thresh = cv2.adaptiveThreshold(blurred, 255,
+                                       cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                       cv2.THRESH_BINARY_INV, 11, 2)
+        kernel = np.ones((3, 3), np.uint8)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-# ==============================================================
-# <<<--- GUI (unchanged except the detector initialisation) ----
-# ==============================================================
+        if self.trained_samples:
+            avg_w = np.mean([s['size'][0] for s in self.trained_samples])
+            avg_h = np.mean([s['size'][1] for s in self.trained_samples])
+            min_area = (avg_w * avg_h) * 0.3
+            max_area = (avg_w * avg_h) * 3.0
+        else:
+            min_area = 100
+            max_area = 10000
+
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if min_area <= area <= max_area:
+                x, y, w, h = cv2.boundingRect(contour)
+                aspect = max(w, h) / min(w, h) if min(w, h) > 0 else 0
+                if 1.0 <= aspect <= 4.0:
+                    match_score = self.compare_with_samples(contour)
+                    if match_score > 0.5:
+                        detections.append({
+                            'bbox': (x, y, w, h),
+                            'polygon': contour.reshape(-1, 2),
+                            'confidence': match_score * 100,
+                            'method': 'contour_matching'
+                        })
+        return detections
+
+    def compare_with_samples(self, contour):
+        if not self.trained_samples:
+            return 0.5
+        scores = []
+        for sample in self.trained_samples[:10]:
+            sample_contour = sample['polygon'].reshape(-1, 1, 2)
+            try:
+                score = cv2.matchShapes(contour, sample_contour, cv2.CONTOURS_MATCH_I2, 0)
+                similarity = 1.0 / (1.0 + score)
+                scores.append(similarity)
+            except:
+                continue
+        return max(scores) if scores else 0.5
+
+    def non_max_suppression(self, detections, overlap_threshold=0.5):
+        if not detections:
+            return []
+        detections = sorted(detections, key=lambda x: x['confidence'], reverse=True)
+        keep = []
+        for det in detections:
+            x1, y1, w1, h1 = det['bbox']
+            duplicate = False
+            for kept in keep:
+                x2, y2, w2, h2 = kept['bbox']
+                xi1 = max(x1, x2);
+                yi1 = max(y1, y2)
+                xi2 = min(x1 + w1, x2 + w2);
+                yi2 = min(y1 + h1, y2 + h2)
+                inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+                union = w1 * h1 + w2 * h2 - inter
+                iou = inter / union if union > 0 else 0
+                if iou > overlap_threshold:
+                    duplicate = True
+                    break
+            if not duplicate:
+                keep.append(det)
+        return keep
+
+
 class PelletMeasurementApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Pellet Size Measurement System – YOLOv8")
+        self.setWindowTitle("Pellet Size Measurement System - YOLO CSV")
         self.setGeometry(100, 100, 1400, 800)
 
         # ---- configuration -------------------------------------------------
@@ -140,68 +245,61 @@ class PelletMeasurementApp(QMainWindow):
         self.current_image = None
         self.current_image_path = None
         self.detected_pellets = []
+        self.images_folder = "pellet_training/"
 
         # ---- detector -------------------------------------------------------
-        self.detector = YoloPelletDetector()
+        self.detector = PelletDetector()
         self.is_trained = False
 
         self.init_ui()
-        self.prepare_training()
+        self.load_and_train()
 
-    # --------------------------------------------------------------------- #
-    # <<<--- NEW: training from CSV (called once at start) -------------- #
-    # --------------------------------------------------------------------- #
-    def prepare_training(self):
-        csv_path = "labels_pellet.csv"
-        img_folder = "pellet_training"
-
-        if not Path(csv_path).exists():
-            QMessageBox.warning(self, "Warning", f"{csv_path} not found!")
-            return
-        if not Path(img_folder).is_dir():
-            QMessageBox.critical(self, "Error",
-                                 f"Image folder '{img_folder}' not found!")
-            return
-
-        self.progress_label.setText("Converting CSV → YOLO format …")
-        QApplication.processEvents()
-
-        try:
-            # ---- 1. Train a fresh model (you can comment this out and use a pre-trained one)
-            self.detector.train(csv_path, img_folder, epochs=35, imgsz=640)
-
-            # ---- 2. Or simply load an already trained model:
-            # self.detector.load_model()
-
-            self.is_trained = True
-            self.progress_label.setText("YOLO model ready")
-            self.load_btn.setEnabled(True)
-        except Exception as e:
-            QMessageBox.critical(self, "Training error", str(e))
-
-    # --------------------------------------------------------------------- #
-    # <<<--- exact measurement from mask (unchanged) ------------------- #
-    # --------------------------------------------------------------------- #
     def rotated_rect_dimensions(self, polygon):
+        """Return (width_px, height_px) of the rotated min-area rectangle."""
         rect = cv2.minAreaRect(polygon.astype(np.float32))
-        return rect[1]                     # (w, h) in pixels
+        return rect[1]
 
     def measure_pellet(self, polygon, pixels_per_mm):
+        """Return diameter/length in mm using the exact mask."""
         w_px, h_px = self.rotated_rect_dimensions(polygon)
+
         width_mm = w_px / pixels_per_mm
         height_mm = h_px / pixels_per_mm
+
         diameter = min(width_mm, height_mm)
         length = max(width_mm, height_mm)
 
         within = (
-            (self.target_diameter - self.tolerance <= diameter <= self.target_diameter + self.tolerance) and
-            (self.target_length - self.tolerance <= length <= self.target_length + self.tolerance)
+                (self.target_diameter - self.tolerance <= diameter <= self.target_diameter + self.tolerance) and
+                (self.target_length - self.tolerance <= length <= self.target_length + self.tolerance)
         )
         return {"diameter": diameter, "length": length, "within": within}
 
-    # --------------------------------------------------------------------- #
-    # UI (exactly the same as before – only the detector changed)
-    # --------------------------------------------------------------------- #
+    def load_and_train(self):
+        csv_path = "labels_pellet.csv"
+        if not os.path.exists(csv_path):
+            QMessageBox.warning(self, "Warning", f"{csv_path} not found!")
+            return
+
+        if not os.path.exists(self.images_folder):
+            QMessageBox.critical(self, "Error",
+                                 f"Training images folder not found!\n"
+                                 f"Create a '{self.images_folder}' folder with your labeled images.")
+            return
+
+        self.progress_label.setText("Training detector with CSV labels...")
+        QApplication.processEvents()
+
+        self.is_trained = self.detector.train_from_csv(csv_path, self.images_folder)
+
+        if self.is_trained:
+            self.progress_label.setText(f"Trained with {len(self.detector.trained_samples)} samples")
+            self.load_btn.setEnabled(True)
+        else:
+            self.progress_label.setText("Training failed - no valid samples")
+            QMessageBox.warning(self, "Training Failed",
+                                f"No valid samples found. Check {csv_path} and {self.images_folder} folder.")
+
     def init_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
@@ -218,19 +316,16 @@ class PelletMeasurementApp(QMainWindow):
         layout = QVBoxLayout()
         panel.setLayout(layout)
 
-        # training status
-        self.progress_label = QLabel("Initializing …")
+        self.progress_label = QLabel("Initializing...")
         self.progress_label.setStyleSheet("padding: 5px; background-color: #e0e0e0;")
         layout.addWidget(self.progress_label)
 
-        # load image
         self.load_btn = QPushButton("Load Pellet Image for Detection")
         self.load_btn.clicked.connect(self.load_image)
         self.load_btn.setStyleSheet("QPushButton { padding: 10px; font-size: 14px; }")
         self.load_btn.setEnabled(False)
         layout.addWidget(self.load_btn)
 
-        # calibration
         calib = QGroupBox("Calibration")
         calib_l = QVBoxLayout()
         px_l = QHBoxLayout()
@@ -246,7 +341,6 @@ class PelletMeasurementApp(QMainWindow):
         calib.setLayout(calib_l)
         layout.addWidget(calib)
 
-        # target specs
         spec = QGroupBox("Target Specifications")
         spec_l = QVBoxLayout()
         spec_l.addWidget(QLabel(f"Target Diameter: {self.target_diameter} mm"))
@@ -258,7 +352,6 @@ class PelletMeasurementApp(QMainWindow):
         spec.setLayout(spec_l)
         layout.addWidget(spec)
 
-        # statistics
         self.stats_group = QGroupBox("Detection Statistics")
         self.stats_layout = QVBoxLayout()
         self.total_label = QLabel("Total Pellets: 0")
@@ -271,7 +364,6 @@ class PelletMeasurementApp(QMainWindow):
         self.stats_group.setLayout(self.stats_layout)
         layout.addWidget(self.stats_group)
 
-        # pellet details (scrollable)
         details = QGroupBox("Pellet Details")
         details_l = QVBoxLayout()
         self.details_scroll = QScrollArea()
@@ -303,7 +395,6 @@ class PelletMeasurementApp(QMainWindow):
         layout.addWidget(scroll)
         return panel
 
-    # --------------------------------------------------------------------- #
     def load_image(self):
         if not self.is_trained:
             QMessageBox.warning(self, "Not Trained", "Train the detector first!")
@@ -314,7 +405,7 @@ class PelletMeasurementApp(QMainWindow):
             self.current_image_path = path
             self.current_image = cv2.imread(path)
             if self.current_image is not None:
-                self.progress_label.setText("Detecting pellets …")
+                self.progress_label.setText("Detecting pellets...")
                 QApplication.processEvents()
                 self.process_image()
                 self.progress_label.setText("Detection complete")
@@ -326,7 +417,6 @@ class PelletMeasurementApp(QMainWindow):
         if self.current_image is not None:
             self.process_image()
 
-    # --------------------------------------------------------------------- #
     def process_image(self):
         if self.current_image is None or not self.is_trained:
             return
@@ -337,7 +427,6 @@ class PelletMeasurementApp(QMainWindow):
 
         for idx, det in enumerate(detections, start=1):
             polygon = det['polygon']
-
             meas = self.measure_pellet(polygon, self.pixels_per_mm)
 
             pellet = {
@@ -355,8 +444,8 @@ class PelletMeasurementApp(QMainWindow):
         self.update_statistics()
         self.display_image(display_img)
 
-    # --------------------------------------------------------------------- #
     def draw_pellet(self, image, pellet):
+        """Draw only the outline + centered ID number."""
         poly = pellet['polygon']
         pid = pellet['id']
         ok = pellet['within_tolerance']
@@ -374,7 +463,6 @@ class PelletMeasurementApp(QMainWindow):
         cv2.putText(image, str(pid), (cx - 12, cy + 8),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
 
-    # --------------------------------------------------------------------- #
     def update_statistics(self):
         total = len(self.detected_pellets)
         within = sum(1 for p in self.detected_pellets if p['within_tolerance'])
@@ -426,7 +514,6 @@ class PelletMeasurementApp(QMainWindow):
         self.image_label.setMinimumSize(1, 1)
 
 
-# --------------------------------------------------------------
 def main():
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
