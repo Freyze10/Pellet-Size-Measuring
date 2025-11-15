@@ -1,7 +1,7 @@
 task: detect
 mode: train
 model: yolov8n.pt
-data: C:/Users/Brant/PycharmProjects/Pellet_Measure/pellet_label_yolo\dataset.yaml
+data: pellet_label_yolo\dataset.yaml
 epochs: 200
 time: null
 patience: 50
@@ -70,7 +70,7 @@ simplify: true
 opset: null
 workspace: null
 nms: false
-lr0: 0.01
+lr0: 0.1
 lrf: 0.01
 momentum: 0.937
 weight_decay: 0.0005

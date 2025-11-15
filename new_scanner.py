@@ -5,14 +5,14 @@ import numpy as np
 import glob
 import random
 import traceback
-import pandas as pd  # Added for robust data handling in the future
+import pandas as pd
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QFileDialog,
                              QDoubleSpinBox, QGroupBox, QScrollArea,
                              QMessageBox, QTextEdit, QSizePolicy)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
 from PyQt6.QtGui import QPixmap, QImage
-from ultralytics import YOLO  # Kept for the training/YOLO UI parts
+from ultralytics import YOLO
 
 
 # --- ROBUST IMAGE CONVERSION HELPER FUNCTION (CRASH FIX) ---
@@ -90,6 +90,7 @@ class ColorPelletDetector:
     UPPER_BLUE = np.array([140, 255, 255])
 
     # Filtering Heuristics (in pixels^2, tune based on DPI and pellet size)
+    # These are general heuristics and may need fine-tuning based on the image DPI setting
     MIN_PIXEL_AREA_THRESHOLD = 500
     MAX_PIXEL_AREA_THRESHOLD = 15000
 
@@ -152,7 +153,7 @@ class YOLOTrainingThread(QThread):
                 augment=True,
                 pretrained=True,
                 optimizer='AdamW',
-                lr0=0.01,
+                lr0=00.1,
                 cos_lr=True,
                 close_mosaic=10,
                 device='cpu',
@@ -182,7 +183,8 @@ class PelletMeasurementApp(QMainWindow):
         self.pixels_per_mm = 10.0
         self.target_diameter = 3.0
         self.target_length = 3.0
-        self.tolerance = 0.05
+        # *** FIX: Set tolerance to 0.5mm as requested (2.5mm to 3.5mm) ***
+        self.tolerance = 0.5
         self.update_ranges()
 
         # --- DATA ---
@@ -193,8 +195,8 @@ class PelletMeasurementApp(QMainWindow):
         self.is_trained = False
 
         # --- DETECTORS ---
-        self.yolo_detector = None  # Will hold the YOLO model instance
-        self.cv_detector = ColorPelletDetector()  # Immediate working detector
+        self.yolo_detector = None
+        self.cv_detector = ColorPelletDetector()
 
         # --- YOLO DATASET ---
         self.dataset_folder = "pellet_label_yolo"
@@ -461,13 +463,10 @@ class PelletMeasurementApp(QMainWindow):
 
         # --- DETECTION CHOICE ---
         if self.is_trained and (self.yolo_detector or force_yolo):
-            # Use the YOLO model if trained
-            self.status_lbl.setText("Detecting (Using YOLO)...")
-            # YOLO logic would go here, which requires more complex box-to-contour logic
-            # For simplicity, we fall back to the reliable CV method for size measurement
-            # even after YOLO detection to ensure accurate L/W.
-            QMessageBox.information(self, "YOLO Detection",
-                                    "YOLO model would run here, but is disabled for robust sizing. Using CV for L/W measurement.")
+            # NOTE: This branch is where the YOLO detection would occur.
+            # We skip the complex YOLO detection and fall back to CV contour extraction
+            # for size measurement due to the need for immediate, accurate L/W sizing.
+            self.status_lbl.setText("Detecting (YOLO trained, using CV for sizing)...")
             polygons = self.cv_detector.detect_pellets(self.current_image)
         else:
             # Use the reliable Color CV detector if YOLO is not trained/forced off
@@ -476,14 +475,11 @@ class PelletMeasurementApp(QMainWindow):
 
         # --- MEASUREMENT (Common to all successful detections) ---
         for i, poly in enumerate(polygons):
-            # Polygon is already a good, clean contour
-
             # --- Measure the actual contour (Orientation-Independent) ---
             meas = self.measure_pellet(poly, self.pixels_per_mm)
 
             pellet = {
                 'polygon': poly,
-                # bbox is only for bounding, but we use the polygon for drawing/measuring
                 'diameter': meas['diameter'],
                 'length': meas['length'],
                 'within_tolerance': meas['within'],
