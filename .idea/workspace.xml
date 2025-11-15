@@ -214,22 +214,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00022" summary="trying the labels">
-      <option name="closed" value="true" />
-      <created>1763090376802</created>
-      <option name="number" value="00022" />
-      <option name="presentableId" value="LOCAL-00022" />
-      <option name="project" value="LOCAL" />
-      <updated>1763090376802</updated>
-    </task>
-    <task id="LOCAL-00023" summary="trying the labels">
-      <option name="closed" value="true" />
-      <created>1763090381346</created>
-      <option name="number" value="00023" />
-      <option name="presentableId" value="LOCAL-00023" />
-      <option name="project" value="LOCAL" />
-      <updated>1763090381346</updated>
-    </task>
     <task id="LOCAL-00024" summary="trying the same ui with ml">
       <option name="closed" value="true" />
       <created>1763090815980</created>
@@ -606,7 +590,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763188354186</updated>
     </task>
-    <option name="localTasksCounter" value="71" />
+    <task id="LOCAL-00071" summary="fixing error">
+      <option name="closed" value="true" />
+      <created>1763188570966</created>
+      <option name="number" value="00071" />
+      <option name="presentableId" value="LOCAL-00071" />
+      <option name="project" value="LOCAL" />
+      <updated>1763188570966</updated>
+    </task>
+    <task id="LOCAL-00072" summary="fixing error image">
+      <option name="closed" value="true" />
+      <created>1763188852430</created>
+      <option name="number" value="00072" />
+      <option name="presentableId" value="LOCAL-00072" />
+      <option name="project" value="LOCAL" />
+      <updated>1763188852430</updated>
+    </task>
+    <option name="localTasksCounter" value="73" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -621,7 +621,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="modifying labeled" />
     <MESSAGE value="refactored pictures" />
     <MESSAGE value="changed images" />
     <MESSAGE value="updated scanner with ml" />
@@ -646,6 +645,7 @@
     <MESSAGE value="delete prev" />
     <MESSAGE value="trying new approach" />
     <MESSAGE value="fixing error" />
-    <option name="LAST_COMMIT_MESSAGE" value="fixing error" />
+    <MESSAGE value="fixing error image" />
+    <option name="LAST_COMMIT_MESSAGE" value="fixing error image" />
   </component>
 </project>
