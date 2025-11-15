@@ -48,6 +48,7 @@
     "Python.env.executor": "Run",
     "Python.label.executor": "Run",
     "Python.newOpencv.executor": "Run",
+    "Python.new_scanner.executor": "Run",
     "Python.scanner.executor": "Run",
     "Python.scanner_coco (1).executor": "Run",
     "Python.scanner_no_ml.executor": "Run",
@@ -76,8 +77,8 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.scanner_yolo">
-    <configuration name="label" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.new_scanner">
+    <configuration name="new_scanner" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -90,7 +91,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/label.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/new_scanner.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -189,11 +190,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.new_scanner" />
         <item itemvalue="Python.scanner_yolo" />
         <item itemvalue="Python.scanner_no_ml" />
         <item itemvalue="Python.scanner_coco (1)" />
         <item itemvalue="Python.scanner_coco" />
-        <item itemvalue="Python.label" />
       </list>
     </recent_temporary>
   </component>
@@ -212,22 +213,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00017" summary="updated instructions">
-      <option name="closed" value="true" />
-      <created>1763004669761</created>
-      <option name="number" value="00017" />
-      <option name="presentableId" value="LOCAL-00017" />
-      <option name="project" value="LOCAL" />
-      <updated>1763004669761</updated>
-    </task>
-    <task id="LOCAL-00018" summary="modified calibration and instruction">
-      <option name="closed" value="true" />
-      <created>1763005179693</created>
-      <option name="number" value="00018" />
-      <option name="presentableId" value="LOCAL-00018" />
-      <option name="project" value="LOCAL" />
-      <updated>1763005179693</updated>
     </task>
     <task id="LOCAL-00019" summary="added json file">
       <option name="closed" value="true" />
@@ -605,7 +590,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763185663903</updated>
     </task>
-    <option name="localTasksCounter" value="66" />
+    <task id="LOCAL-00066" summary="trying yolo">
+      <option name="closed" value="true" />
+      <created>1763188020050</created>
+      <option name="number" value="00066" />
+      <option name="presentableId" value="LOCAL-00066" />
+      <option name="project" value="LOCAL" />
+      <updated>1763188020050</updated>
+    </task>
+    <task id="LOCAL-00067" summary="delete prev">
+      <option name="closed" value="true" />
+      <created>1763188047336</created>
+      <option name="number" value="00067" />
+      <option name="presentableId" value="LOCAL-00067" />
+      <option name="project" value="LOCAL" />
+      <updated>1763188047336</updated>
+    </task>
+    <option name="localTasksCounter" value="68" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -620,7 +621,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updating the scanner" />
     <MESSAGE value="updating the interface" />
     <MESSAGE value="updating the scanner with label" />
     <MESSAGE value="modifying labeled" />
@@ -645,6 +645,7 @@
     <MESSAGE value="added yaml dataset" />
     <MESSAGE value="refactored dataset to label yolo" />
     <MESSAGE value="trying yolo" />
-    <option name="LAST_COMMIT_MESSAGE" value="trying yolo" />
+    <MESSAGE value="delete prev" />
+    <option name="LAST_COMMIT_MESSAGE" value="delete prev" />
   </component>
 </project>
