@@ -1,0 +1,6 @@
+path: C:\Users\Brant\PycharmProjects\Pellet_Measure\yolo_dataset
+train: images/train
+val: images/train  # Using same as train for small datasets
+
+nc: 1  # number of classes
+names: ['pellet']  # class names
