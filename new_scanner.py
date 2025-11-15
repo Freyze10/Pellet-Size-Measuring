@@ -3,11 +3,12 @@ import numpy as np
 import pandas as pd
 import json
 import os
+# Added QSizePolicy to the main import block
 from PyQt6.QtCore import (Qt, QAbstractTableModel, QModelIndex, QVariant)
 from PyQt6.QtGui import (QPixmap, QImage, QColor)
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QTableView, QHeaderView, QFileDialog, QPushButton,
-                             QSplitter, QGridLayout)
+                             QSplitter, QGridLayout, QSizePolicy)  # <-- QSizePolicy is now imported
 
 
 # --- ROBUST IMAGE LOADING HELPER FUNCTION ---
@@ -56,7 +57,7 @@ class PelletAnalyzer:
     CALIBRATION_MM = 50.0  # Assumed real-world size (e.g., width of a 50mm strip)
     CALIBRATION_HUE_RANGE = np.array([0, 0, 0]), np.array([180, 255, 100])  # Dark/Black object (low V for darkness)
     CALIBRATION_CROP = (
-    0, 0, 300, 3000)  # (x_min, y_min, x_max, y_max) to look in the far left of the image (300px wide strip)
+        0, 0, 300, 3000)  # (x_min, y_min, x_max, y_max) to look in the far left of the image (300px wide strip)
 
     def __init__(self, image_path):
         self.image_path = image_path
@@ -435,9 +436,12 @@ class MainWindow(QMainWindow):
             q_image = self._convert_cv_to_qimage(self.pellet_analyzer.image)
             pixmap = QPixmap.fromImage(q_image)
 
-            # Scaling for display
+            # Scaling for display: Use the label's current size, with a minimum fallback size.
+            width = max(self.image_label.width(), 400)
+            height = max(self.image_label.height(), 400)
+
             self.image_label.setPixmap(pixmap.scaled(
-                self.image_label.size(),
+                width, height,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             ))
@@ -485,8 +489,13 @@ class MainWindow(QMainWindow):
         # 3. Display Annotated Image
         q_image = self._convert_cv_to_qimage(self.pellet_analyzer.annotated_image)
         pixmap = QPixmap.fromImage(q_image)
+
+        # Scaling for display
+        width = max(self.image_label.width(), 400)
+        height = max(self.image_label.height(), 400)
+
         self.image_label.setPixmap(pixmap.scaled(
-            self.image_label.size(),
+            width, height,
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation
         ))
@@ -507,7 +516,8 @@ class MainWindow(QMainWindow):
             return QImage()
 
         bytes_per_line = 3 * width
-        return QImage(cv_img.data, width, height, bytes_per_line, QImage.Format.Format_BGR888)
+        # Use .copy() to ensure data stability for QImage
+        return QImage(cv_img.copy().data, width, height, bytes_per_line, QImage.Format.Format_BGR888)
 
     def save_results(self):
         if self.pellet_analyzer is None or self.pellet_analyzer.results_df.empty:
@@ -524,9 +534,6 @@ class MainWindow(QMainWindow):
 # --- MAIN EXECUTION ---
 
 if __name__ == '__main__':
-    # Add QSizePolicy for better resizing behavior in the MainWindow
-    from PyQt6.QtWidgets import QSizePolicy
-
     app = QApplication([])
     window = MainWindow()
     window.show()

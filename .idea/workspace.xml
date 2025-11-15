@@ -214,30 +214,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00019" summary="added json file">
-      <option name="closed" value="true" />
-      <created>1763088359950</created>
-      <option name="number" value="00019" />
-      <option name="presentableId" value="LOCAL-00019" />
-      <option name="project" value="LOCAL" />
-      <updated>1763088359950</updated>
-    </task>
-    <task id="LOCAL-00020" summary="added json file">
-      <option name="closed" value="true" />
-      <created>1763088365141</created>
-      <option name="number" value="00020" />
-      <option name="presentableId" value="LOCAL-00020" />
-      <option name="project" value="LOCAL" />
-      <updated>1763088365141</updated>
-    </task>
-    <task id="LOCAL-00021" summary="refactor new file">
-      <option name="closed" value="true" />
-      <created>1763088450009</created>
-      <option name="number" value="00021" />
-      <option name="presentableId" value="LOCAL-00021" />
-      <option name="project" value="LOCAL" />
-      <updated>1763088450009</updated>
-    </task>
     <task id="LOCAL-00022" summary="trying the labels">
       <option name="closed" value="true" />
       <created>1763090376802</created>
@@ -606,7 +582,31 @@
       <option name="project" value="LOCAL" />
       <updated>1763188047336</updated>
     </task>
-    <option name="localTasksCounter" value="68" />
+    <task id="LOCAL-00068" summary="trying new approach">
+      <option name="closed" value="true" />
+      <created>1763188163987</created>
+      <option name="number" value="00068" />
+      <option name="presentableId" value="LOCAL-00068" />
+      <option name="project" value="LOCAL" />
+      <updated>1763188163987</updated>
+    </task>
+    <task id="LOCAL-00069" summary="trying new approach">
+      <option name="closed" value="true" />
+      <created>1763188307026</created>
+      <option name="number" value="00069" />
+      <option name="presentableId" value="LOCAL-00069" />
+      <option name="project" value="LOCAL" />
+      <updated>1763188307026</updated>
+    </task>
+    <task id="LOCAL-00070" summary="fixing error">
+      <option name="closed" value="true" />
+      <created>1763188354186</created>
+      <option name="number" value="00070" />
+      <option name="presentableId" value="LOCAL-00070" />
+      <option name="project" value="LOCAL" />
+      <updated>1763188354186</updated>
+    </task>
+    <option name="localTasksCounter" value="71" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -621,8 +621,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updating the interface" />
-    <MESSAGE value="updating the scanner with label" />
     <MESSAGE value="modifying labeled" />
     <MESSAGE value="refactored pictures" />
     <MESSAGE value="changed images" />
@@ -646,6 +644,8 @@
     <MESSAGE value="refactored dataset to label yolo" />
     <MESSAGE value="trying yolo" />
     <MESSAGE value="delete prev" />
-    <option name="LAST_COMMIT_MESSAGE" value="delete prev" />
+    <MESSAGE value="trying new approach" />
+    <MESSAGE value="fixing error" />
+    <option name="LAST_COMMIT_MESSAGE" value="fixing error" />
   </component>
 </project>
