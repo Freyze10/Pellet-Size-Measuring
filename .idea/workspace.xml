@@ -207,22 +207,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00002" summary="init main">
-      <option name="closed" value="true" />
-      <created>1762992678086</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1762992678086</updated>
-    </task>
-    <task id="LOCAL-00003" summary="initial program">
-      <option name="closed" value="true" />
-      <created>1762994336545</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1762994336545</updated>
-    </task>
     <task id="LOCAL-00004" summary="removed extreme out of tolerance">
       <option name="closed" value="true" />
       <created>1762995173056</created>
@@ -599,7 +583,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763174314808</updated>
     </task>
-    <option name="localTasksCounter" value="51" />
+    <task id="LOCAL-00051" summary="changed pellet_training contents">
+      <option name="closed" value="true" />
+      <created>1763174427765</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1763174427765</updated>
+    </task>
+    <task id="LOCAL-00052" summary="changed pellet_training contents">
+      <option name="closed" value="true" />
+      <created>1763174435843</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1763174435843</updated>
+    </task>
+    <option name="localTasksCounter" value="53" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -614,7 +614,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updated calibration and guides" />
     <MESSAGE value="updated instructions" />
     <MESSAGE value="modified calibration and instruction" />
     <MESSAGE value="added json file" />
@@ -639,6 +638,7 @@
     <MESSAGE value="added new file Yolo model" />
     <MESSAGE value="added new files for yolo model" />
     <MESSAGE value="updated yolo" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated yolo" />
+    <MESSAGE value="changed pellet_training contents" />
+    <option name="LAST_COMMIT_MESSAGE" value="changed pellet_training contents" />
   </component>
 </project>

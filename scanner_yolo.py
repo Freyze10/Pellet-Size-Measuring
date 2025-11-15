@@ -6,299 +6,150 @@ import numpy as np
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QFileDialog,
                              QSpinBox, QDoubleSpinBox, QGroupBox, QScrollArea,
-                             QProgressBar, QMessageBox)
-from PyQt6.QtCore import Qt
+                             QProgressBar, QMessageBox, QTextEdit)
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPixmap, QImage
+from ultralytics import YOLO
+import torch
 
 
-class PelletDetector:
-    """Machine learning-like detector using labeled samples"""
+class YOLOTrainingThread(QThread):
+    """Thread for training YOLO model"""
+    progress = pyqtSignal(str)
+    finished = pyqtSignal(bool, str)
 
-    def __init__(self):
-        self.trained_samples = []
-        self.feature_detector = cv2.SIFT_create()
+    def __init__(self, dataset_yaml_path):
+        super().__init__()
+        self.dataset_yaml_path = dataset_yaml_path
 
-    def train_from_csv(self, csv_path, images_folder="pellet_training/"):
-        """Extract pellet samples from CSV labeled images"""
-        self.trained_samples = []
-
-        if not os.path.exists(csv_path):
-            print(f"CSV file not found: {csv_path}")
-            return False
-
-        if not os.path.exists(images_folder):
-            print(f"Images folder not found: {images_folder}")
-            return False
-
+    def run(self):
         try:
-            with open(csv_path, 'r') as f:
-                reader = csv.DictReader(f)
+            self.progress.emit("Initializing YOLO model...")
+            # Start with YOLOv8 nano model for faster training
+            model = YOLO('yolov8n.pt')
 
-                for row in reader:
-                    # Parse CSV row
-                    label_name = row['label_name']
-                    bbox_x = int(row['bbox_x'])
-                    bbox_y = int(row['bbox_y'])
-                    bbox_width = int(row['bbox_width'])
-                    bbox_height = int(row['bbox_height'])
-                    image_name = row['image_name']
+            self.progress.emit("Starting training... This may take several minutes.")
 
-                    # Load image
-                    img_path = os.path.join(images_folder, image_name)
-                    if not os.path.exists(img_path):
-                        print(f"Image not found: {img_path}")
-                        continue
+            # Train the model
+            results = model.train(
+                data=self.dataset_yaml_path,
+                epochs=50,
+                imgsz=640,
+                batch=8,
+                name='pellet_detector',
+                patience=10,
+                save=True,
+                device='cuda' if torch.cuda.is_available() else 'cpu'
+            )
 
-                    image = cv2.imread(img_path)
-                    if image is None:
-                        print(f"Failed to load: {img_path}")
-                        continue
-
-                    # Extract pellet region with padding
-                    padding = 10
-                    x1 = max(0, bbox_x - padding)
-                    y1 = max(0, bbox_y - padding)
-                    x2 = min(image.shape[1], bbox_x + bbox_width + padding)
-                    y2 = min(image.shape[0], bbox_y + bbox_height + padding)
-
-                    pellet_sample = image[y1:y2, x1:x2].copy()
-
-                    if pellet_sample.size == 0:
-                        continue
-
-                    # Create rectangular mask for the bounding box
-                    mask = np.zeros(pellet_sample.shape[:2], dtype=np.uint8)
-                    mask_x = bbox_x - x1
-                    mask_y = bbox_y - y1
-                    cv2.rectangle(mask, (mask_x, mask_y),
-                                  (mask_x + bbox_width, mask_y + bbox_height), 255, -1)
-
-                    # Extract features
-                    gray_sample = cv2.cvtColor(pellet_sample, cv2.COLOR_BGR2GRAY)
-                    keypoints, descriptors = self.feature_detector.detectAndCompute(gray_sample, mask)
-
-                    if descriptors is not None and len(keypoints) > 5:
-                        # Create polygon from bounding box for consistency
-                        polygon = np.array([
-                            [bbox_x - x1, bbox_y - y1],
-                            [bbox_x - x1 + bbox_width, bbox_y - y1],
-                            [bbox_x - x1 + bbox_width, bbox_y - y1 + bbox_height],
-                            [bbox_x - x1, bbox_y - y1 + bbox_height]
-                        ], dtype=np.int32)
-
-                        self.trained_samples.append({
-                            'image': pellet_sample,
-                            'mask': mask,
-                            'gray': gray_sample,
-                            'keypoints': keypoints,
-                            'descriptors': descriptors,
-                            'size': (bbox_width, bbox_height),
-                            'polygon': polygon
-                        })
-
-            print(f"Trained with {len(self.trained_samples)} pellet samples")
-            return len(self.trained_samples) > 0
+            self.progress.emit("Training completed!")
+            self.finished.emit(True, "runs/detect/pellet_detector/weights/best.pt")
 
         except Exception as e:
-            print(f"Error reading CSV: {e}")
-            return False
+            self.progress.emit(f"Training failed: {str(e)}")
+            self.finished.emit(False, str(e))
 
-    def detect_pellets(self, image):
-        """Detect pellets in a new image using learned features"""
-        if not self.trained_samples:
-            return []
 
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        detections = []
+class DatasetPreparer:
+    """Prepares YOLO format dataset from CSV"""
 
-        # ---------- Feature matching ----------
-        keypoints, descriptors = self.feature_detector.detectAndCompute(gray, None)
-        if descriptors is not None:
-            bf_matcher = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+    @staticmethod
+    def prepare_yolo_dataset(csv_path, images_folder, output_folder="yolo_dataset"):
+        """Convert CSV annotations to YOLO format"""
 
-            for sample in self.trained_samples:
-                matches = bf_matcher.knnMatch(sample['descriptors'], descriptors, k=2)
+        # Create directory structure
+        train_images = os.path.join(output_folder, "images", "train")
+        train_labels = os.path.join(output_folder, "labels", "train")
+        os.makedirs(train_images, exist_ok=True)
+        os.makedirs(train_labels, exist_ok=True)
 
-                good_matches = []
-                for match_pair in matches:
-                    if len(match_pair) == 2:
-                        m, n = match_pair
-                        if m.distance < 0.75 * n.distance:
-                            good_matches.append(m)
+        # Read CSV
+        annotations = {}
+        with open(csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                image_name = row['image_name']
+                if image_name not in annotations:
+                    annotations[image_name] = {
+                        'width': int(row['image_width']),
+                        'height': int(row['image_height']),
+                        'boxes': []
+                    }
 
-                if len(good_matches) > 8:
-                    src_pts = np.float32([sample['keypoints'][m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-                    dst_pts = np.float32([keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+                # Convert to YOLO format (normalized center x, y, width, height)
+                bbox_x = int(row['bbox_x'])
+                bbox_y = int(row['bbox_y'])
+                bbox_width = int(row['bbox_width'])
+                bbox_height = int(row['bbox_height'])
+                img_width = int(row['image_width'])
+                img_height = int(row['image_height'])
 
-                    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-                    if M is not None:
-                        h, w = sample['gray'].shape
-                        pts = np.float32([[0, 0], [w, 0], [w, h], [0, h]]).reshape(-1, 1, 2)
-                        dst = cv2.perspectiveTransform(pts, M)
+                # Calculate center coordinates
+                center_x = (bbox_x + bbox_width / 2) / img_width
+                center_y = (bbox_y + bbox_height / 2) / img_height
+                norm_width = bbox_width / img_width
+                norm_height = bbox_height / img_height
 
-                        x, y, w_box, h_box = cv2.boundingRect(dst.astype(np.int32))
+                annotations[image_name]['boxes'].append(
+                    f"0 {center_x:.6f} {center_y:.6f} {norm_width:.6f} {norm_height:.6f}"
+                )
 
-                        if w_box > 10 and h_box > 10:
-                            detections.append({
-                                'bbox': (x, y, w_box, h_box),
-                                'polygon': dst.reshape(-1, 2).astype(np.int32),
-                                'confidence': len(good_matches),
-                                'method': 'feature_matching'
-                            })
+        # Copy images and create label files
+        copied_count = 0
+        for image_name, data in annotations.items():
+            src_image = os.path.join(images_folder, image_name)
+            if os.path.exists(src_image):
+                # Copy image
+                dst_image = os.path.join(train_images, image_name)
+                import shutil
+                shutil.copy(src_image, dst_image)
 
-        # ---------- Contour matching ----------
-        contour_detections = self.detect_by_contours(image, gray)
-        detections.extend(contour_detections)
+                # Create label file
+                label_name = os.path.splitext(image_name)[0] + '.txt'
+                label_path = os.path.join(train_labels, label_name)
+                with open(label_path, 'w') as f:
+                    f.write('\n'.join(data['boxes']))
 
-        # ---------- Non-max suppression ----------
-        detections = self.non_max_suppression(detections)
-        return detections
+                copied_count += 1
 
-    def detect_by_contours(self, image, gray):
-        detections = []
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        thresh = cv2.adaptiveThreshold(blurred, 255,
-                                       cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                       cv2.THRESH_BINARY_INV, 11, 2)
-        kernel = np.ones((3, 3), np.uint8)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Create dataset.yaml
+        yaml_content = f"""path: {os.path.abspath(output_folder)}
+train: images/train
+val: images/train  # Using same as train for small datasets
 
-        if self.trained_samples:
-            avg_w = np.mean([s['size'][0] for s in self.trained_samples])
-            avg_h = np.mean([s['size'][1] for s in self.trained_samples])
-            min_area = (avg_w * avg_h) * 0.3
-            max_area = (avg_w * avg_h) * 3.0
-        else:
-            min_area = 100
-            max_area = 10000
+nc: 1  # number of classes
+names: ['pellet']  # class names
+"""
+        yaml_path = os.path.join(output_folder, "dataset.yaml")
+        with open(yaml_path, 'w') as f:
+            f.write(yaml_content)
 
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if min_area <= area <= max_area:
-                x, y, w, h = cv2.boundingRect(contour)
-                aspect = max(w, h) / min(w, h) if min(w, h) > 0 else 0
-                if 1.0 <= aspect <= 4.0:
-                    match_score = self.compare_with_samples(contour)
-                    if match_score > 0.5:
-                        detections.append({
-                            'bbox': (x, y, w, h),
-                            'polygon': contour.reshape(-1, 2),
-                            'confidence': match_score * 100,
-                            'method': 'contour_matching'
-                        })
-        return detections
-
-    def compare_with_samples(self, contour):
-        if not self.trained_samples:
-            return 0.5
-        scores = []
-        for sample in self.trained_samples[:10]:
-            sample_contour = sample['polygon'].reshape(-1, 1, 2)
-            try:
-                score = cv2.matchShapes(contour, sample_contour, cv2.CONTOURS_MATCH_I2, 0)
-                similarity = 1.0 / (1.0 + score)
-                scores.append(similarity)
-            except:
-                continue
-        return max(scores) if scores else 0.5
-
-    def non_max_suppression(self, detections, overlap_threshold=0.5):
-        if not detections:
-            return []
-        detections = sorted(detections, key=lambda x: x['confidence'], reverse=True)
-        keep = []
-        for det in detections:
-            x1, y1, w1, h1 = det['bbox']
-            duplicate = False
-            for kept in keep:
-                x2, y2, w2, h2 = kept['bbox']
-                xi1 = max(x1, x2);
-                yi1 = max(y1, y2)
-                xi2 = min(x1 + w1, x2 + w2);
-                yi2 = min(y1 + h1, y2 + h2)
-                inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
-                union = w1 * h1 + w2 * h2 - inter
-                iou = inter / union if union > 0 else 0
-                if iou > overlap_threshold:
-                    duplicate = True
-                    break
-            if not duplicate:
-                keep.append(det)
-        return keep
+        return yaml_path, copied_count
 
 
 class PelletMeasurementApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Pellet Size Measurement System - YOLO CSV")
-        self.setGeometry(100, 100, 1400, 800)
+        self.setWindowTitle("Pellet Size Measurement System - YOLO ML")
+        self.setGeometry(100, 100, 1400, 900)
 
-        # ---- configuration -------------------------------------------------
+        # Configuration
         self.pixels_per_mm = 10.0
         self.target_diameter = 3.0
         self.target_length = 3.0
         self.tolerance = 0.5
 
-        # ---- data -----------------------------------------------------------
+        # Data
         self.current_image = None
         self.current_image_path = None
         self.detected_pellets = []
-        self.images_folder = "pellet_training/"
-
-        # ---- detector -------------------------------------------------------
-        self.detector = PelletDetector()
+        self.model = None
         self.is_trained = False
 
+        self.images_folder = "pellet_training/"
+        self.csv_path = "labels_pellet.csv"
+
         self.init_ui()
-        self.load_and_train()
-
-    def rotated_rect_dimensions(self, polygon):
-        """Return (width_px, height_px) of the rotated min-area rectangle."""
-        rect = cv2.minAreaRect(polygon.astype(np.float32))
-        return rect[1]
-
-    def measure_pellet(self, polygon, pixels_per_mm):
-        """Return diameter/length in mm using the exact mask."""
-        w_px, h_px = self.rotated_rect_dimensions(polygon)
-
-        width_mm = w_px / pixels_per_mm
-        height_mm = h_px / pixels_per_mm
-
-        diameter = min(width_mm, height_mm)
-        length = max(width_mm, height_mm)
-
-        within = (
-                (self.target_diameter - self.tolerance <= diameter <= self.target_diameter + self.tolerance) and
-                (self.target_length - self.tolerance <= length <= self.target_length + self.tolerance)
-        )
-        return {"diameter": diameter, "length": length, "within": within}
-
-    def load_and_train(self):
-        csv_path = "labels_pellet.csv"
-        if not os.path.exists(csv_path):
-            QMessageBox.warning(self, "Warning", f"{csv_path} not found!")
-            return
-
-        if not os.path.exists(self.images_folder):
-            QMessageBox.critical(self, "Error",
-                                 f"Training images folder not found!\n"
-                                 f"Create a '{self.images_folder}' folder with your labeled images.")
-            return
-
-        self.progress_label.setText("Training detector with CSV labels...")
-        QApplication.processEvents()
-
-        self.is_trained = self.detector.train_from_csv(csv_path, self.images_folder)
-
-        if self.is_trained:
-            self.progress_label.setText(f"Trained with {len(self.detector.trained_samples)} samples")
-            self.load_btn.setEnabled(True)
-        else:
-            self.progress_label.setText("Training failed - no valid samples")
-            QMessageBox.warning(self, "Training Failed",
-                                f"No valid samples found. Check {csv_path} and {self.images_folder} folder.")
 
     def init_ui(self):
         central = QWidget()
@@ -316,16 +167,38 @@ class PelletMeasurementApp(QMainWindow):
         layout = QVBoxLayout()
         panel.setLayout(layout)
 
-        self.progress_label = QLabel("Initializing...")
-        self.progress_label.setStyleSheet("padding: 5px; background-color: #e0e0e0;")
-        layout.addWidget(self.progress_label)
+        # Training section
+        train_group = QGroupBox("Model Training")
+        train_layout = QVBoxLayout()
 
-        self.load_btn = QPushButton("Load Pellet Image for Detection")
+        self.train_btn = QPushButton("Train YOLO Model")
+        self.train_btn.clicked.connect(self.start_training)
+        self.train_btn.setStyleSheet(
+            "QPushButton { padding: 10px; font-size: 14px; background-color: #4CAF50; color: white; }")
+        train_layout.addWidget(self.train_btn)
+
+        self.training_status = QLabel("Status: Ready to train")
+        self.training_status.setStyleSheet("padding: 5px; background-color: #e0e0e0;")
+        self.training_status.setWordWrap(True)
+        train_layout.addWidget(self.training_status)
+
+        self.training_log = QTextEdit()
+        self.training_log.setMaximumHeight(150)
+        self.training_log.setReadOnly(True)
+        train_layout.addWidget(QLabel("Training Log:"))
+        train_layout.addWidget(self.training_log)
+
+        train_group.setLayout(train_layout)
+        layout.addWidget(train_group)
+
+        # Detection section
+        self.load_btn = QPushButton("Load Image for Detection")
         self.load_btn.clicked.connect(self.load_image)
         self.load_btn.setStyleSheet("QPushButton { padding: 10px; font-size: 14px; }")
         self.load_btn.setEnabled(False)
         layout.addWidget(self.load_btn)
 
+        # Calibration
         calib = QGroupBox("Calibration")
         calib_l = QVBoxLayout()
         px_l = QHBoxLayout()
@@ -341,6 +214,7 @@ class PelletMeasurementApp(QMainWindow):
         calib.setLayout(calib_l)
         layout.addWidget(calib)
 
+        # Target specs
         spec = QGroupBox("Target Specifications")
         spec_l = QVBoxLayout()
         spec_l.addWidget(QLabel(f"Target Diameter: {self.target_diameter} mm"))
@@ -352,6 +226,7 @@ class PelletMeasurementApp(QMainWindow):
         spec.setLayout(spec_l)
         layout.addWidget(spec)
 
+        # Statistics
         self.stats_group = QGroupBox("Detection Statistics")
         self.stats_layout = QVBoxLayout()
         self.total_label = QLabel("Total Pellets: 0")
@@ -364,6 +239,7 @@ class PelletMeasurementApp(QMainWindow):
         self.stats_group.setLayout(self.stats_layout)
         layout.addWidget(self.stats_group)
 
+        # Pellet details
         details = QGroupBox("Pellet Details")
         details_l = QVBoxLayout()
         self.details_scroll = QScrollArea()
@@ -384,7 +260,7 @@ class PelletMeasurementApp(QMainWindow):
         layout = QVBoxLayout()
         panel.setLayout(layout)
 
-        self.image_label = QLabel("Train the model first, then load an image")
+        self.image_label = QLabel("Train the YOLO model first, then load an image for detection")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setStyleSheet("border: 2px solid #ccc; background-color: #f0f0f0;")
         self.image_label.setMinimumSize(800, 600)
@@ -395,20 +271,82 @@ class PelletMeasurementApp(QMainWindow):
         layout.addWidget(scroll)
         return panel
 
-    def load_image(self):
-        if not self.is_trained:
-            QMessageBox.warning(self, "Not Trained", "Train the detector first!")
+    def start_training(self):
+        """Start YOLO model training"""
+        if not os.path.exists(self.csv_path):
+            QMessageBox.critical(self, "Error", f"CSV file not found: {self.csv_path}")
             return
+
+        if not os.path.exists(self.images_folder):
+            QMessageBox.critical(self, "Error", f"Images folder not found: {self.images_folder}")
+            return
+
+        self.train_btn.setEnabled(False)
+        self.training_status.setText("Preparing dataset...")
+        self.training_log.append("Starting dataset preparation...")
+
+        try:
+            # Prepare YOLO dataset
+            yaml_path, count = DatasetPreparer.prepare_yolo_dataset(
+                self.csv_path, self.images_folder
+            )
+            self.training_log.append(f"Dataset prepared: {count} images")
+            self.training_status.setText(f"Dataset ready. Training on {count} images...")
+
+            # Start training in separate thread
+            self.training_thread = YOLOTrainingThread(yaml_path)
+            self.training_thread.progress.connect(self.on_training_progress)
+            self.training_thread.finished.connect(self.on_training_finished)
+            self.training_thread.start()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Dataset preparation failed: {str(e)}")
+            self.train_btn.setEnabled(True)
+
+    def on_training_progress(self, message):
+        """Update training progress"""
+        self.training_log.append(message)
+        self.training_status.setText(message)
+
+    def on_training_finished(self, success, result):
+        """Handle training completion"""
+        self.train_btn.setEnabled(True)
+
+        if success:
+            self.training_log.append(f"Training completed! Model saved at: {result}")
+            self.training_status.setText("Training completed successfully!")
+
+            # Load the trained model
+            try:
+                self.model = YOLO(result)
+                self.is_trained = True
+                self.load_btn.setEnabled(True)
+                QMessageBox.information(self, "Success",
+                                        "Model training completed!\nYou can now load images for detection.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to load trained model: {str(e)}")
+        else:
+            self.training_log.append(f"Training failed: {result}")
+            self.training_status.setText("Training failed!")
+            QMessageBox.critical(self, "Error", f"Training failed: {result}")
+
+    def load_image(self):
+        """Load image for detection"""
+        if not self.is_trained:
+            QMessageBox.warning(self, "Not Trained", "Train the model first!")
+            return
+
         path, _ = QFileDialog.getOpenFileName(
             self, "Select Pellet Image", "", "Image Files (*.png *.jpg *.jpeg *.bmp)")
+
         if path:
             self.current_image_path = path
             self.current_image = cv2.imread(path)
             if self.current_image is not None:
-                self.progress_label.setText("Detecting pellets...")
+                self.training_status.setText("Detecting pellets...")
                 QApplication.processEvents()
                 self.process_image()
-                self.progress_label.setText("Detection complete")
+                self.training_status.setText("Detection complete")
             else:
                 self.image_label.setText("Error loading image")
 
@@ -418,45 +356,86 @@ class PelletMeasurementApp(QMainWindow):
             self.process_image()
 
     def process_image(self):
+        """Detect pellets using YOLO and measure them"""
         if self.current_image is None or not self.is_trained:
             return
 
-        detections = self.detector.detect_pellets(self.current_image)
+        # Run YOLO detection
+        results = self.model(self.current_image, conf=0.25)
+
         display_img = self.current_image.copy()
         self.detected_pellets = []
 
-        for idx, det in enumerate(detections, start=1):
-            polygon = det['polygon']
-            meas = self.measure_pellet(polygon, self.pixels_per_mm)
+        # Process each detection
+        for result in results:
+            boxes = result.boxes
+            for idx, box in enumerate(boxes):
+                # Get bounding box coordinates
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                confidence = box.conf[0].cpu().numpy()
 
-            pellet = {
-                'polygon': polygon,
-                'bbox': det['bbox'],
-                'diameter': meas['diameter'],
-                'length': meas['length'],
-                'within_tolerance': meas['within'],
-                'confidence': det['confidence'],
-                'id': idx
-            }
-            self.detected_pellets.append(pellet)
-            self.draw_pellet(display_img, pellet)
+                # Create polygon from bounding box
+                polygon = np.array([
+                    [x1, y1],
+                    [x2, y1],
+                    [x2, y2],
+                    [x1, y2]
+                ], dtype=np.int32)
+
+                # Measure the detected pellet
+                meas = self.measure_pellet(polygon, self.pixels_per_mm)
+
+                pellet = {
+                    'polygon': polygon,
+                    'bbox': (int(x1), int(y1), int(x2 - x1), int(y2 - y1)),
+                    'diameter': meas['diameter'],
+                    'length': meas['length'],
+                    'within_tolerance': meas['within'],
+                    'confidence': float(confidence) * 100,
+                    'id': idx + 1
+                }
+                self.detected_pellets.append(pellet)
+                self.draw_pellet(display_img, pellet)
 
         self.update_statistics()
         self.display_image(display_img)
 
+    def measure_pellet(self, polygon, pixels_per_mm):
+        """Measure pellet dimensions from detected polygon"""
+        # Get rotated rectangle
+        rect = cv2.minAreaRect(polygon.astype(np.float32))
+        width_px, height_px = rect[1]
+
+        # Convert to mm
+        width_mm = width_px / pixels_per_mm
+        height_mm = height_px / pixels_per_mm
+
+        diameter = min(width_mm, height_mm)
+        length = max(width_mm, height_mm)
+
+        within = (
+                (self.target_diameter - self.tolerance <= diameter <= self.target_diameter + self.tolerance) and
+                (self.target_length - self.tolerance <= length <= self.target_length + self.tolerance)
+        )
+
+        return {"diameter": diameter, "length": length, "within": within}
+
     def draw_pellet(self, image, pellet):
-        """Draw only the outline + centered ID number."""
+        """Draw detection on image"""
         poly = pellet['polygon']
         pid = pellet['id']
         ok = pellet['within_tolerance']
         colour = (0, 255, 0) if ok else (0, 0, 255)
 
+        # Semi-transparent fill
         overlay = image.copy()
         cv2.fillPoly(overlay, [poly.reshape(-1, 1, 2)], colour)
         cv2.addWeighted(overlay, 0.25, image, 0.75, 0, image)
 
+        # Thick outline
         cv2.polylines(image, [poly.reshape(-1, 1, 2)], True, colour, 2)
 
+        # Centered number
         M = cv2.moments(poly)
         cx = int(M["m10"] / M["m00"]) if M["m00"] != 0 else int(poly[:, 0].mean())
         cy = int(M["m01"] / M["m00"]) if M["m00"] != 0 else int(poly[:, 1].mean())
@@ -494,7 +473,7 @@ class PelletMeasurementApp(QMainWindow):
             txt = (f"Pellet {i}:\n"
                    f"  Diameter: {p['diameter']:.2f} mm\n"
                    f"  Length:   {p['length']:.2f} mm\n"
-                   f"  Confidence: {p['confidence']:.0f}\n"
+                   f"  Confidence: {p['confidence']:.1f}%\n"
                    f"  Status: {'OK' if p['within_tolerance'] else 'Out'}")
             lbl = QLabel(txt)
             lbl.setStyleSheet(
