@@ -71,7 +71,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.scanner_no_ml">
+  <component name="RunManager" selected="Python.scanner_yolo">
     <configuration name="label" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -184,8 +184,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.scanner_no_ml" />
         <item itemvalue="Python.scanner_yolo" />
+        <item itemvalue="Python.scanner_no_ml" />
         <item itemvalue="Python.scanner_coco (1)" />
         <item itemvalue="Python.scanner_coco" />
         <item itemvalue="Python.label" />
@@ -207,22 +207,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00008" summary="testing cv2 only">
-      <option name="closed" value="true" />
-      <created>1763000242049</created>
-      <option name="number" value="00008" />
-      <option name="presentableId" value="LOCAL-00008" />
-      <option name="project" value="LOCAL" />
-      <updated>1763000242049</updated>
-    </task>
-    <task id="LOCAL-00009" summary="changed the calibration px">
-      <option name="closed" value="true" />
-      <created>1763001002802</created>
-      <option name="number" value="00009" />
-      <option name="presentableId" value="LOCAL-00009" />
-      <option name="project" value="LOCAL" />
-      <updated>1763001002802</updated>
     </task>
     <task id="LOCAL-00010" summary="modified the runtime">
       <option name="closed" value="true" />
@@ -600,7 +584,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763184001700</updated>
     </task>
-    <option name="localTasksCounter" value="57" />
+    <task id="LOCAL-00057" summary="changed .cvs to yoolo format">
+      <option name="closed" value="true" />
+      <created>1763184605822</created>
+      <option name="number" value="00057" />
+      <option name="presentableId" value="LOCAL-00057" />
+      <option name="project" value="LOCAL" />
+      <updated>1763184605822</updated>
+    </task>
+    <task id="LOCAL-00058" summary="added yolo to files">
+      <option name="closed" value="true" />
+      <created>1763184649152</created>
+      <option name="number" value="00058" />
+      <option name="presentableId" value="LOCAL-00058" />
+      <option name="project" value="LOCAL" />
+      <updated>1763184649152</updated>
+    </task>
+    <option name="localTasksCounter" value="59" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -615,8 +615,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added json file" />
-    <MESSAGE value="refactor new file" />
     <MESSAGE value="trying the labels" />
     <MESSAGE value="trying the same ui with ml" />
     <MESSAGE value="added scanner" />
@@ -640,6 +638,8 @@
     <MESSAGE value="changed pellet_training contents" />
     <MESSAGE value="updating py" />
     <MESSAGE value="modifying yolo model" />
-    <option name="LAST_COMMIT_MESSAGE" value="modifying yolo model" />
+    <MESSAGE value="changed .cvs to yoolo format" />
+    <MESSAGE value="added yolo to files" />
+    <option name="LAST_COMMIT_MESSAGE" value="added yolo to files" />
   </component>
 </project>
