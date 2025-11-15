@@ -1,7 +1,6 @@
-# dataset.yaml
-path: ./pellet_label_yolo          # Root folder (relative to scanner_yolo.py)
-train: images/train                # Training images
-val: images/train                  # Using same set for validation (small dataset)
+path: ./pellet_label_yolo
+train: images/train
+val: images/train
 
-nc: 1                              # Number of classes
-names: ['pellet']                  # Class name
+nc: 1
+names: ['pellet']
