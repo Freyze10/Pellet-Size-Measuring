@@ -137,7 +137,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="scanner" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="scanner_coco" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -150,7 +150,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/scanner.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\Brant\PycharmProjects\Pellet_Measure\scanner_coco.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -184,7 +184,7 @@
     <recent_temporary>
       <list>
         <item itemvalue="Python.scanner_no_ml" />
-        <item itemvalue="Python.scanner" />
+        <item itemvalue="Python.scanner_coco" />
         <item itemvalue="Python.label" />
         <item itemvalue="Python.newOpencv" />
         <item itemvalue="Python.env" />
@@ -567,7 +567,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763110950585</updated>
     </task>
-    <option name="localTasksCounter" value="46" />
+    <task id="LOCAL-00046" summary="changed initial pixel to 10">
+      <option name="closed" value="true" />
+      <created>1763172918465</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1763172918465</updated>
+    </task>
+    <task id="LOCAL-00047" summary="renamed scanner">
+      <option name="closed" value="true" />
+      <created>1763173295408</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1763173295408</updated>
+    </task>
+    <option name="localTasksCounter" value="48" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -582,8 +598,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="modified the runtime" />
-    <MESSAGE value="changed the status message" />
     <MESSAGE value="modified status" />
     <MESSAGE value="added live calibration" />
     <MESSAGE value="updated arrow up and down for calib" />
@@ -607,6 +621,8 @@
     <MESSAGE value="modifying label" />
     <MESSAGE value="use scikitlearn" />
     <MESSAGE value="working recognition" />
-    <option name="LAST_COMMIT_MESSAGE" value="working recognition" />
+    <MESSAGE value="changed initial pixel to 10" />
+    <MESSAGE value="renamed scanner" />
+    <option name="LAST_COMMIT_MESSAGE" value="renamed scanner" />
   </component>
 </project>
