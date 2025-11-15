@@ -1,73 +1,27 @@
 import sys
+import json
+import os
 import cv2
 import numpy as np
-import os
-from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QLineEdit, QFileDialog, QMessageBox, QScrollArea,
-    QSizePolicy
-)
-from PyQt6.QtGui import QPixmap, QImage, QDoubleValidator
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
+                             QHBoxLayout, QPushButton, QLabel, QFileDialog,
+                             QSpinBox, QDoubleSpinBox, QGroupBox, QScrollArea,
+                             QProgressBar, QMessageBox, QSizePolicy)  # QSizePolicy added
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap, QImage
 
 
-# --- ROBUST IMAGE CONVERSION HELPER FUNCTION (CRASH FIX) ---
-
-def cv_to_qpixmap(cv_img, target_size=None):
-    """
-    Converts an OpenCV BGR/Grayscale image (numpy array) to a PyQt6 QPixmap.
-    This version explicitly converts to RGB and makes a C-contiguous copy for QImage stability.
-    """
-    if cv_img is None:
-        return QPixmap()
-
-    # 1. Handle Color/Channel Conversion and prepare for QImage
-    if len(cv_img.shape) == 3:
-        # Convert BGR to RGB (Qt expects RGB for Format_RGB888)
-        rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb_image.shape
-        bytes_per_line = ch * w
-        format = QImage.Format.Format_RGB888
-        data_to_pass = rgb_image
-    elif len(cv_img.shape) == 2:
-        # Grayscale
-        h, w = cv_img.shape
-        bytes_per_line = w
-        format = QImage.Format.Format_Grayscale8
-        data_to_pass = cv_img
-    else:
-        return QPixmap()  # Unsupported format
-
-    # CRITICAL FIX: Explicitly create a C-contiguous array copy.
-    contiguous_data = data_to_pass.copy(order='C')
-
-    convert_to_Qt_format = QImage(
-        contiguous_data.data,
-        w,
-        h,
-        bytes_per_line,
-        format
-    )
-
-    qpixmap = QPixmap.fromImage(convert_to_Qt_format)
-
-    if target_size and not target_size.isNull():
-        return qpixmap.scaled(
-            target_size,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
-        )
-    return qpixmap
-
-
-# --- Helper Function for Safe File Load ---
+# --- ROBUST IMAGE LOADING HELPER FUNCTION (For crash prevention) ---
 def cv2_safe_imread(path):
     """
-    Reads an image using cv2.imdecode to handle file path/encoding issues.
+    Reads an image using cv2.imdecode to handle file path/encoding issues that
+    can occur with cv2.imread and user file dialog paths, especially with JPEGs.
     """
     try:
+        # 1. Read the file data as a raw byte array
         with open(path, 'rb') as f:
             data = f.read()
+        # 2. Decode the byte array into an OpenCV image (NumPy array)
         np_arr = np.frombuffer(data, np.uint8)
         img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         return img
@@ -76,216 +30,463 @@ def cv2_safe_imread(path):
         return None
 
 
-# --- Main Application Window ---
+# ----------------------------------------------------------------------
 
-class PelletAnalyzer(QMainWindow):
+
+# ----------------------------------------------------------------------
+# Core Heuristic Parameters from Camera Script
+# ----------------------------------------------------------------------
+DEFAULT_PIXELS_PER_MM = 10.0
+DEFAULT_TARGET_DIAMETER = 3.0
+DEFAULT_TARGET_LENGTH = 3.0
+DEFAULT_TOLERANCE = 0.05  # Reduced tolerance for the 3.0mm specification
+MIN_CONTOUR_AREA_HEURISTIC = 100
+MAX_CONTOUR_AREA_HEURISTIC = 10000
+
+# HSV Color Range for the Blue Pellets (Optimized for the sample image)
+LOWER_BLUE = np.array([100, 150, 50])
+UPPER_BLUE = np.array([140, 255, 255])
+
+
+class PelletDetector:
+    """Contour-based detector using geometric heuristics and **color filtering**."""
+
+    def __init__(self, min_area=MIN_CONTOUR_AREA_HEURISTIC, max_area=MAX_CONTOUR_AREA_HEURISTIC, aspect_ratio_max=4.0):
+        self.min_area = min_area
+        self.max_area = max_area
+        self.aspect_ratio_max = aspect_ratio_max
+
+    def train_from_coco(self, coco_data, images_folder=""):
+        """Dummy method - no training is performed in this version."""
+        print("Detector uses heuristics, no training required.")
+        return True
+
+    def detect_pellets(self, image):
+        """
+        Detect pellets using robust HSV color thresholding instead of generic
+        adaptive thresholding to better handle the scanned image background.
+        """
+        # 1. Convert to HSV for color-based segmentation
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+        # 2. Create a mask for the blue pellets
+        mask = cv2.inRange(hsv, LOWER_BLUE, UPPER_BLUE)
+
+        # 3. Clean up the mask using morphology (Closing operation)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        processed_mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+
+        # 4. Find contours
+        contours, _ = cv2.findContours(processed_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        detections = []
+
+        # Filtering contours based on size and shape limits
+        for contour in contours:
+            area = cv2.contourArea(contour)
+
+            # 1. Area filtering
+            if self.min_area <= area <= self.max_area:
+
+                # Get the minimum area bounding box for accurate L/W regardless of rotation
+                rect = cv2.minAreaRect(contour)
+                w, h = rect[1]
+
+                # Aspect Ratio filtering (L/W)
+                aspect = max(w, h) / min(w, h) if min(w, h) > 0 else 0
+
+                if 1.0 <= aspect <= self.aspect_ratio_max:
+                    # Use the standard bounding rect for the bbox output (simpler for display)
+                    x, y, w_box, h_box = cv2.boundingRect(contour)
+                    match_score = 0.95
+
+                    detections.append({
+                        'bbox': (x, y, w_box, h_box),
+                        'polygon': contour.reshape(-1, 2),
+                        'confidence': match_score * 100,
+                        'method': 'color_contour'
+                    })
+
+        # Non-max suppression still useful to clean up multiple hits
+        detections = self.non_max_suppression(detections)
+        return detections
+
+    # non_max_suppression remains unchanged
+    def non_max_suppression(self, detections, overlap_threshold=0.5):
+        if not detections:
+            return []
+        detections = sorted(detections, key=lambda x: x['confidence'], reverse=True)
+        keep = []
+        for det in detections:
+            x1, y1, w1, h1 = det['bbox']
+            duplicate = False
+            for kept in keep:
+                x2, y2, w2, h2 = kept['bbox']
+                xi1 = max(x1, x2);
+                yi1 = max(y1, y2)
+                xi2 = min(x1 + w1, x2 + w2);
+                yi2 = min(y1 + h1, y2 + h2)
+                inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+                union = w1 * h1 + w2 * h2 - inter
+                iou = inter / union if union > 0 else 0
+                if iou > overlap_threshold:
+                    duplicate = True
+                    break
+            if not duplicate:
+                keep.append(det)
+        return keep
+
+
+# =============================================================================
+class PelletMeasurementApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Pellet Size Analyzer (Minimum Area Bounding Box Mode)")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setWindowTitle("Pellet Size Measurement System - Orientation-Independent Measurement")
+        self.setGeometry(100, 100, 1400, 800)
 
-        self.raw_image = None
-        self.PPM = 0.0  # Pixels Per Millimeter
+        # ---- configuration: Using Camera Script Defaults --------------------
+        self.pixels_per_mm = DEFAULT_PIXELS_PER_MM
+        self.target_diameter = DEFAULT_TARGET_DIAMETER
+        self.target_length = DEFAULT_TARGET_LENGTH
+        self.tolerance = DEFAULT_TOLERANCE
+        self.diameter_min, self.diameter_max = 0, 0
+        self.length_min, self.length_max = 0, 0
+        self.update_ranges()
+
+        # ---- data -----------------------------------------------------------
+        self.current_image = None
+        self.current_image_path = None
+        self.detected_pellets = []
+
+        # ---- detector -------------------------------------------------------
+        self.detector = PelletDetector()
+        self.is_trained = True  # Always True for heuristic-based detector
 
         self.init_ui()
 
+    def update_ranges(self):
+        """Recalculate tolerance ranges based on current settings."""
+        self.diameter_min = self.target_diameter - self.tolerance
+        self.diameter_max = self.target_diameter + self.tolerance
+        self.length_min = self.target_length - self.tolerance
+        self.length_max = self.target_length + self.tolerance
+
+    # Rotated and measure methods (Orientation-Independent Measurement)
+    def rotated_rect_dimensions(self, polygon):
+        """Return (width_px, height_px) of the rotated min-area rectangle."""
+        # Note: cv2.minAreaRect is the key to orientation-independent measurement.
+        # It finds the smallest bounding box, giving accurate L/W.
+        rect = cv2.minAreaRect(polygon.astype(np.float32))  # ((cx,cy),(w,h),angle)
+        return rect[1]  # (w, h)
+
+    def measure_pellet(self, polygon, pixels_per_mm):
+        """Return diameter/length in mm using the exact mask."""
+        w_px, h_px = self.rotated_rect_dimensions(polygon)
+
+        width_mm = w_px / pixels_per_mm
+        height_mm = h_px / pixels_per_mm
+
+        # For a cylindrical pellet:
+        # Diameter is the smaller dimension (min)
+        # Length is the larger dimension (max)
+        diameter = min(width_mm, height_mm)
+        length = max(width_mm, height_mm)
+
+        # Check tolerance for both dimensions
+        within = (
+                (self.diameter_min <= diameter <= self.diameter_max) and
+                (self.length_min <= length <= self.length_max)
+        )
+
+        # Determine status string
+        if within:
+            status = "IN RANGE"
+        elif diameter < self.diameter_min or length < self.length_min:
+            status = "UNDERSIZED"
+        elif diameter > self.diameter_max or length > self.length_max:
+            status = "OVERSIZED"
+        else:
+            status = "OUT OF SPEC"
+
+        return {"diameter": diameter, "length": length, "within": within, "status": status}
+
+    # --------------------------------------------------------------------- #
+
+    # --------------------------------------------------------------------- #
+    # UI (Modified to reflect non-training status and use current ranges)
+    # --------------------------------------------------------------------- #
     def init_ui(self):
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+        central = QWidget()
+        self.setCentralWidget(central)
+        main_layout = QHBoxLayout()
+        central.setLayout(main_layout)
 
-        main_layout = QHBoxLayout(central_widget)
+        left = self.create_left_panel()
+        right = self.create_right_panel()
+        main_layout.addWidget(left, 1)
+        main_layout.addWidget(right, 3)
 
-        # --- Left Panel: Controls and Results ---
-        control_panel = QWidget()
-        control_layout = QVBoxLayout(control_panel)
-        control_panel.setMaximumWidth(300)
-        control_panel.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+    def create_left_panel(self):
+        panel = QWidget()
+        layout = QVBoxLayout()
+        panel.setLayout(layout)
 
-        self.load_btn = QPushButton("Load Scanned Image")
+        # ---- status label ----------------------------------------
+        self.progress_label = QLabel("Detector initialized with color-based heuristics.")
+        self.progress_label.setStyleSheet("padding: 5px; background-color: #e0e0e0;")
+        layout.addWidget(self.progress_label)
+
+        # ---- load image ------------------------------------------------
+        self.load_btn = QPushButton("Load Pellet Image for Detection")
         self.load_btn.clicked.connect(self.load_image)
-        control_layout.addWidget(self.load_btn)
+        self.load_btn.setStyleSheet("QPushButton { padding: 10px; font-size: 14px; }")
+        self.load_btn.setEnabled(True)
+        layout.addWidget(self.load_btn)
 
-        # 1. DPI (Scanner Resolution) Input
-        control_layout.addWidget(QLabel("Scanner Resolution (DPI):"))
-        self.dpi_input = QLineEdit("600")
-        self.dpi_input.setValidator(QDoubleValidator(1.0, 4800.0, 0))
-        control_layout.addWidget(self.dpi_input)
+        # ---- calibration ----------------------------------------------------
+        calib = QGroupBox("Calibration (Pixels per MM)")
+        calib_l = QVBoxLayout()
+        px_l = QHBoxLayout()
+        px_l.addWidget(QLabel("Pixels per mm:"))
+        self.px_spinbox = QDoubleSpinBox()
+        self.px_spinbox.setRange(0.1, 100.0)
+        self.px_spinbox.setValue(self.pixels_per_mm)
+        self.px_spinbox.setSingleStep(0.1)
+        self.px_spinbox.setDecimals(2)
+        self.px_spinbox.valueChanged.connect(self.update_calibration)
+        px_l.addWidget(self.px_spinbox)
+        calib_l.addLayout(px_l)
+        calib.setLayout(calib_l)
+        layout.addWidget(calib)
 
-        control_layout.addSpacing(10)
+        # ---- target specs (dynamic labels) ----------------------------------
+        self.spec_group = QGroupBox("Target Specifications")
+        self.spec_l = QVBoxLayout()
 
-        # 2. Analysis Parameters (Min Area)
-        control_layout.addWidget(QLabel("Min Pellet Area (pixels^2, e.g., 1000):"))
-        self.min_area_input = QLineEdit("1000")
-        self.min_area_input.setValidator(QDoubleValidator(1.0, 100000.0, 0))
-        control_layout.addWidget(self.min_area_input)
+        self.target_d_label = QLabel()
+        self.target_l_label = QLabel()
+        self.tolerance_label = QLabel()
+        self.acceptable_range_label = QLabel()
 
-        control_layout.addSpacing(20)
+        for w in (self.target_d_label, self.target_l_label, self.tolerance_label, self.acceptable_range_label):
+            self.spec_l.addWidget(w)
 
-        # 3. Analysis Button
-        self.analyze_btn = QPushButton("Analyze Pellets")
-        self.analyze_btn.clicked.connect(self.analyze_image)
-        control_layout.addWidget(self.analyze_btn)
+        self.spec_group.setLayout(self.spec_l)
+        layout.addWidget(self.spec_group)
+        self.update_spec_labels()
 
-        control_layout.addSpacing(20)
+        # ---- statistics, details, etc. ---------------------------------
+        self.stats_group = QGroupBox("Detection Statistics")
+        self.stats_layout = QVBoxLayout()
+        self.total_label = QLabel("Total Pellets: 0")
+        self.within_label = QLabel("Within Tolerance: 0")
+        self.out_label = QLabel("Out of Tolerance: 0")
+        self.status_label = QLabel("Status: Detector ready")
+        self.status_label.setStyleSheet("font-weight: bold; padding: 5px;")
+        for w in (self.total_label, self.within_label, self.out_label, self.status_label):
+            self.stats_layout.addWidget(w)
+        self.stats_group.setLayout(self.stats_layout)
+        layout.addWidget(self.stats_group)
 
-        # 4. Results Display
-        control_layout.addWidget(QLabel("--- Analysis Results ---"))
-        self.results_label = QLabel("Load image and enter DPI to begin.")
-        self.results_label.setWordWrap(True)
-        control_layout.addWidget(self.results_label)
+        details = QGroupBox("Pellet Details")
+        details_l = QVBoxLayout()
+        self.details_scroll = QScrollArea()
+        self.details_scroll.setWidgetResizable(True)
+        self.details_widget = QWidget()
+        self.details_widget_layout = QVBoxLayout()
+        self.details_widget.setLayout(self.details_widget_layout)
+        self.details_scroll.setWidget(self.details_widget)
+        details_l.addWidget(self.details_scroll)
+        details.setLayout(details_l)
+        layout.addWidget(details, stretch=1)
 
-        control_layout.addStretch(1)
-        main_layout.addWidget(control_panel)
+        layout.addStretch()
+        return panel
 
-        # --- Right Panel: Image Display ---
-        self.image_label = QLabel("Image Display Area")
+    def update_spec_labels(self):
+        """Updates the labels in the Target Specifications group box."""
+        self.target_d_label.setText(f"Target Diameter: {self.target_diameter} mm")
+        self.target_l_label.setText(f"Target Length: {self.target_length} mm")
+        self.tolerance_label.setText(f"Tolerance: ±{self.tolerance} mm")
+        self.acceptable_range_label.setText(
+            f"Acceptable D/L: [{self.diameter_min:.2f} - "
+            f"{self.diameter_max:.2f}] mm")
+
+    def create_right_panel(self):
+        panel = QWidget()
+        layout = QVBoxLayout()
+        panel.setLayout(layout)
+
+        self.image_label = QLabel("Load an image to start detection")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setStyleSheet("border: 1px solid gray;")
+        self.image_label.setStyleSheet("border: 2px solid #ccc; background-color: #f0f0f0;")
+        self.image_label.setMinimumSize(400, 400)  # Smaller minimum size
+        self.image_label.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored
+        )
 
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setWidget(self.image_label)
-
-        main_layout.addWidget(scroll_area, 3)
+        scroll = QScrollArea()
+        scroll.setWidget(self.image_label)
+        scroll.setWidgetResizable(True)
+        layout.addWidget(scroll)
+        return panel
 
     def load_image(self):
-        file_name, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.jpeg)")
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Pellet Image", "", "Image Files (*.png *.jpg *.jpeg *.bmp)")
+        if path:
+            self.current_image_path = path
+            # Use the robust image loading function
+            self.current_image = cv2_safe_imread(path)
 
-        if file_name:
-            # Use the safe loading function
-            self.raw_image = cv2_safe_imread(file_name)
+            if self.current_image is not None:
+                self.progress_label.setText("Detecting pellets using color-based heuristics...")
+                QApplication.processEvents()
+                self.process_image()
+                self.progress_label.setText("Detection complete")
+            else:
+                QMessageBox.critical(self, "Image Load Error",
+                                     f"Failed to load image at {os.path.basename(path)}.")
+                self.image_label.setText("Error loading image")
+                self.current_image = None
+                self.update_statistics()  # Clear stats
 
-            if self.raw_image is None:
-                QMessageBox.critical(self, "Error", f"Could not load image file: {os.path.basename(file_name)}.")
-                return
+    def update_calibration(self, value):
+        self.pixels_per_mm = value
+        self.update_ranges()
+        self.update_spec_labels()
+        if self.current_image is not None:
+            self.process_image()
 
-            self.display_image(self.raw_image)
-            self.results_label.setText("Image loaded. Enter DPI (Resolution) and click Analyze.")
-
-    def display_image(self, cv_img):
-        pixmap = cv_to_qpixmap(cv_img, target_size=None)
-        self.image_label.setPixmap(pixmap)
-        self.image_label.resize(pixmap.size())
-
-    def analyze_image(self):
-        """Performs CV processing using DPI to calculate PPM and MinAreaRect for accurate size."""
-        if self.raw_image is None:
-            QMessageBox.warning(self, "Warning", "Please load an image first.")
+    def process_image(self):
+        if self.current_image is None:
             return
 
-        try:
-            dpi = float(self.dpi_input.text())
-            min_area_px = float(self.min_area_input.text())
+        detections = self.detector.detect_pellets(self.current_image)
+        display_img = self.current_image.copy()
+        self.detected_pellets = []
 
-            if dpi <= 0 or min_area_px <= 0:
-                raise ValueError("DPI and Min Area must be positive numbers.")
+        for idx, det in enumerate(detections, start=1):
+            polygon = det['polygon']
 
-            self.PPM = dpi / 25.4  # Pixels Per Millimeter
+            # ---- exact measurement from mask (Orientation-Independent) ------
+            meas = self.measure_pellet(polygon, self.pixels_per_mm)
 
-        except ValueError as e:
-            QMessageBox.critical(self, "Error", f"Invalid input value: {e}")
-            return
+            pellet = {
+                'polygon': polygon,
+                'bbox': det['bbox'],
+                'diameter': meas['diameter'],
+                'length': meas['length'],
+                'within_tolerance': meas['within'],
+                'status': meas['status'],
+                'confidence': det['confidence'],
+                'id': idx
+            }
+            self.detected_pellets.append(pellet)
+            self.draw_pellet(display_img, pellet)
 
-        # Use a copy of the raw image for drawing
-        display_img = self.raw_image.copy()
-
-        # --- CV Processing: Adaptive Thresholding for Robustness ---
-        gray = cv2.cvtColor(display_img, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-
-        # Adaptive thresholding is better for scans with uneven lighting
-        thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
-
-        # Morphological Close to connect broken pieces and fill holes
-        kernel = np.ones((3, 3), np.uint8)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-
-        # Find external contours
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        pellet_dimensions_mm = []  # Stores (width_mm, height_mm)
-
-        # Define Drawing Parameters
-        FONT_SCALE = 1.0
-        LINE_THICKNESS = 3
-        BOX_COLOR = (255, 0, 0)  # Blue for bounding box
-        TEXT_COLOR = (255, 255, 255)  # White text
-
-        # Loop through contours to measure
-        for c in contours:
-            area = cv2.contourArea(c)
-
-            # Filter based on user input
-            if area < min_area_px:
-                continue
-
-            # 1. Get Minimum Area Bounding Box (Rotated Rectangle)
-            rect = cv2.minAreaRect(c)
-            (center_x, center_y), (w_px, h_px), angle = rect
-
-            # Sort the dimensions: smaller is Width/Diameter, larger is Length/Height
-            width_px = min(w_px, h_px)
-            height_px = max(w_px, h_px)
-
-            # Convert to mm
-            width_mm = width_px / self.PPM
-            height_mm = height_px / self.PPM
-
-            pellet_dimensions_mm.append((width_mm, height_mm))
-
-            # 2. Draw the Rotated Bounding Box
-            box_points = cv2.boxPoints(rect)
-            box_points = np.intp(box_points)  # Convert to integer coordinates
-            cv2.drawContours(display_img, [box_points], 0, BOX_COLOR, LINE_THICKNESS)
-
-            # 3. Draw dimensions text near the center
-            text = f"{width_mm:.2f} x {height_mm:.2f} mm"
-
-            # Calculate text position (using the box center for reference)
-            (text_w, text_h), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, FONT_SCALE, LINE_THICKNESS)
-            text_x = int(center_x) - text_w // 2
-            text_y = int(center_y) + text_h // 2
-
-            # Draw a black rectangle under the text for better visibility
-            cv2.rectangle(display_img, (text_x - 5, text_y - text_h),
-                          (text_x + text_w + 5, text_y + baseline + 5),
-                          (0, 0, 0), -1)
-
-            cv2.putText(display_img, text, (text_x, text_y),
-                        cv2.FONT_HERSHEY_SIMPLEX, FONT_SCALE, TEXT_COLOR, 2)
-
-        # --- 4. Display Results ---
-
-        if not pellet_dimensions_mm:
-            self.results_label.setText(
-                f"No pellets found that meet the minimum area requirement ({min_area_px} pixels^2). "
-                f"Check threshold settings or adjust min area."
-            )
-            self.display_image(self.raw_image)
-            return
-
-        total_pellets = len(pellet_dimensions_mm)
-
-        # Calculate overall average dimensions
-        avg_w = np.mean([d[0] for d in pellet_dimensions_mm])
-        avg_h = np.mean([d[1] for d in pellet_dimensions_mm])
-
-        results_text = (
-            f"Analysis Complete (Rotated Bounding Box):\n"
-            f"Total Pellets Found: {total_pellets}\n"
-            f"Average Width (Diameter): {avg_w:.3f} mm\n"
-            f"Average Length (Height): {avg_h:.3f} mm\n"
-            f"Scanner DPI: {dpi:.0f}\n"
-            f"PPM Calculated: {self.PPM:.2f}\n"
-            f"Min Area Filter: {min_area_px:.0f} pixels^2"
-        )
-        self.results_label.setText(results_text)
-
+        self.update_statistics()
         self.display_image(display_img)
+
+    def draw_pellet(self, image, pellet):
+        """Draw only the outline + centered ID number."""
+        poly = pellet['polygon']
+        pid = pellet['id']
+        ok = pellet['within_tolerance']
+
+        # Get rotated bounding box for accurate drawing, especially on rotated pellets
+        rect = cv2.minAreaRect(poly.astype(np.float32))
+        box = cv2.boxPoints(rect)
+        box = np.intp(box)
+
+        colour = (0, 255, 0) if ok else (0, 0, 255)  # Green or Red
+
+        # semi-transparent fill
+        overlay = image.copy()
+        cv2.fillPoly(overlay, [poly.reshape(-1, 1, 2)], colour)
+        cv2.addWeighted(overlay, 0.25, image, 0.75, 0, image)
+
+        # thick outline (using the minimal bounding box)
+        cv2.drawContours(image, [box], 0, colour, 2)
+
+        # centered number
+        M = cv2.moments(poly)
+        cx = int(M["m10"] / M["m00"]) if M["m00"] != 0 else int(poly[:, 0].mean())
+        cy = int(M["m01"] / M["m00"]) if M["m00"] != 0 else int(poly[:, 1].mean())
+        cv2.putText(image, str(pid), (cx - 12, cy + 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+
+    def update_statistics(self):
+        total = len(self.detected_pellets)
+        within = sum(1 for p in self.detected_pellets if p['within_tolerance'])
+        out = total - within
+
+        self.total_label.setText(f"Total Pellets: {total}")
+        self.within_label.setText(f"Within Tolerance: {within}")
+        self.out_label.setText(f"Out of Tolerance: {out}")
+
+        if total == 0:
+            self.status_label.setText("Status: No pellets detected")
+            self.status_label.setStyleSheet("font-weight: bold; padding: 5px; color: gray;")
+        elif out == 0:
+            self.status_label.setText("Status: All Within Tolerance")
+            self.status_label.setStyleSheet("font-weight: bold; padding: 5px; color: green;")
+        else:
+            self.status_label.setText(f"Status: {out} Out of Tolerance")
+            self.status_label.setStyleSheet("font-weight: bold; padding: 5px; color: red;")
+
+        self.update_pellet_details()
+
+    def update_pellet_details(self):
+        while self.details_widget_layout.count():
+            child = self.details_widget_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        for i, p in enumerate(self.detected_pellets, 1):
+            txt = (f"Pellet {i} - Status: {p['status']}\n"
+                   f"  Diameter (W): {p['diameter']:.3f} mm\n"
+                   f"  Length (L):   {p['length']:.3f} mm\n"
+                   f"  Confidence: {p['confidence']:.0f}%")
+
+            style = "green" if p['within_tolerance'] else "red"
+            if p['status'] == "OUT OF SPEC": style = "orange"  # Optional: for generic out of spec
+
+            lbl = QLabel(txt)
+            lbl.setStyleSheet(
+                f"padding:5px;margin:2px;border:1px solid {style};")
+            self.details_widget_layout.addWidget(lbl)
+
+        self.details_widget_layout.addStretch()
+
+    def display_image(self, cv_image):
+        # 1. Convert BGR (OpenCV default) to RGB (Qt default for this format)
+        rgb = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb.shape
+        bytes_per_line = ch * w
+
+        # 2. Robust QImage creation (Ensures memory stability)
+        qimg = QImage(rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+        pix = QPixmap.fromImage(qimg)
+
+        # Scaling for display: Use the label's current size, with a minimum fallback size.
+        width = max(self.image_label.width(), 400)
+        height = max(self.image_label.height(), 400)
+
+        scaled = pix.scaled(width, height,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation)
+        self.image_label.setPixmap(scaled)
+        self.image_label.setMinimumSize(1, 1)
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setStyle('Fusion')
+    win = PelletMeasurementApp()
+    win.show()
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = PelletAnalyzer()
-    window.show()
-    sys.exit(app.exec())
+    main()

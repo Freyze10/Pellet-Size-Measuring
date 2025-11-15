@@ -214,14 +214,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00024" summary="trying the same ui with ml">
-      <option name="closed" value="true" />
-      <created>1763090815980</created>
-      <option name="number" value="00024" />
-      <option name="presentableId" value="LOCAL-00024" />
-      <option name="project" value="LOCAL" />
-      <updated>1763090815980</updated>
-    </task>
     <task id="LOCAL-00025" summary="added scanner">
       <option name="closed" value="true" />
       <created>1763091312905</created>
@@ -606,7 +598,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763188852430</updated>
     </task>
-    <option name="localTasksCounter" value="73" />
+    <task id="LOCAL-00073" summary="fixing error image">
+      <option name="closed" value="true" />
+      <created>1763189074558</created>
+      <option name="number" value="00073" />
+      <option name="presentableId" value="LOCAL-00073" />
+      <option name="project" value="LOCAL" />
+      <updated>1763189074558</updated>
+    </task>
+    <option name="localTasksCounter" value="74" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
