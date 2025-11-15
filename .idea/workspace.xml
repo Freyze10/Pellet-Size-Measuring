@@ -215,14 +215,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00030" summary="updating the interface">
-      <option name="closed" value="true" />
-      <created>1763099556852</created>
-      <option name="number" value="00030" />
-      <option name="presentableId" value="LOCAL-00030" />
-      <option name="project" value="LOCAL" />
-      <updated>1763099556852</updated>
-    </task>
     <task id="LOCAL-00031" summary="updating the interface">
       <option name="closed" value="true" />
       <created>1763100327810</created>
@@ -607,7 +599,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763194663079</updated>
     </task>
-    <option name="localTasksCounter" value="79" />
+    <task id="LOCAL-00079" summary="updated">
+      <option name="closed" value="true" />
+      <created>1763196313430</created>
+      <option name="number" value="00079" />
+      <option name="presentableId" value="LOCAL-00079" />
+      <option name="project" value="LOCAL" />
+      <updated>1763196313430</updated>
+    </task>
+    <option name="localTasksCounter" value="80" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -622,7 +622,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updated new scanner without ml" />
     <MESSAGE value="modifying label" />
     <MESSAGE value="use scikitlearn" />
     <MESSAGE value="working recognition" />
@@ -647,6 +646,7 @@
     <MESSAGE value="return" />
     <MESSAGE value="working new scanner with ml" />
     <MESSAGE value="refactored file name" />
-    <option name="LAST_COMMIT_MESSAGE" value="refactored file name" />
+    <MESSAGE value="updated" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated" />
   </component>
 </project>
