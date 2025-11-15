@@ -42,29 +42,29 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.Main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.env.executor&quot;: &quot;Run&quot;,
-    &quot;Python.label.executor&quot;: &quot;Run&quot;,
-    &quot;Python.newOpencv.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_no_ml.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_yolo.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_new.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Brant/PycharmProjects/Pellet_Measure&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.Main.executor": "Run",
+    "Python.env.executor": "Run",
+    "Python.label.executor": "Run",
+    "Python.newOpencv.executor": "Run",
+    "Python.scanner.executor": "Run",
+    "Python.scanner_no_ml.executor": "Debug",
+    "Python.scanner_yolo.executor": "Run",
+    "Python.test_new.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "C:/Users/Brant/PycharmProjects/Pellet_Measure",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;GitStage.ChangesTree.GroupingKeys&quot;: [
-      &quot;directory&quot;,
-      &quot;module&quot;,
-      &quot;repository&quot;
+  "keyToStringList": {
+    "GitStage.ChangesTree.GroupingKeys": [
+      "directory",
+      "module",
+      "repository"
     ]
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
@@ -206,14 +206,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00001" summary="init main">
-      <option name="closed" value="true" />
-      <created>1762938191234</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1762938191234</updated>
     </task>
     <task id="LOCAL-00002" summary="init main">
       <option name="closed" value="true" />
@@ -599,7 +591,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763173579388</updated>
     </task>
-    <option name="localTasksCounter" value="50" />
+    <task id="LOCAL-00050" summary="updated yolo">
+      <option name="closed" value="true" />
+      <created>1763174314808</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1763174314808</updated>
+    </task>
+    <option name="localTasksCounter" value="51" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -614,7 +614,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updated arrow up and down for calib" />
     <MESSAGE value="updated calibration and guides" />
     <MESSAGE value="updated instructions" />
     <MESSAGE value="modified calibration and instruction" />
@@ -639,6 +638,7 @@
     <MESSAGE value="renamed scanner" />
     <MESSAGE value="added new file Yolo model" />
     <MESSAGE value="added new files for yolo model" />
-    <option name="LAST_COMMIT_MESSAGE" value="added new files for yolo model" />
+    <MESSAGE value="updated yolo" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated yolo" />
   </component>
 </project>
