@@ -10,6 +10,26 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QSplitter, QGridLayout)
 
 
+# --- ROBUST IMAGE LOADING HELPER FUNCTION ---
+
+def cv2_safe_imread(path):
+    """
+    Reads an image using cv2.imdecode to handle file path/encoding issues that
+    can occur with cv2.imread and user file dialog paths, especially with JPEGs.
+    """
+    try:
+        # 1. Read the file data as a raw byte array
+        with open(path, 'rb') as f:
+            data = f.read()
+        # 2. Decode the byte array into an OpenCV image (NumPy array)
+        np_arr = np.frombuffer(data, np.uint8)
+        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        return img
+    except Exception as e:
+        print(f"Error during safe image read: {e}")
+        return None
+
+
 # --- 1. COMPUTER VISION AND MEASUREMENT LOGIC ---
 
 class PelletAnalyzer:
@@ -23,26 +43,25 @@ class PelletAnalyzer:
     MIN_VALID_SIZE_MM = 2.95
     MAX_VALID_SIZE_MM = 3.05
 
-    # Exclusion Thresholds (to ignore large debris/calibration strip and tiny noise)
+    # Exclusion Thresholds (in pixels^2 for initial contour filtering)
     # These are initial pixel-based estimates based on 300 DPI (3.00mm ~ 35.4px)
-    # They will be converted to mm-based checks after calibration.
     MIN_PIXEL_AREA_THRESHOLD = 500  # Minimum contour area (px^2) to be considered a pellet
     MAX_PIXEL_AREA_THRESHOLD = 15000  # Maximum contour area (px^2) to exclude large debris
 
     # HSV Color Range for the Blue Pellets (tuned for the sample image's bright blue)
-    # Hue range for blue in OpenCV is around 100-140 (out of 180)
     LOWER_BLUE = np.array([100, 150, 50])
     UPPER_BLUE = np.array([140, 255, 255])
 
     # Calibration Strip Definition (for demonstration - assumes a black strip on the left edge)
     CALIBRATION_MM = 50.0  # Assumed real-world size (e.g., width of a 50mm strip)
-    CALIBRATION_HUE_RANGE = np.array([0, 0, 0]), np.array([180, 255, 100])  # Dark/Black object
+    CALIBRATION_HUE_RANGE = np.array([0, 0, 0]), np.array([180, 255, 100])  # Dark/Black object (low V for darkness)
     CALIBRATION_CROP = (
     0, 0, 300, 3000)  # (x_min, y_min, x_max, y_max) to look in the far left of the image (300px wide strip)
 
     def __init__(self, image_path):
         self.image_path = image_path
-        self.image = cv2.imread(image_path)
+        # Use the safe loading function
+        self.image = cv2_safe_imread(image_path)
         self.px_per_mm = 0.0
         self.results_df = pd.DataFrame()
         self.annotated_image = None
@@ -52,23 +71,28 @@ class PelletAnalyzer:
         Detects a large, non-blue calibration object (simulated dark strip) and calculates px/mm.
         Returns: px_per_mm (float)
         """
+        # Fallback to standard 300 DPI if live calibration fails
+        DEFAULT_PX_PER_MM = 300.0 / 25.4
+
         if self.image is None:
-            return 0.0
+            return DEFAULT_PX_PER_MM
 
         # 1. Crop to the calibration area (e.g., far left side)
         x_min, y_min, x_max, y_max = self.CALIBRATION_CROP
+        # Ensure crop coordinates are within image boundaries
+        x_max = min(x_max, self.image.shape[1])
+        y_max = min(y_max, self.image.shape[0])
         cal_area = self.image[y_min:y_max, x_min:x_max]
 
         if cal_area.size == 0:
-            print("Calibration area is out of bounds or zero size.")
-            # Fallback to standard 300 DPI if live calibration fails
-            return 300.0 / 25.4
+            print("Calibration area is out of bounds or zero size. Using default DPI.")
+            return DEFAULT_PX_PER_MM
 
         # 2. Convert to HSV for robust color thresholding (looking for a dark object)
         hsv_cal = cv2.cvtColor(cal_area, cv2.COLOR_BGR2HSV)
         mask_cal = cv2.inRange(hsv_cal, self.CALIBRATION_HUE_RANGE[0], self.CALIBRATION_HUE_RANGE[1])
 
-        # 3. Apply morphology to connect the strip (Erosion followed by Dilation - Open operation)
+        # 3. Apply morphology to connect the strip (Opening)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 10))
         mask_cal = cv2.morphologyEx(mask_cal, cv2.MORPH_OPEN, kernel, iterations=2)
 
@@ -76,19 +100,19 @@ class PelletAnalyzer:
         contours, _ = cv2.findContours(mask_cal, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         if not contours:
-            print(f"Calibration strip not detected. Assuming {300 / 25.4:.2f} px/mm (300 DPI).")
-            # Fallback to standard 300 DPI if live calibration fails
-            return 300.0 / 25.4
+            print(f"Calibration strip not detected. Assuming {DEFAULT_PX_PER_MM:.2f} px/mm (300 DPI).")
+            return DEFAULT_PX_PER_MM
 
         # Find the contour with the maximum area
         largest_contour = max(contours, key=cv2.contourArea)
 
-        # Get the bounding rectangle of the largest contour
-        # x, y, w, h = cv2.boundingRect(largest_contour)
-
         # Use a rotated bounding box for more accurate measurement
         rect = cv2.minAreaRect(largest_contour)
-        width_px = max(rect[1])  # Width is the larger side
+        width_px = max(rect[1])  # Width is the larger side (assuming the strip is oriented vertically)
+
+        if width_px == 0:
+            print(f"Calibration strip detected with zero width. Using default DPI.")
+            return DEFAULT_PX_PER_MM
 
         # The calibration strip's true dimension is a known value (e.g., 50.0 mm)
         self.px_per_mm = width_px / self.CALIBRATION_MM
@@ -102,26 +126,23 @@ class PelletAnalyzer:
         """
         # Get the minimum area bounding box (rotated rectangle) for accurate dimensions
         rect = cv2.minAreaRect(contour)
-        (x_c, y_c), (w_px, h_px), angle = rect
+        (x_c, y_c), (w_px_rect, h_px_rect), angle = rect
 
         # The sides of the MinAreaRect are not guaranteed to be ordered by size.
-        # For a cylindrical pellet, the smaller dimension is the 'diameter' (Width)
-        # and the larger dimension is the 'height'/'length' (Height), or vice versa.
-        # We'll treat the min as Width and max as Height.
-        w_px, h_px = min(w_px, h_px), max(w_px, h_px)
+        # Assign the smaller dimension as Width and the larger as Height.
+        w_px = min(w_px_rect, h_px_rect)
+        h_px = max(w_px_rect, h_px_rect)
 
         # Convert to mm
         w_mm = w_px / px_per_mm
         h_mm = h_px / px_per_mm
 
-        # Use the standard bounding box for X/Y position
+        # Use the standard bounding box for X/Y position (for simplicity in output)
         x_pos, y_pos, _, _ = cv2.boundingRect(contour)
 
         # 1. Exclusion Rule (Ignore anything significantly too large or too small)
-        # Check against a tighter window around 3.00mm (e.g., 1.0mm to 5.0mm)
-        # Assuming no valid pellet will be < 1.0mm or > 5.0mm
-        MIN_EXCLUSION_MM = 1.0
-        MAX_EXCLUSION_MM = 5.0
+        MIN_EXCLUSION_MM = 1.0  # Pellets must be at least 1mm
+        MAX_EXCLUSION_MM = 5.0  # Pellets must be at most 5mm
 
         if not (MIN_EXCLUSION_MM <= w_mm <= MAX_EXCLUSION_MM and MIN_EXCLUSION_MM <= h_mm <= MAX_EXCLUSION_MM):
             status = "EXCLUDED"
@@ -137,9 +158,9 @@ class PelletAnalyzer:
             elif w_mm > self.MAX_VALID_SIZE_MM or h_mm > self.MAX_VALID_SIZE_MM:
                 status = "OVERSIZED"
             else:
-                status = "OUT OF SPEC"  # Should be covered by UNDERSIZED/OVERSIZED, but kept for completeness
+                status = "OUT OF SPEC"  # Catch-all
 
-        # Determine color for bounding box (Green, Yellow, Red)
+        # Determine color for bounding box (Green, Red)
         box_color = (0, 0, 255)  # Default Red (BGR format for OpenCV)
 
         if status == "IN RANGE":
@@ -147,18 +168,16 @@ class PelletAnalyzer:
         elif status == "EXCLUDED":
             pass  # Skip drawing excluded items
         elif status in ["UNDERSIZED", "OVERSIZED", "OUT OF SPEC"]:
-            # Check for "Near Tolerance" (Yellow) which is not in spec but not wildly out
-            # We will use Red for all out-of-spec, as requested.
             box_color = (0, 0, 255)  # Red
 
-        # Convert the rotated rectangle to an array of points for drawing
+        # Draw the rotated bounding box
         if status != "EXCLUDED":
             box = cv2.boxPoints(rect)
             box = np.intp(box)
             cv2.drawContours(self.annotated_image, [box], 0, box_color, 4)
 
         return {
-            'Pellet #': 0,  # Will be set during final aggregation
+            'Pellet #': 0,  # Placeholder
             'X-position (px)': int(x_pos),
             'Y-position (px)': int(y_pos),
             'Measured Width (mm)': round(w_mm, 3),
@@ -171,7 +190,7 @@ class PelletAnalyzer:
         Main function to run the entire analysis pipeline.
         """
         if self.image is None:
-            return "Error: Could not load image."
+            return "Error: Could not load image. Check the file path and format."
 
         # Initialize annotated image copy
         self.annotated_image = self.image.copy()
@@ -179,18 +198,14 @@ class PelletAnalyzer:
         # 1. Calibration
         self.px_per_mm = self._calibrate_system()
         if self.px_per_mm == 0.0:
+            # Should not happen due to default value, but good check
             return "Error: Calibration failed."
 
         # 2. Object Detection
-
-        # Convert image to HSV
         hsv = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
-
-        # Create a mask for the blue color range
         mask = cv2.inRange(hsv, self.LOWER_BLUE, self.UPPER_BLUE)
 
-        # Clean up the mask using morphological operations (Dilate then Erode - Close operation)
-        # This closes small gaps and smooths the boundaries, useful for noisy scans.
+        # Clean up the mask using morphological operations (Close operation)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
@@ -205,21 +220,31 @@ class PelletAnalyzer:
         excluded_count = 0
 
         # 3. Measurement and Tolerance Check
-        for i, contour in enumerate(contours):
+        for contour in contours:
             # Filtering step 1: Ignore very small/large contours based on pixel area.
-            # This filters out tiny noise and the (simulated) large calibration strip.
             area = cv2.contourArea(contour)
             if area < self.MIN_PIXEL_AREA_THRESHOLD or area > self.MAX_PIXEL_AREA_THRESHOLD:
                 excluded_count += 1
-                continue
+
+                # Add a record for the excluded item for full tracking
+                # Use a standard bounding box for its position
+                x_pos, y_pos, w_rect, h_rect = cv2.boundingRect(contour)
+                measurements.append({
+                    'Pellet #': 'N/A',
+                    'X-position (px)': int(x_pos),
+                    'Y-position (px)': int(y_pos),
+                    'Measured Width (mm)': round(w_rect / self.px_per_mm, 3),
+                    'Measured Height (mm)': round(h_rect / self.px_per_mm, 3),
+                    'Status': "EXCLUDED (Area Filter)",
+                })
+                continue  # Skip processing this contour
 
             pellet_data = self._process_pellet(contour, self.px_per_mm)
 
             # Count the pellet's status
             if pellet_data['Status'] != "EXCLUDED":
                 valid_pellet_count += 1
-                pellet_data['Pellet #'] = valid_pellet_count  # Assign number to valid pellets
-                measurements.append(pellet_data)
+                pellet_data['Pellet #'] = valid_pellet_count  # Assign number ONLY to valid pellets
 
                 if pellet_data['Status'] == "IN RANGE":
                     in_range_count += 1
@@ -228,9 +253,10 @@ class PelletAnalyzer:
                 elif pellet_data['Status'] == "UNDERSIZED":
                     undersize_count += 1
             else:
-                # Add excluded items to the full list for CSV/JSON output, but without a pellet number
-                pellet_data['Pellet #'] = 'N/A'
-                measurements.append(pellet_data)
+                excluded_count += 1
+                pellet_data['Pellet #'] = 'N/A'  # Mark as N/A for excluded items
+
+            measurements.append(pellet_data)
 
         # Final Results Data
         self.results_df = pd.DataFrame(measurements)
@@ -287,6 +313,9 @@ class ResultsTableModel(QAbstractTableModel):
         value = self._data.iloc[index.row(), index.column()]
 
         if role == Qt.ItemDataRole.DisplayRole:
+            # Format float values to 3 decimal places
+            if isinstance(value, float):
+                return f"{value:.3f}"
             return str(value)
 
         # Apply background color based on 'Status' column
@@ -295,9 +324,9 @@ class ResultsTableModel(QAbstractTableModel):
             status = self._data.iloc[index.row()]['Status']
             if status == "IN RANGE":
                 return QColor(144, 238, 144)  # Light Green
-            elif status == "OVERSIZED" or status == "UNDERSIZED":
+            elif status in ["OVERSIZED", "UNDERSIZED", "OUT OF SPEC"]:
                 return QColor(255, 99, 71)  # Tomato Red
-            elif status == "EXCLUDED":
+            elif status.startswith("EXCLUDED"):
                 return QColor(200, 200, 200)  # Light Gray (Skipped)
 
         return QVariant()
@@ -328,8 +357,13 @@ class MainWindow(QMainWindow):
         # Left Panel (Image Display)
         self.image_label = QLabel("Load an image to start...")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setFixedSize(800, 800)  # Fixed size for a visually clear annotated image
-        self.main_layout.addWidget(self.image_label)
+        # Use a flexible size for the image area and make it scrollable/scalable
+        self.image_label.setScaledContents(False)  # Important for scaling a pixmap
+        self.image_label.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored
+        )
+        self.image_label.setMinimumSize(400, 400)
+        self.main_layout.addWidget(self.image_label, 2)  # Give it 2/3 of the space
 
         # Right Panel (Results)
         self.right_panel = QWidget()
@@ -373,7 +407,7 @@ class MainWindow(QMainWindow):
         self.right_layout.addWidget(self.summary_group)
 
         # 3. Measurements Table
-        self.table_label = QLabel("--- Raw Measurements Table ---")
+        self.table_label = QLabel("--- Raw Measurements Table (All Objects) ---")
         self.table_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.right_layout.addWidget(self.table_label)
 
@@ -381,7 +415,7 @@ class MainWindow(QMainWindow):
         self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.right_layout.addWidget(self.table_view)
 
-        self.main_layout.addWidget(self.right_panel)
+        self.main_layout.addWidget(self.right_panel, 1)  # Give it 1/3 of the space
 
     def load_image(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Scan Image", "", "Images (*.png *.jpg *.jpeg)")
@@ -390,11 +424,24 @@ class MainWindow(QMainWindow):
             self.image_path = file_path
             self.pellet_analyzer = PelletAnalyzer(file_path)
 
-            # Display original image
-            pixmap = QPixmap(file_path)
-            self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio,
-                                                     Qt.TransformationMode.SmoothTransformation))
-            self.image_label.setText(os.path.basename(file_path))
+            # Check if image loaded successfully
+            if self.pellet_analyzer.image is None:
+                self.image_label.setText(
+                    f"ERROR: Could not load image at {os.path.basename(file_path)}. Check console for details.")
+                self.btn_run.setEnabled(False)
+                return
+
+            # Display original image using QPixmap for compatibility
+            q_image = self._convert_cv_to_qimage(self.pellet_analyzer.image)
+            pixmap = QPixmap.fromImage(q_image)
+
+            # Scaling for display
+            self.image_label.setPixmap(pixmap.scaled(
+                self.image_label.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            ))
+            self.image_label.setText("")  # Clear the text message
 
             self.btn_run.setEnabled(True)
             self.btn_save.setEnabled(False)
@@ -412,10 +459,12 @@ class MainWindow(QMainWindow):
         self.table_view.setModel(QAbstractTableModel())
 
     def run_analysis(self):
-        if self.pellet_analyzer is None:
+        if self.pellet_analyzer is None or self.pellet_analyzer.image is None:
             return
 
         self.clear_results()
+        self.image_label.setText("Running analysis... Please wait.")
+        QApplication.processEvents()  # Update UI before heavy processing
 
         # Run the CV analysis
         summary = self.pellet_analyzer.run_analysis()
@@ -436,14 +485,27 @@ class MainWindow(QMainWindow):
         # 3. Display Annotated Image
         q_image = self._convert_cv_to_qimage(self.pellet_analyzer.annotated_image)
         pixmap = QPixmap.fromImage(q_image)
-        self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio,
-                                                 Qt.TransformationMode.SmoothTransformation))
+        self.image_label.setPixmap(pixmap.scaled(
+            self.image_label.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        ))
 
         self.btn_save.setEnabled(True)
 
     def _convert_cv_to_qimage(self, cv_img):
         """Converts an OpenCV BGR image (numpy array) to a PyQt6 QImage."""
+        if cv_img is None:
+            return QImage()
+
         height, width, channel = cv_img.shape
+
+        # Ensure it's a 3-channel BGR image
+        if channel != 3:
+            # Conversion for single-channel (grayscale) images if needed,
+            # but BGR is expected here.
+            return QImage()
+
         bytes_per_line = 3 * width
         return QImage(cv_img.data, width, height, bytes_per_line, QImage.Format.Format_BGR888)
 
@@ -462,6 +524,9 @@ class MainWindow(QMainWindow):
 # --- MAIN EXECUTION ---
 
 if __name__ == '__main__':
+    # Add QSizePolicy for better resizing behavior in the MainWindow
+    from PyQt6.QtWidgets import QSizePolicy
+
     app = QApplication([])
     window = MainWindow()
     window.show()
