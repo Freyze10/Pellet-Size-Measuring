@@ -3,12 +3,11 @@ import numpy as np
 import pandas as pd
 import json
 import os
-# Added QSizePolicy to the main import block
 from PyQt6.QtCore import (Qt, QAbstractTableModel, QModelIndex, QVariant)
 from PyQt6.QtGui import (QPixmap, QImage, QColor)
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QTableView, QHeaderView, QFileDialog, QPushButton,
-                             QSplitter, QGridLayout, QSizePolicy)  # <-- QSizePolicy is now imported
+                             QSplitter, QGridLayout, QSizePolicy)
 
 
 # --- ROBUST IMAGE LOADING HELPER FUNCTION ---
@@ -503,21 +502,34 @@ class MainWindow(QMainWindow):
         self.btn_save.setEnabled(True)
 
     def _convert_cv_to_qimage(self, cv_img):
-        """Converts an OpenCV BGR image (numpy array) to a PyQt6 QImage."""
+        """
+        Converts an OpenCV BGR image (numpy array) to a PyQt6 QImage
+        using a robust method to prevent crashes.
+        """
         if cv_img is None:
             return QImage()
 
-        height, width, channel = cv_img.shape
+        # 1. Convert BGR (OpenCV default) to RGB (Qt default for this format)
+        rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
 
-        # Ensure it's a 3-channel BGR image
+        height, width, channel = rgb_image.shape
+
+        # Ensure it's a 3-channel image (should be after conversion)
         if channel != 3:
-            # Conversion for single-channel (grayscale) images if needed,
-            # but BGR is expected here.
             return QImage()
 
+        # Calculate the size of the buffer: 3 bytes (R, G, B) * width
         bytes_per_line = 3 * width
-        # Use .copy() to ensure data stability for QImage
-        return QImage(cv_img.copy().data, width, height, bytes_per_line, QImage.Format.Format_BGR888)
+
+        # 2. Use .data and QImage.Format_RGB888 with an explicit copy for stability
+        q_image = QImage(
+            rgb_image.copy().data,
+            width,
+            height,
+            bytes_per_line,
+            QImage.Format.Format_RGB888
+        )
+        return q_image
 
     def save_results(self):
         if self.pellet_analyzer is None or self.pellet_analyzer.results_df.empty:
