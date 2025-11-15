@@ -55,7 +55,7 @@
     "Python.test_new.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "main",
-    "last_opened_file_path": "C:/Users/Brant/PycharmProjects/Pellet_Measure",
+    "last_opened_file_path": "C:/Users/Brant/PycharmProjects/Pellet_Measure/pellet_label_yolo",
     "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   },
   "keyToStringList": {
@@ -207,30 +207,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00010" summary="modified the runtime">
-      <option name="closed" value="true" />
-      <created>1763001009875</created>
-      <option name="number" value="00010" />
-      <option name="presentableId" value="LOCAL-00010" />
-      <option name="project" value="LOCAL" />
-      <updated>1763001009875</updated>
-    </task>
-    <task id="LOCAL-00011" summary="modified the runtime">
-      <option name="closed" value="true" />
-      <created>1763001326948</created>
-      <option name="number" value="00011" />
-      <option name="presentableId" value="LOCAL-00011" />
-      <option name="project" value="LOCAL" />
-      <updated>1763001326948</updated>
-    </task>
-    <task id="LOCAL-00012" summary="changed the status message">
-      <option name="closed" value="true" />
-      <created>1763001340402</created>
-      <option name="number" value="00012" />
-      <option name="presentableId" value="LOCAL-00012" />
-      <option name="project" value="LOCAL" />
-      <updated>1763001340402</updated>
     </task>
     <task id="LOCAL-00013" summary="modified status">
       <option name="closed" value="true" />
@@ -600,7 +576,31 @@
       <option name="project" value="LOCAL" />
       <updated>1763184649152</updated>
     </task>
-    <option name="localTasksCounter" value="59" />
+    <task id="LOCAL-00059" summary="added yaml dataset">
+      <option name="closed" value="true" />
+      <created>1763184755842</created>
+      <option name="number" value="00059" />
+      <option name="presentableId" value="LOCAL-00059" />
+      <option name="project" value="LOCAL" />
+      <updated>1763184755842</updated>
+    </task>
+    <task id="LOCAL-00060" summary="added yaml dataset">
+      <option name="closed" value="true" />
+      <created>1763184764352</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1763184764352</updated>
+    </task>
+    <task id="LOCAL-00061" summary="refactored dataset to label yolo">
+      <option name="closed" value="true" />
+      <created>1763184814329</created>
+      <option name="number" value="00061" />
+      <option name="presentableId" value="LOCAL-00061" />
+      <option name="project" value="LOCAL" />
+      <updated>1763184814329</updated>
+    </task>
+    <option name="localTasksCounter" value="62" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -615,8 +615,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="trying the labels" />
-    <MESSAGE value="trying the same ui with ml" />
     <MESSAGE value="added scanner" />
     <MESSAGE value="updating the scanner" />
     <MESSAGE value="updating the interface" />
@@ -640,6 +638,8 @@
     <MESSAGE value="modifying yolo model" />
     <MESSAGE value="changed .cvs to yoolo format" />
     <MESSAGE value="added yolo to files" />
-    <option name="LAST_COMMIT_MESSAGE" value="added yolo to files" />
+    <MESSAGE value="added yaml dataset" />
+    <MESSAGE value="refactored dataset to label yolo" />
+    <option name="LAST_COMMIT_MESSAGE" value="refactored dataset to label yolo" />
   </component>
 </project>
