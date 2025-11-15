@@ -1,12 +1,12 @@
 import sys
-import csv
 import os
 import cv2
 import numpy as np
+import glob
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QFileDialog,
-                             QSpinBox, QDoubleSpinBox, QGroupBox, QScrollArea,
-                             QProgressBar, QMessageBox, QTextEdit)
+                             QDoubleSpinBox, QGroupBox, QScrollArea,
+                             QMessageBox, QTextEdit)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPixmap, QImage
 from ultralytics import YOLO
@@ -24,107 +24,30 @@ class YOLOTrainingThread(QThread):
 
     def run(self):
         try:
-            self.progress.emit("Initializing YOLO model...")
-            # Start with YOLOv8 nano model for faster training
+            self.progress.emit("Initializing YOLOv8-nano model...")
             model = YOLO('yolov8n.pt')
 
             self.progress.emit("Starting training... This may take several minutes.")
 
-            # Train the model
             results = model.train(
                 data=self.dataset_yaml_path,
-                epochs=50,
+                epochs=100,
                 imgsz=640,
-                batch=8,
+                batch=16,
                 name='pellet_detector',
-                patience=10,
+                patience=20,
                 save=True,
+                augment=True,
                 device='cuda' if torch.cuda.is_available() else 'cpu'
             )
 
+            model_path = "runs/detect/pellet_detector/weights/best.pt"
             self.progress.emit("Training completed!")
-            self.finished.emit(True, "runs/detect/pellet_detector/weights/best.pt")
+            self.finished.emit(True, model_path)
 
         except Exception as e:
             self.progress.emit(f"Training failed: {str(e)}")
             self.finished.emit(False, str(e))
-
-
-class DatasetPreparer:
-    """Prepares YOLO format dataset from CSV"""
-
-    @staticmethod
-    def prepare_yolo_dataset(csv_path, images_folder, output_folder="yolo_dataset"):
-        """Convert CSV annotations to YOLO format"""
-
-        # Create directory structure
-        train_images = os.path.join(output_folder, "images", "train")
-        train_labels = os.path.join(output_folder, "labels", "train")
-        os.makedirs(train_images, exist_ok=True)
-        os.makedirs(train_labels, exist_ok=True)
-
-        # Read CSV
-        annotations = {}
-        with open(csv_path, 'r') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                image_name = row['image_name']
-                if image_name not in annotations:
-                    annotations[image_name] = {
-                        'width': int(row['image_width']),
-                        'height': int(row['image_height']),
-                        'boxes': []
-                    }
-
-                # Convert to YOLO format (normalized center x, y, width, height)
-                bbox_x = int(row['bbox_x'])
-                bbox_y = int(row['bbox_y'])
-                bbox_width = int(row['bbox_width'])
-                bbox_height = int(row['bbox_height'])
-                img_width = int(row['image_width'])
-                img_height = int(row['image_height'])
-
-                # Calculate center coordinates
-                center_x = (bbox_x + bbox_width / 2) / img_width
-                center_y = (bbox_y + bbox_height / 2) / img_height
-                norm_width = bbox_width / img_width
-                norm_height = bbox_height / img_height
-
-                annotations[image_name]['boxes'].append(
-                    f"0 {center_x:.6f} {center_y:.6f} {norm_width:.6f} {norm_height:.6f}"
-                )
-
-        # Copy images and create label files
-        copied_count = 0
-        for image_name, data in annotations.items():
-            src_image = os.path.join(images_folder, image_name)
-            if os.path.exists(src_image):
-                # Copy image
-                dst_image = os.path.join(train_images, image_name)
-                import shutil
-                shutil.copy(src_image, dst_image)
-
-                # Create label file
-                label_name = os.path.splitext(image_name)[0] + '.txt'
-                label_path = os.path.join(train_labels, label_name)
-                with open(label_path, 'w') as f:
-                    f.write('\n'.join(data['boxes']))
-
-                copied_count += 1
-
-        # Create dataset.yaml
-        yaml_content = f"""path: {os.path.abspath(output_folder)}
-train: images/train
-val: images/train  # Using same as train for small datasets
-
-nc: 1  # number of classes
-names: ['pellet']  # class names
-"""
-        yaml_path = os.path.join(output_folder, "dataset.yaml")
-        with open(yaml_path, 'w') as f:
-            f.write(yaml_content)
-
-        return yaml_path, copied_count
 
 
 class PelletMeasurementApp(QMainWindow):
@@ -146,8 +69,8 @@ class PelletMeasurementApp(QMainWindow):
         self.model = None
         self.is_trained = False
 
-        self.images_folder = "pellet_training/"
-        self.csv_path = "labels_pellet.csv"
+        # YOLO Dataset Folder
+        self.dataset_folder = "pellet_label_yolo"  # YOUR FOLDER NAME
 
         self.init_ui()
 
@@ -167,7 +90,24 @@ class PelletMeasurementApp(QMainWindow):
         layout = QVBoxLayout()
         panel.setLayout(layout)
 
-        # Training section
+        # === Dataset Selection ===
+        dataset_group = QGroupBox("YOLO Dataset")
+        dataset_layout = QVBoxLayout()
+
+        self.dataset_btn = QPushButton("Select YOLO Dataset Folder")
+        self.dataset_btn.clicked.connect(self.select_dataset_folder)
+        self.dataset_btn.setStyleSheet("QPushButton { padding: 8px; font-size: 13px; }")
+        dataset_layout.addWidget(self.dataset_btn)
+
+        self.dataset_label = QLabel(f"Current: {os.path.basename(self.dataset_folder)}")
+        self.dataset_label.setWordWrap(True)
+        self.dataset_label.setStyleSheet("padding: 5px; background-color: #f0f0f0;")
+        dataset_layout.addWidget(self.dataset_label)
+
+        dataset_group.setLayout(dataset_layout)
+        layout.addWidget(dataset_group)
+
+        # === Training ===
         train_group = QGroupBox("Model Training")
         train_layout = QVBoxLayout()
 
@@ -177,7 +117,7 @@ class PelletMeasurementApp(QMainWindow):
             "QPushButton { padding: 10px; font-size: 14px; background-color: #4CAF50; color: white; }")
         train_layout.addWidget(self.train_btn)
 
-        self.training_status = QLabel("Status: Ready to train")
+        self.training_status = QLabel("Status: Ready")
         self.training_status.setStyleSheet("padding: 5px; background-color: #e0e0e0;")
         self.training_status.setWordWrap(True)
         train_layout.addWidget(self.training_status)
@@ -191,14 +131,20 @@ class PelletMeasurementApp(QMainWindow):
         train_group.setLayout(train_layout)
         layout.addWidget(train_group)
 
-        # Detection section
+        # === Detection ===
         self.load_btn = QPushButton("Load Image for Detection")
         self.load_btn.clicked.connect(self.load_image)
         self.load_btn.setStyleSheet("QPushButton { padding: 10px; font-size: 14px; }")
         self.load_btn.setEnabled(False)
         layout.addWidget(self.load_btn)
 
-        # Calibration
+        # === Validation Button ===
+        self.validate_btn = QPushButton("Validate on Training Set")
+        self.validate_btn.clicked.connect(self.validate_training_set)
+        self.validate_btn.setEnabled(False)
+        layout.addWidget(self.validate_btn)
+
+        # === Calibration ===
         calib = QGroupBox("Calibration")
         calib_l = QVBoxLayout()
         px_l = QHBoxLayout()
@@ -214,7 +160,7 @@ class PelletMeasurementApp(QMainWindow):
         calib.setLayout(calib_l)
         layout.addWidget(calib)
 
-        # Target specs
+        # === Target Specs ===
         spec = QGroupBox("Target Specifications")
         spec_l = QVBoxLayout()
         spec_l.addWidget(QLabel(f"Target Diameter: {self.target_diameter} mm"))
@@ -226,7 +172,7 @@ class PelletMeasurementApp(QMainWindow):
         spec.setLayout(spec_l)
         layout.addWidget(spec)
 
-        # Statistics
+        # === Statistics ===
         self.stats_group = QGroupBox("Detection Statistics")
         self.stats_layout = QVBoxLayout()
         self.total_label = QLabel("Total Pellets: 0")
@@ -239,7 +185,7 @@ class PelletMeasurementApp(QMainWindow):
         self.stats_group.setLayout(self.stats_layout)
         layout.addWidget(self.stats_group)
 
-        # Pellet details
+        # === Pellet Details ===
         details = QGroupBox("Pellet Details")
         details_l = QVBoxLayout()
         self.details_scroll = QScrollArea()
@@ -260,7 +206,7 @@ class PelletMeasurementApp(QMainWindow):
         layout = QVBoxLayout()
         panel.setLayout(layout)
 
-        self.image_label = QLabel("Train the YOLO model first, then load an image for detection")
+        self.image_label = QLabel("Train the model first, then load an image")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setStyleSheet("border: 2px solid #ccc; background-color: #f0f0f0;")
         self.image_label.setMinimumSize(800, 600)
@@ -271,67 +217,79 @@ class PelletMeasurementApp(QMainWindow):
         layout.addWidget(scroll)
         return panel
 
-    def start_training(self):
-        """Start YOLO model training"""
-        if not os.path.exists(self.csv_path):
-            QMessageBox.critical(self, "Error", f"CSV file not found: {self.csv_path}")
-            return
+    def select_dataset_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "Select YOLO Dataset Folder")
+        if folder and os.path.exists(os.path.join(folder, "dataset.yaml")):
+            self.dataset_folder = folder
+            self.dataset_label.setText(f"Current: {os.path.basename(folder)}")
+            QMessageBox.information(self, "Success", f"Dataset loaded:\n{folder}")
+        elif folder:
+            QMessageBox.critical(self, "Error", "No 'dataset.yaml' found in selected folder!")
 
-        if not os.path.exists(self.images_folder):
-            QMessageBox.critical(self, "Error", f"Images folder not found: {self.images_folder}")
+    def start_training(self):
+        yaml_path = os.path.join(self.dataset_folder, "dataset.yaml")
+        train_img_dir = os.path.join(self.dataset_folder, "images", "train")
+
+        if not os.path.exists(yaml_path):
+            QMessageBox.critical(self, "Error", f"dataset.yaml not found in {self.dataset_folder}")
+            return
+        if not os.path.exists(train_img_dir):
+            QMessageBox.critical(self, "Error", f"images/train folder not found!")
             return
 
         self.train_btn.setEnabled(False)
-        self.training_status.setText("Preparing dataset...")
-        self.training_log.append("Starting dataset preparation...")
+        self.training_status.setText("Starting training...")
+        self.training_log.append("Using YOLO dataset:")
+        self.training_log.append(f"  {yaml_path}")
 
-        try:
-            # Prepare YOLO dataset
-            yaml_path, count = DatasetPreparer.prepare_yolo_dataset(
-                self.csv_path, self.images_folder
-            )
-            self.training_log.append(f"Dataset prepared: {count} images")
-            self.training_status.setText(f"Dataset ready. Training on {count} images...")
+        img_files = [f for f in os.listdir(train_img_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
+        self.training_log.append(f"Found {len(img_files)} training images")
 
-            # Start training in separate thread
-            self.training_thread = YOLOTrainingThread(yaml_path)
-            self.training_thread.progress.connect(self.on_training_progress)
-            self.training_thread.finished.connect(self.on_training_finished)
-            self.training_thread.start()
-
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Dataset preparation failed: {str(e)}")
-            self.train_btn.setEnabled(True)
+        self.training_thread = YOLOTrainingThread(yaml_path)
+        self.training_thread.progress.connect(self.on_training_progress)
+        self.training_thread.finished.connect(self.on_training_finished)
+        self.training_thread.start()
 
     def on_training_progress(self, message):
-        """Update training progress"""
         self.training_log.append(message)
         self.training_status.setText(message)
 
     def on_training_finished(self, success, result):
-        """Handle training completion"""
         self.train_btn.setEnabled(True)
 
         if success:
-            self.training_log.append(f"Training completed! Model saved at: {result}")
-            self.training_status.setText("Training completed successfully!")
-
-            # Load the trained model
+            self.training_log.append(f"Model saved: {result}")
+            self.training_status.setText("Training complete!")
             try:
                 self.model = YOLO(result)
                 self.is_trained = True
                 self.load_btn.setEnabled(True)
-                QMessageBox.information(self, "Success",
-                                        "Model training completed!\nYou can now load images for detection.")
+                self.validate_btn.setEnabled(True)
+                QMessageBox.information(self, "Success", "Model ready! Load an image to detect.")
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to load trained model: {str(e)}")
+                QMessageBox.critical(self, "Error", f"Failed to load model: {e}")
         else:
-            self.training_log.append(f"Training failed: {result}")
             self.training_status.setText("Training failed!")
             QMessageBox.critical(self, "Error", f"Training failed: {result}")
 
+    def validate_training_set(self):
+        if not self.is_trained:
+            return
+        img_dir = os.path.join(self.dataset_folder, "images", "train")
+        images = glob.glob(os.path.join(img_dir, "*.*"))
+        images = [f for f in images if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
+
+        detected = 0
+        for img_path in images:
+            img = cv2.imread(img_path)
+            results = self.model(img, conf=0.1)
+            if len(results[0].boxes) > 0:
+                detected += 1
+
+        QMessageBox.information(self, "Validation",
+                                f"Detected pellets in {detected}/{len(images)} training images")
+
     def load_image(self):
-        """Load image for detection"""
         if not self.is_trained:
             QMessageBox.warning(self, "Not Trained", "Train the model first!")
             return
@@ -343,7 +301,7 @@ class PelletMeasurementApp(QMainWindow):
             self.current_image_path = path
             self.current_image = cv2.imread(path)
             if self.current_image is not None:
-                self.training_status.setText("Detecting pellets...")
+                self.training_status.setText("Detecting...")
                 QApplication.processEvents()
                 self.process_image()
                 self.training_status.setText("Detection complete")
@@ -356,42 +314,36 @@ class PelletMeasurementApp(QMainWindow):
             self.process_image()
 
     def process_image(self):
-        """Detect pellets using YOLO and measure them"""
         if self.current_image is None or not self.is_trained:
             return
 
-        # Run YOLO detection
-        results = self.model(self.current_image, conf=0.25)
+        # Resize to 640x640 for consistency
+        img_resized = cv2.resize(self.current_image, (640, 640))
+        results = self.model(img_resized, conf=0.1, iou=0.45)
+
+        scale_x = self.current_image.shape[1] / 640
+        scale_y = self.current_image.shape[0] / 640
 
         display_img = self.current_image.copy()
         self.detected_pellets = []
 
-        # Process each detection
         for result in results:
             boxes = result.boxes
             for idx, box in enumerate(boxes):
-                # Get bounding box coordinates
                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                confidence = box.conf[0].cpu().numpy()
+                x1 *= scale_x; y1 *= scale_y
+                x2 *= scale_x; y2 *= scale_y
 
-                # Create polygon from bounding box
-                polygon = np.array([
-                    [x1, y1],
-                    [x2, y1],
-                    [x2, y2],
-                    [x1, y2]
-                ], dtype=np.int32)
-
-                # Measure the detected pellet
+                polygon = np.array([[x1,y1],[x2,y1],[x2,y2],[x1,y2]], dtype=np.int32)
                 meas = self.measure_pellet(polygon, self.pixels_per_mm)
 
                 pellet = {
                     'polygon': polygon,
-                    'bbox': (int(x1), int(y1), int(x2 - x1), int(y2 - y1)),
+                    'bbox': (int(x1), int(y1), int(x2-x1), int(y2-y1)),
                     'diameter': meas['diameter'],
                     'length': meas['length'],
                     'within_tolerance': meas['within'],
-                    'confidence': float(confidence) * 100,
+                    'confidence': box.conf[0].item() * 100,
                     'id': idx + 1
                 }
                 self.detected_pellets.append(pellet)
@@ -401,66 +353,48 @@ class PelletMeasurementApp(QMainWindow):
         self.display_image(display_img)
 
     def measure_pellet(self, polygon, pixels_per_mm):
-        """Measure pellet dimensions from detected polygon"""
-        # Get rotated rectangle
         rect = cv2.minAreaRect(polygon.astype(np.float32))
         width_px, height_px = rect[1]
-
-        # Convert to mm
         width_mm = width_px / pixels_per_mm
         height_mm = height_px / pixels_per_mm
-
         diameter = min(width_mm, height_mm)
         length = max(width_mm, height_mm)
-
         within = (
-                (self.target_diameter - self.tolerance <= diameter <= self.target_diameter + self.tolerance) and
-                (self.target_length - self.tolerance <= length <= self.target_length + self.tolerance)
+            (self.target_diameter - self.tolerance <= diameter <= self.target_diameter + self.tolerance) and
+            (self.target_length - self.tolerance <= length <= self.target_length + self.tolerance)
         )
-
         return {"diameter": diameter, "length": length, "within": within}
 
     def draw_pellet(self, image, pellet):
-        """Draw detection on image"""
         poly = pellet['polygon']
-        pid = pellet['id']
         ok = pellet['within_tolerance']
         colour = (0, 255, 0) if ok else (0, 0, 255)
-
-        # Semi-transparent fill
         overlay = image.copy()
         cv2.fillPoly(overlay, [poly.reshape(-1, 1, 2)], colour)
         cv2.addWeighted(overlay, 0.25, image, 0.75, 0, image)
-
-        # Thick outline
         cv2.polylines(image, [poly.reshape(-1, 1, 2)], True, colour, 2)
-
-        # Centered number
         M = cv2.moments(poly)
         cx = int(M["m10"] / M["m00"]) if M["m00"] != 0 else int(poly[:, 0].mean())
         cy = int(M["m01"] / M["m00"]) if M["m00"] != 0 else int(poly[:, 1].mean())
-        cv2.putText(image, str(pid), (cx - 12, cy + 8),
+        cv2.putText(image, str(pellet['id']), (cx - 12, cy + 8),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
 
     def update_statistics(self):
         total = len(self.detected_pellets)
         within = sum(1 for p in self.detected_pellets if p['within_tolerance'])
         out = total - within
-
         self.total_label.setText(f"Total Pellets: {total}")
         self.within_label.setText(f"Within Tolerance: {within}")
         self.out_label.setText(f"Out of Tolerance: {out}")
-
         if total == 0:
             self.status_label.setText("Status: No pellets detected")
-            self.status_label.setStyleSheet("font-weight: bold; padding: 5px; color: gray;")
+            self.status_label.setStyleSheet("color: gray;")
         elif out == 0:
             self.status_label.setText("Status: All Within Tolerance")
-            self.status_label.setStyleSheet("font-weight: bold; padding: 5px; color: green;")
+            self.status_label.setStyleSheet("color: green;")
         else:
             self.status_label.setText(f"Status: {out} Out of Tolerance")
-            self.status_label.setStyleSheet("font-weight: bold; padding: 5px; color: red;")
-
+            self.status_label.setStyleSheet("color: red;")
         self.update_pellet_details()
 
     def update_pellet_details(self):
@@ -468,7 +402,6 @@ class PelletMeasurementApp(QMainWindow):
             child = self.details_widget_layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
-
         for i, p in enumerate(self.detected_pellets, 1):
             txt = (f"Pellet {i}:\n"
                    f"  Diameter: {p['diameter']:.2f} mm\n"
