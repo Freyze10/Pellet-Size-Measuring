@@ -14,7 +14,7 @@ from PyQt6.QtGui import QPixmap, QImage
 # Core Heuristic Parameters from Camera Script
 # ----------------------------------------------------------------------
 # Note: These values are used as initial defaults in the PyQt app's state.
-DEFAULT_PIXELS_PER_MM = 6.0
+DEFAULT_PIXELS_PER_MM = 10.0
 DEFAULT_TARGET_DIAMETER = 3.0
 DEFAULT_TARGET_LENGTH = 3.0
 DEFAULT_TOLERANCE = 0.5

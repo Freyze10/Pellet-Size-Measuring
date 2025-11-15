@@ -42,34 +42,34 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.Main.executor": "Run",
-    "Python.env.executor": "Run",
-    "Python.label.executor": "Run",
-    "Python.newOpencv.executor": "Run",
-    "Python.scanner.executor": "Run",
-    "Python.scanner_no_ml.executor": "Run",
-    "Python.test_new.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "C:/Users/Brant/PycharmProjects/Pellet_Measure",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.Main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.env.executor&quot;: &quot;Run&quot;,
+    &quot;Python.label.executor&quot;: &quot;Run&quot;,
+    &quot;Python.newOpencv.executor&quot;: &quot;Run&quot;,
+    &quot;Python.scanner.executor&quot;: &quot;Run&quot;,
+    &quot;Python.scanner_no_ml.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test_new.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Brant/PycharmProjects/Pellet_Measure&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   },
-  "keyToStringList": {
-    "GitStage.ChangesTree.GroupingKeys": [
-      "directory",
-      "module",
-      "repository"
+  &quot;keyToStringList&quot;: {
+    &quot;GitStage.ChangesTree.GroupingKeys&quot;: [
+      &quot;directory&quot;,
+      &quot;module&quot;,
+      &quot;repository&quot;
     ]
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.label">
+  <component name="RunManager" selected="Python.scanner_no_ml">
     <configuration name="env" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -183,11 +183,11 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.label" />
+        <item itemvalue="Python.scanner_no_ml" />
         <item itemvalue="Python.scanner" />
+        <item itemvalue="Python.label" />
         <item itemvalue="Python.newOpencv" />
         <item itemvalue="Python.env" />
-        <item itemvalue="Python.scanner_no_ml" />
       </list>
     </recent_temporary>
   </component>
@@ -559,7 +559,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763110525021</updated>
     </task>
-    <option name="localTasksCounter" value="45" />
+    <task id="LOCAL-00045" summary="working recognition">
+      <option name="closed" value="true" />
+      <created>1763110950585</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1763110950585</updated>
+    </task>
+    <option name="localTasksCounter" value="46" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

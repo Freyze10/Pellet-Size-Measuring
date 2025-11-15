@@ -212,7 +212,7 @@ class PelletMeasurementApp(QMainWindow):
         self.setGeometry(100, 100, 1400, 800)
 
         # ---- configuration -------------------------------------------------
-        self.pixels_per_mm = 6.0
+        self.pixels_per_mm = 10.0
         self.target_diameter = 3.0
         self.target_length = 3.0
         self.tolerance = 0.5
