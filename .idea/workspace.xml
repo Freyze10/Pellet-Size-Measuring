@@ -77,7 +77,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.new_scanner">
+  <component name="RunManager" selected="Python.scanner_yolo">
     <configuration name="new_scanner" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -190,8 +190,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.new_scanner" />
         <item itemvalue="Python.scanner_yolo" />
+        <item itemvalue="Python.new_scanner" />
         <item itemvalue="Python.scanner_no_ml" />
         <item itemvalue="Python.scanner_coco (1)" />
         <item itemvalue="Python.scanner_coco" />
@@ -213,14 +213,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00025" summary="added scanner">
-      <option name="closed" value="true" />
-      <created>1763091312905</created>
-      <option name="number" value="00025" />
-      <option name="presentableId" value="LOCAL-00025" />
-      <option name="project" value="LOCAL" />
-      <updated>1763091312905</updated>
     </task>
     <task id="LOCAL-00026" summary="updating the scanner">
       <option name="closed" value="true" />
@@ -606,7 +598,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763189074558</updated>
     </task>
-    <option name="localTasksCounter" value="74" />
+    <task id="LOCAL-00074" summary="working but not accurate">
+      <option name="closed" value="true" />
+      <created>1763189352997</created>
+      <option name="number" value="00074" />
+      <option name="presentableId" value="LOCAL-00074" />
+      <option name="project" value="LOCAL" />
+      <updated>1763189352998</updated>
+    </task>
+    <option name="localTasksCounter" value="75" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -621,7 +621,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="refactored pictures" />
     <MESSAGE value="changed images" />
     <MESSAGE value="updated scanner with ml" />
     <MESSAGE value="added new scanner" />
@@ -646,6 +645,7 @@
     <MESSAGE value="trying new approach" />
     <MESSAGE value="fixing error" />
     <MESSAGE value="fixing error image" />
-    <option name="LAST_COMMIT_MESSAGE" value="fixing error image" />
+    <MESSAGE value="working but not accurate" />
+    <option name="LAST_COMMIT_MESSAGE" value="working but not accurate" />
   </component>
 </project>
