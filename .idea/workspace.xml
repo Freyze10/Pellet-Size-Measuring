@@ -215,22 +215,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00048" summary="added new file Yolo model">
-      <option name="closed" value="true" />
-      <created>1763173344637</created>
-      <option name="number" value="00048" />
-      <option name="presentableId" value="LOCAL-00048" />
-      <option name="project" value="LOCAL" />
-      <updated>1763173344637</updated>
-    </task>
-    <task id="LOCAL-00049" summary="added new files for yolo model">
-      <option name="closed" value="true" />
-      <created>1763173579388</created>
-      <option name="number" value="00049" />
-      <option name="presentableId" value="LOCAL-00049" />
-      <option name="project" value="LOCAL" />
-      <updated>1763173579388</updated>
-    </task>
     <task id="LOCAL-00050" summary="updated yolo">
       <option name="closed" value="true" />
       <created>1763174314808</created>
@@ -607,7 +591,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763349990486</updated>
     </task>
-    <option name="localTasksCounter" value="97" />
+    <task id="LOCAL-00097" summary="added yolov11 model to try training">
+      <option name="closed" value="true" />
+      <created>1763365595914</created>
+      <option name="number" value="00097" />
+      <option name="presentableId" value="LOCAL-00097" />
+      <option name="project" value="LOCAL" />
+      <updated>1763365595914</updated>
+    </task>
+    <task id="LOCAL-00098" summary="added yolov11 model to try training">
+      <option name="closed" value="true" />
+      <created>1763365602755</created>
+      <option name="number" value="00098" />
+      <option name="presentableId" value="LOCAL-00098" />
+      <option name="project" value="LOCAL" />
+      <updated>1763365602755</updated>
+    </task>
+    <option name="localTasksCounter" value="99" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -622,7 +622,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added yolo to files" />
     <MESSAGE value="added yaml dataset" />
     <MESSAGE value="refactored dataset to label yolo" />
     <MESSAGE value="trying yolo" />
@@ -647,6 +646,7 @@
     <MESSAGE value="updated right panel" />
     <MESSAGE value="updated show image to scroll" />
     <MESSAGE value="updated initial px per mm val" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated initial px per mm val" />
+    <MESSAGE value="added yolov11 model to try training" />
+    <option name="LAST_COMMIT_MESSAGE" value="added yolov11 model to try training" />
   </component>
 </project>
