@@ -112,7 +112,7 @@ class PelletMeasurementApp(QMainWindow):
         self.setWindowTitle("Pellet Inspector - YOLO + CV (Debug Mode)")
         self.setGeometry(100, 100, 1450, 900)
 
-        self.pixels_per_mm = 10.0
+        self.pixels_per_mm = 25.4
         self.target_diameter = 3.0
         self.target_length = 3.0
         self.tolerance = 0.5
