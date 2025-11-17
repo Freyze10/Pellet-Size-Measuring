@@ -215,22 +215,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00042" summary="modifying label">
-      <option name="closed" value="true" />
-      <created>1763109501279</created>
-      <option name="number" value="00042" />
-      <option name="presentableId" value="LOCAL-00042" />
-      <option name="project" value="LOCAL" />
-      <updated>1763109501279</updated>
-    </task>
-    <task id="LOCAL-00043" summary="use scikitlearn">
-      <option name="closed" value="true" />
-      <created>1763109814604</created>
-      <option name="number" value="00043" />
-      <option name="presentableId" value="LOCAL-00043" />
-      <option name="project" value="LOCAL" />
-      <updated>1763109814604</updated>
-    </task>
     <task id="LOCAL-00044" summary="working recognition">
       <option name="closed" value="true" />
       <created>1763110525021</created>
@@ -607,7 +591,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763348166421</updated>
     </task>
-    <option name="localTasksCounter" value="91" />
+    <task id="LOCAL-00091" summary="updated right pannel">
+      <option name="closed" value="true" />
+      <created>1763348625070</created>
+      <option name="number" value="00091" />
+      <option name="presentableId" value="LOCAL-00091" />
+      <option name="project" value="LOCAL" />
+      <updated>1763348625070</updated>
+    </task>
+    <task id="LOCAL-00092" summary="updated show_image">
+      <option name="closed" value="true" />
+      <created>1763348655777</created>
+      <option name="number" value="00092" />
+      <option name="presentableId" value="LOCAL-00092" />
+      <option name="project" value="LOCAL" />
+      <updated>1763348655777</updated>
+    </task>
+    <option name="localTasksCounter" value="93" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -622,8 +622,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updated yolo" />
-    <MESSAGE value="changed pellet_training contents" />
     <MESSAGE value="updating py" />
     <MESSAGE value="modifying yolo model" />
     <MESSAGE value="changed .cvs to yoolo format" />
@@ -647,6 +645,8 @@
     <MESSAGE value="trying new" />
     <MESSAGE value="returned" />
     <MESSAGE value="updated output side" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated output side" />
+    <MESSAGE value="updated right pannel" />
+    <MESSAGE value="updated show_image" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated show_image" />
   </component>
 </project>
