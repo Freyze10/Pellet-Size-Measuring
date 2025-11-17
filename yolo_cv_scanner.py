@@ -504,8 +504,7 @@ class PelletMeasurementApp(QMainWindow):
         self.det_l.addStretch()
 
     def show_image(self, cv_img):
-        target = self.img_lbl.size()
-        pix = cv_to_qpixmap(cv_img, target)
+        pix = cv_to_qpixmap(cv_img)
         self.img_lbl.setPixmap(pix)
 
 
