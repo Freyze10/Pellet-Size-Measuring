@@ -78,7 +78,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.scanner_yolo">
+  <component name="RunManager" selected="Python.yolo_cv_scanner (1)">
     <configuration name="scanner_coco (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -191,8 +191,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.scanner_yolo" />
         <item itemvalue="Python.yolo_cv_scanner (1)" />
+        <item itemvalue="Python.scanner_yolo" />
         <item itemvalue="Python.yolo_cv_scanner" />
         <item itemvalue="Python.scanner_no_ml" />
         <item itemvalue="Python.scanner_coco (1)" />
@@ -214,22 +214,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00033" summary="modifying labeled">
-      <option name="closed" value="true" />
-      <created>1763101019498</created>
-      <option name="number" value="00033" />
-      <option name="presentableId" value="LOCAL-00033" />
-      <option name="project" value="LOCAL" />
-      <updated>1763101019498</updated>
-    </task>
-    <task id="LOCAL-00034" summary="refactored pictures">
-      <option name="closed" value="true" />
-      <created>1763101197567</created>
-      <option name="number" value="00034" />
-      <option name="presentableId" value="LOCAL-00034" />
-      <option name="project" value="LOCAL" />
-      <updated>1763101197567</updated>
     </task>
     <task id="LOCAL-00035" summary="changed images">
       <option name="closed" value="true" />
@@ -607,7 +591,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763196906731</updated>
     </task>
-    <option name="localTasksCounter" value="82" />
+    <task id="LOCAL-00082" summary="trying to modify model">
+      <option name="closed" value="true" />
+      <created>1763345269500</created>
+      <option name="number" value="00082" />
+      <option name="presentableId" value="LOCAL-00082" />
+      <option name="project" value="LOCAL" />
+      <updated>1763345269500</updated>
+    </task>
+    <task id="LOCAL-00083" summary="updated yolo trained model">
+      <option name="closed" value="true" />
+      <created>1763345286322</created>
+      <option name="number" value="00083" />
+      <option name="presentableId" value="LOCAL-00083" />
+      <option name="project" value="LOCAL" />
+      <updated>1763345286322</updated>
+    </task>
+    <option name="localTasksCounter" value="84" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -622,7 +622,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="use scikitlearn" />
     <MESSAGE value="working recognition" />
     <MESSAGE value="changed initial pixel to 10" />
     <MESSAGE value="renamed scanner" />
@@ -647,6 +646,18 @@
     <MESSAGE value="refactored file name" />
     <MESSAGE value="updated" />
     <MESSAGE value="trying to modify model" />
-    <option name="LAST_COMMIT_MESSAGE" value="trying to modify model" />
+    <MESSAGE value="updated yolo trained model" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated yolo trained model" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/yolo_cv_scanner.py</url>
+          <line>549</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>
