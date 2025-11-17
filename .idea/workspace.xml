@@ -215,30 +215,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00035" summary="changed images">
-      <option name="closed" value="true" />
-      <created>1763101638720</created>
-      <option name="number" value="00035" />
-      <option name="presentableId" value="LOCAL-00035" />
-      <option name="project" value="LOCAL" />
-      <updated>1763101638720</updated>
-    </task>
-    <task id="LOCAL-00036" summary="updated scanner with ml">
-      <option name="closed" value="true" />
-      <created>1763103365973</created>
-      <option name="number" value="00036" />
-      <option name="presentableId" value="LOCAL-00036" />
-      <option name="project" value="LOCAL" />
-      <updated>1763103365973</updated>
-    </task>
-    <task id="LOCAL-00037" summary="updated scanner with ml">
-      <option name="closed" value="true" />
-      <created>1763104204403</created>
-      <option name="number" value="00037" />
-      <option name="presentableId" value="LOCAL-00037" />
-      <option name="project" value="LOCAL" />
-      <updated>1763104204403</updated>
-    </task>
     <task id="LOCAL-00038" summary="updated scanner with ml">
       <option name="closed" value="true" />
       <created>1763104270388</created>
@@ -607,7 +583,31 @@
       <option name="project" value="LOCAL" />
       <updated>1763345286322</updated>
     </task>
-    <option name="localTasksCounter" value="84" />
+    <task id="LOCAL-00084" summary="debugging">
+      <option name="closed" value="true" />
+      <created>1763345985833</created>
+      <option name="number" value="00084" />
+      <option name="presentableId" value="LOCAL-00084" />
+      <option name="project" value="LOCAL" />
+      <updated>1763345985833</updated>
+    </task>
+    <task id="LOCAL-00085" summary="finished">
+      <option name="closed" value="true" />
+      <created>1763345992181</created>
+      <option name="number" value="00085" />
+      <option name="presentableId" value="LOCAL-00085" />
+      <option name="project" value="LOCAL" />
+      <updated>1763345992181</updated>
+    </task>
+    <task id="LOCAL-00086" summary="trying new">
+      <option name="closed" value="true" />
+      <created>1763346252894</created>
+      <option name="number" value="00086" />
+      <option name="presentableId" value="LOCAL-00086" />
+      <option name="project" value="LOCAL" />
+      <updated>1763346252894</updated>
+    </task>
+    <option name="localTasksCounter" value="87" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -622,9 +622,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="working recognition" />
-    <MESSAGE value="changed initial pixel to 10" />
-    <MESSAGE value="renamed scanner" />
     <MESSAGE value="added new file Yolo model" />
     <MESSAGE value="added new files for yolo model" />
     <MESSAGE value="updated yolo" />
@@ -647,14 +644,17 @@
     <MESSAGE value="updated" />
     <MESSAGE value="trying to modify model" />
     <MESSAGE value="updated yolo trained model" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated yolo trained model" />
+    <MESSAGE value="debugging" />
+    <MESSAGE value="finished" />
+    <MESSAGE value="trying new" />
+    <option name="LAST_COMMIT_MESSAGE" value="trying new" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/yolo_cv_scanner.py</url>
-          <line>549</line>
+          <line>473</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
       </breakpoints>
