@@ -254,18 +254,21 @@ class PelletMeasurementApp(QMainWindow):
         l = QVBoxLayout()
         w.setLayout(l)
 
-        # ---- FIXED SIZE LABEL INSIDE SCROLL AREA ----
+        # 1. BIG fixed-size label (the “viewport” you see)
         self.img_lbl = QLabel("Load image...")
-        self.img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.img_lbl.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self.img_lbl.setStyleSheet("border:2px solid #ccc;background:#f0f0f0;")
-        self.img_lbl.setFixedSize(1000, 800)  # Adjust as needed
-        self.img_lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.img_lbl.setFixedSize(1200, 900)          # ← BIG size you asked for
+        self.img_lbl.setSizePolicy(QSizePolicy.Policy.Fixed,
+                                   QSizePolicy.Policy.Fixed)
 
+        # 2. ScrollArea that owns the label
         scroll = QScrollArea()
-        scroll.setWidgetResizable(False)
+        scroll.setWidgetResizable(False)               # we control the size
         scroll.setWidget(self.img_lbl)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
         l.addWidget(scroll)
         return w
 
