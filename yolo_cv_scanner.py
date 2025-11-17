@@ -253,14 +253,19 @@ class PelletMeasurementApp(QMainWindow):
         w = QWidget()
         l = QVBoxLayout()
         w.setLayout(l)
+
+        # ---- FIXED SIZE LABEL INSIDE SCROLL AREA ----
         self.img_lbl = QLabel("Load image...")
         self.img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.img_lbl.setStyleSheet("border:2px solid #ccc;background:#f0f0f0;")
-        self.img_lbl.setMinimumSize(800, 600)
-        self.img_lbl.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+        self.img_lbl.setFixedSize(1000, 800)  # Adjust as needed
+        self.img_lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
         scroll = QScrollArea()
+        scroll.setWidgetResizable(False)
         scroll.setWidget(self.img_lbl)
-        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         l.addWidget(scroll)
         return w
 
@@ -434,14 +439,34 @@ class PelletMeasurementApp(QMainWindow):
         rect = cv2.minAreaRect(p['polygon'].astype(np.float32))
         box = cv2.boxPoints(rect)
         box = np.intp(box)
+
+        # semi-transparent fill
         overlay = img.copy()
         cv2.fillPoly(overlay, [p['polygon'].reshape(-1,1,2)], color)
         cv2.addWeighted(overlay, 0.25, img, 0.75, 0, img)
+
+        # thicker box
         cv2.drawContours(img, [box], 0, color, 3)
+
+        # ----- LARGER ID TEXT -----
         M = cv2.moments(p['polygon'])
         cx = int(M["m10"]/M["m00"]) if M["m00"] else int(p['polygon'][:,0].mean())
         cy = int(M["m01"]/M["m00"]) if M["m00"] else int(p['polygon'][:,1].mean())
-        cv2.putText(img, str(p['id']), (cx-12, cy+8), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 2)
+
+        font_scale = 1.1
+        thickness = 3
+        cv2.putText(img, str(p['id']),
+                    (cx-20, cy+12),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    font_scale, (255,255,255), thickness)
+
+        # ----- OPTIONAL: CONFIDENCE (bigger) -----
+        if p['confidence'] < 100.0:
+            conf_text = f"{p['confidence']:.0f}%"
+            cv2.putText(img, conf_text,
+                        (cx-30, cy-20),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.9, (0,255,255), 2)
 
     def update_stats(self):
         total = len(self.detected_pellets)
@@ -476,8 +501,9 @@ class PelletMeasurementApp(QMainWindow):
         self.det_l.addStretch()
 
     def show_image(self, cv_img):
-        sz = QSize(max(self.img_lbl.width(), 400), max(self.img_lbl.height(), 400))
-        self.img_lbl.setPixmap(cv_to_qpixmap(cv_img, sz))
+        target = self.img_lbl.size()
+        pix = cv_to_qpixmap(cv_img, target)
+        self.img_lbl.setPixmap(pix)
 
 
 def main():
