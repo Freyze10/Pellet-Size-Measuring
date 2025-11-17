@@ -215,22 +215,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00046" summary="changed initial pixel to 10">
-      <option name="closed" value="true" />
-      <created>1763172918465</created>
-      <option name="number" value="00046" />
-      <option name="presentableId" value="LOCAL-00046" />
-      <option name="project" value="LOCAL" />
-      <updated>1763172918465</updated>
-    </task>
-    <task id="LOCAL-00047" summary="renamed scanner">
-      <option name="closed" value="true" />
-      <created>1763173295408</created>
-      <option name="number" value="00047" />
-      <option name="presentableId" value="LOCAL-00047" />
-      <option name="project" value="LOCAL" />
-      <updated>1763173295408</updated>
-    </task>
     <task id="LOCAL-00048" summary="added new file Yolo model">
       <option name="closed" value="true" />
       <created>1763173344637</created>
@@ -607,7 +591,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763348804382</updated>
     </task>
-    <option name="localTasksCounter" value="95" />
+    <task id="LOCAL-00095" summary="updated show image to scroll">
+      <option name="closed" value="true" />
+      <created>1763349853256</created>
+      <option name="number" value="00095" />
+      <option name="presentableId" value="LOCAL-00095" />
+      <option name="project" value="LOCAL" />
+      <updated>1763349853256</updated>
+    </task>
+    <task id="LOCAL-00096" summary="updated initial px per mm val">
+      <option name="closed" value="true" />
+      <created>1763349990486</created>
+      <option name="number" value="00096" />
+      <option name="presentableId" value="LOCAL-00096" />
+      <option name="project" value="LOCAL" />
+      <updated>1763349990486</updated>
+    </task>
+    <option name="localTasksCounter" value="97" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -622,8 +622,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="modifying yolo model" />
-    <MESSAGE value="changed .cvs to yoolo format" />
     <MESSAGE value="added yolo to files" />
     <MESSAGE value="added yaml dataset" />
     <MESSAGE value="refactored dataset to label yolo" />
@@ -647,6 +645,8 @@
     <MESSAGE value="updated show_image" />
     <MESSAGE value="returned" />
     <MESSAGE value="updated right panel" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated right panel" />
+    <MESSAGE value="updated show image to scroll" />
+    <MESSAGE value="updated initial px per mm val" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated initial px per mm val" />
   </component>
 </project>
