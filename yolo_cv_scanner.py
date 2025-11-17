@@ -16,24 +16,17 @@ from ultralytics import YOLO
 
 
 # --- ROBUST IMAGE CONVERSION HELPER FUNCTION (CRASH FIX) ---
-
 def cv_to_qpixmap(cv_img, target_size=None):
-    """
-    Converts an OpenCV BGR/Grayscale image (numpy array) to a PyQt6 QPixmap.
-    Uses explicit RGB conversion and C-contiguous copy for QImage stability (to prevent crashes).
-    """
     if cv_img is None:
         return QPixmap()
 
     if len(cv_img.shape) == 3:
-        # Convert BGR to RGB (Qt expects RGB for Format_RGB888)
         rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb_image.shape
         bytes_per_line = ch * w
         format = QImage.Format.Format_RGB888
         data_to_pass = rgb_image
     elif len(cv_img.shape) == 2:
-        # Grayscale
         h, w = cv_img.shape
         bytes_per_line = w
         format = QImage.Format.Format_Grayscale8
@@ -41,17 +34,10 @@ def cv_to_qpixmap(cv_img, target_size=None):
     else:
         return QPixmap()
 
-    # CRITICAL FIX: Explicitly create a C-contiguous array copy.
     contiguous_data = data_to_pass.copy(order='C')
-
     convert_to_Qt_format = QImage(
-        contiguous_data.data,
-        w,
-        h,
-        bytes_per_line,
-        format
+        contiguous_data.data, w, h, bytes_per_line, format
     )
-
     qpixmap = QPixmap.fromImage(convert_to_Qt_format)
 
     if target_size and not target_size.isNull():
@@ -64,9 +50,6 @@ def cv_to_qpixmap(cv_img, target_size=None):
 
 
 def cv2_safe_imread(path):
-    """
-    Reads an image using cv2.imdecode to handle file path/encoding issues.
-    """
     try:
         with open(path, 'rb') as f:
             data = f.read()
@@ -78,56 +61,34 @@ def cv2_safe_imread(path):
         return None
 
 
-# --- COLOR-BASED DETECTOR FOR IMMEDIATE FUNCTIONALITY ---
-
+# --- COLOR-BASED DETECTOR (FALLBACK) ---
 class ColorPelletDetector:
-    """
-    Uses robust classical CV (Color Thresholding) for reliable detection
-    regardless of model training status.
-    """
-    # HSV Color Range for the Blue Pellets (tuned for the sample image's bright blue)
     LOWER_BLUE = np.array([100, 150, 50])
     UPPER_BLUE = np.array([140, 255, 255])
-
-    # Filtering Heuristics (in pixels^2, tune based on DPI and pellet size)
-    # These are general heuristics and may need fine-tuning based on the image DPI setting
     MIN_PIXEL_AREA_THRESHOLD = 500
     MAX_PIXEL_AREA_THRESHOLD = 15000
 
     def detect_pellets(self, image):
-        """Returns a list of polygons (contours) for found pellets."""
         if image is None: return []
-
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self.LOWER_BLUE, self.UPPER_BLUE)
-
-        # Clean up the mask (Closing operation)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
-
-        # Find contours
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         pellet_polygons = []
         for contour in contours:
             area = cv2.contourArea(contour)
-
-            # Area filtering
             if self.MIN_PIXEL_AREA_THRESHOLD <= area <= self.MAX_PIXEL_AREA_THRESHOLD:
-                # Use minAreaRect to check aspect ratio for cylindrical shape
                 rect = cv2.minAreaRect(contour)
                 w, h = rect[1]
                 aspect = max(w, h) / min(w, h) if min(w, h) > 0 else 0
-
-                # Filter by a reasonable aspect ratio for a cylinder (e.g., 1.0 to 4.0)
                 if 1.0 <= aspect <= 4.0:
                     pellet_polygons.append(contour)
-
         return pellet_polygons
 
 
-# --- YOLO TRAINING THREAD (No changes needed) ---
-
+# --- YOLO TRAINING THREAD (Kept but optional) ---
 class YOLOTrainingThread(QThread):
     progress = pyqtSignal(str)
     finished = pyqtSignal(bool, str)
@@ -140,7 +101,6 @@ class YOLOTrainingThread(QThread):
         try:
             self.progress.emit("Loading YOLOv8-nano model...")
             model = YOLO('yolov8n.pt')
-
             self.progress.emit("Starting training (200 epochs)...")
             results = model.train(
                 data=self.dataset_yaml_path,
@@ -153,18 +113,16 @@ class YOLOTrainingThread(QThread):
                 augment=True,
                 pretrained=True,
                 optimizer='AdamW',
-                lr0=00.1,
+                lr0=0.01,
                 cos_lr=True,
                 close_mosaic=10,
                 device='cpu',
                 exist_ok=True,
                 plots=True
             )
-
             model_path = "runs/detect/pellet_detector/weights/best.pt"
             self.progress.emit("Training finished! Model saved.")
             self.finished.emit(True, model_path)
-
         except Exception as e:
             error_msg = traceback.format_exc()
             self.progress.emit(f"TRAINING ERROR:\n{str(e)}")
@@ -172,18 +130,16 @@ class YOLOTrainingThread(QThread):
 
 
 # --- MAIN APPLICATION ---
-
 class PelletMeasurementApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Pellet Size Measurement System - Hybrid CV/ML")
+        self.setWindowTitle("Pellet Size Measurement System - Hybrid YOLO+CV")
         self.setGeometry(100, 100, 1400, 900)
 
         # --- CONFIG ---
         self.pixels_per_mm = 10.0
         self.target_diameter = 3.0
         self.target_length = 3.0
-        # *** FIX: Set tolerance to 0.5mm as requested (2.5mm to 3.5mm) ***
         self.tolerance = 0.5
         self.update_ranges()
 
@@ -193,18 +149,14 @@ class PelletMeasurementApp(QMainWindow):
         self.detected_pellets = []
         self.model = None
         self.is_trained = False
-
-        # --- DETECTORS ---
         self.yolo_detector = None
         self.cv_detector = ColorPelletDetector()
-
-        # --- YOLO DATASET ---
         self.dataset_folder = "pellet_label_yolo"
 
         self.init_ui()
+        self.load_existing_model()  # Auto-load pre-trained model
 
     def update_ranges(self):
-        """Recalculate tolerance ranges based on current settings."""
         self.diameter_min = self.target_diameter - self.tolerance
         self.diameter_max = self.target_diameter + self.tolerance
         self.length_min = self.target_length - self.tolerance
@@ -232,7 +184,6 @@ class PelletMeasurementApp(QMainWindow):
         self.ds_btn = QPushButton("Select YOLO Dataset Folder")
         self.ds_btn.clicked.connect(self.select_dataset_folder)
         ds_layout.addWidget(self.ds_btn)
-
         self.ds_label = QLabel(f"Current: {os.path.basename(self.dataset_folder)}")
         self.ds_label.setWordWrap(True)
         self.ds_label.setStyleSheet("padding:5px; background:#f0f0f0;")
@@ -240,40 +191,37 @@ class PelletMeasurementApp(QMainWindow):
         ds_group.setLayout(ds_layout)
         layout.addWidget(ds_group)
 
-        # === 2. Training (YOLO is kept but disabled initially) ===
+        # === 2. Training (Disabled if model loaded) ===
         train_group = QGroupBox("Model Training (Optional)")
         train_layout = QVBoxLayout()
-
-        self.train_btn = QPushButton("Train YOLO Model (Currently using CV)")
+        self.train_btn = QPushButton("Train YOLO Model")
         self.train_btn.clicked.connect(self.start_training)
         self.train_btn.setStyleSheet("background:#4CAF50;color:white;padding:10px;font-size:14px;")
         train_layout.addWidget(self.train_btn)
 
-        self.status_lbl = QLabel("Status: Ready (Using reliable Color-CV Detector)")
+        self.status_lbl = QLabel("Status: Loading model...")
         self.status_lbl.setStyleSheet("padding:5px;background:#e0e0e0;")
         train_layout.addWidget(self.status_lbl)
 
         self.log = QTextEdit()
         self.log.setMaximumHeight(150)
         self.log.setReadOnly(True)
-        train_layout.addWidget(QLabel("Training Log:"))
+        train_layout.addWidget(QLabel("Log:"))
         train_layout.addWidget(self.log)
-
         train_group.setLayout(train_layout)
         layout.addWidget(train_group)
 
         # === 3. Detection & Debug ===
         self.load_btn = QPushButton("Load Image for Detection")
         self.load_btn.clicked.connect(self.load_image)
-        self.load_btn.setEnabled(True)  # Always enabled due to CV detector
         layout.addWidget(self.load_btn)
 
-        self.val_btn = QPushButton("Validate on Training Set (YOLO Only)")
+        self.val_btn = QPushButton("Validate on Training Set (YOLO)")
         self.val_btn.clicked.connect(self.validate_training_set)
         self.val_btn.setEnabled(False)
         layout.addWidget(self.val_btn)
 
-        self.debug_btn = QPushButton("DEBUG: Test Random Training Image (YOLO Only)")
+        self.debug_btn = QPushButton("DEBUG: Test Random Training Image")
         self.debug_btn.clicked.connect(self.debug_training_image)
         self.debug_btn.setEnabled(False)
         layout.addWidget(self.debug_btn)
@@ -297,16 +245,12 @@ class PelletMeasurementApp(QMainWindow):
         # === 5. Target Specs ===
         spec = QGroupBox("Target Specifications")
         sl = QVBoxLayout()
-
         self.target_d_lbl = QLabel(f"Target Diameter: {self.target_diameter:.2f} mm")
         self.target_l_lbl = QLabel(f"Target Length: {self.target_length:.2f} mm")
         self.tolerance_lbl = QLabel(f"Tolerance: ±{self.tolerance:.2f} mm")
         self.acceptable_lbl = QLabel(f"Acceptable: {self.diameter_min:.2f}–{self.diameter_max:.2f} mm")
-
-        sl.addWidget(self.target_d_lbl)
-        sl.addWidget(self.target_l_lbl)
-        sl.addWidget(self.tolerance_lbl)
-        sl.addWidget(self.acceptable_lbl)
+        for w in (self.target_d_lbl, self.target_l_lbl, self.tolerance_lbl, self.acceptable_lbl):
+            sl.addWidget(w)
         spec.setLayout(sl)
         layout.addWidget(spec)
 
@@ -343,11 +287,10 @@ class PelletMeasurementApp(QMainWindow):
         panel = QWidget()
         layout = QVBoxLayout()
         panel.setLayout(layout)
-        self.img_lbl = QLabel("Load an image to detect pellets (using CV detector)...")
+        self.img_lbl = QLabel("Load an image to detect pellets...")
         self.img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.img_lbl.setStyleSheet("border:2px solid #ccc;background:#f0f0f0;")
         self.img_lbl.setMinimumSize(800, 600)
-
         self.img_lbl.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         self.img_lbl.setScaledContents(False)
 
@@ -356,6 +299,32 @@ class PelletMeasurementApp(QMainWindow):
         scroll.setWidgetResizable(True)
         layout.addWidget(scroll)
         return panel
+
+    # ------------------- MODEL LOADING -------------------
+    def load_existing_model(self):
+        model_path = "runs/detect/pellet_detector5/weights/best.pt"
+        if os.path.exists(model_path):
+            try:
+                self.yolo_detector = YOLO(model_path)
+                self.is_trained = True
+                self.status_lbl.setText("Pre-trained YOLO model loaded!")
+                self.val_btn.setEnabled(True)
+                self.debug_btn.setEnabled(True)
+                self.train_btn.setEnabled(False)
+                self.train_btn.setText("Model Already Loaded")
+                self.train_btn.setStyleSheet("background:#9E9E9E;color:white;")
+                self.log.append(f"Loaded: {model_path}")
+                QMessageBox.information(self, "Success",
+                    f"Pre-trained model loaded!\n"
+                    f"{model_path}\n\n"
+                    f"YOLO detection is active.")
+            except Exception as e:
+                self.log.append(f"Model load failed: {e}")
+                self.status_lbl.setText("Using Color-CV (YOLO failed)")
+                QMessageBox.critical(self, "Error", f"Failed to load YOLO model:\n{e}")
+        else:
+            self.status_lbl.setText("No pre-trained model found. Using Color-CV.")
+            self.log.append(f"Model not found: {model_path}")
 
     # ------------------- ACTIONS -------------------
     def select_dataset_folder(self):
@@ -396,14 +365,14 @@ class PelletMeasurementApp(QMainWindow):
         self.train_btn.setEnabled(True)
         if success:
             self.log.append(f"Model ready: {result}")
-            self.status_lbl.setText("Training complete! (Now using YOLO model)")
-            self.yolo_detector = YOLO(result)  # Store YOLO model
+            self.status_lbl.setText("Training complete! YOLO active.")
+            self.yolo_detector = YOLO(result)
             self.is_trained = True
             self.val_btn.setEnabled(True)
             self.debug_btn.setEnabled(True)
-            QMessageBox.information(self, "Success", "YOLO Model trained! It is now used for detection.")
+            QMessageBox.information(self, "Success", "YOLO Model trained!")
         else:
-            self.status_lbl.setText("Training failed (Using CV detector)")
+            self.status_lbl.setText("Training failed. Using CV.")
             QMessageBox.critical(self, "Error", f"Training failed:\n{result}")
 
     def validate_training_set(self):
@@ -416,29 +385,25 @@ class PelletMeasurementApp(QMainWindow):
 
     def debug_training_image(self):
         if not self.is_trained: return
-
         img_dir = os.path.join(self.dataset_folder, "images", "train")
         imgs = glob.glob(os.path.join(img_dir, "*.*"))
         imgs = [f for f in imgs if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
-
         if not imgs:
-            QMessageBox.warning(self, "Error", "No training images found!")
+            QMessageBox.warning(self, "Error", "No training images!")
             return
-
         path = random.choice(imgs)
         self.current_image = cv2_safe_imread(path)
         self.current_image_path = path
         self.status_lbl.setText(f"DEBUG: {os.path.basename(path)}")
-        self.process_image(force_yolo=True)  # Force YOLO for debug
+        self.process_image()
 
     def load_image(self):
         path, _ = QFileDialog.getOpenFileName(self, "Select Image", "", "Images (*.png *.jpg *.jpeg *.bmp)")
         if path:
             self.current_image = cv2_safe_imread(path)
             if self.current_image is None:
-                QMessageBox.critical(self, "Error", f"Failed to load image at {os.path.basename(path)}.")
+                QMessageBox.critical(self, "Error", f"Failed to load image.")
                 return
-
             self.current_image_path = path
             self.status_lbl.setText("Detecting...")
             QApplication.processEvents()
@@ -455,35 +420,65 @@ class PelletMeasurementApp(QMainWindow):
         if self.current_image is not None:
             self.process_image()
 
+    # ------------------- CORE DETECTION -------------------
     def process_image(self, force_yolo=False):
         if self.current_image is None: return
 
         disp = self.current_image.copy()
         self.detected_pellets = []
+        polygons = []
+        confidences = []
 
-        # --- DETECTION CHOICE ---
-        if self.is_trained and (self.yolo_detector or force_yolo):
-            # NOTE: This branch is where the YOLO detection would occur.
-            # We skip the complex YOLO detection and fall back to CV contour extraction
-            # for size measurement due to the need for immediate, accurate L/W sizing.
-            self.status_lbl.setText("Detecting (YOLO trained, using CV for sizing)...")
-            polygons = self.cv_detector.detect_pellets(self.current_image)
+        if self.is_trained and self.yolo_detector:
+            self.status_lbl.setText("Detecting with YOLO...")
+            QApplication.processEvents()
+            try:
+                results = self.yolo_detector.predict(
+                    source=self.current_image,
+                    conf=0.25,
+                    iou=0.45,
+                    imgsz=640,
+                    device='cpu',
+                    verbose=False
+                )
+                result = results[0]
+                boxes = result.boxes
+
+                for box in boxes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                    conf = box.conf.item()
+                    roi = self.current_image[y1:y2, x1:x2]
+                    if roi.size == 0: continue
+
+                    hsv_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+                    mask = cv2.inRange(hsv_roi, self.cv_detector.LOWER_BLUE, self.cv_detector.UPPER_BLUE)
+                    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    if not contours: continue
+
+                    contour = max(contours, key=cv2.contourArea)
+                    area = cv2.contourArea(contour)
+                    if area < self.cv_detector.MIN_PIXEL_AREA_THRESHOLD: continue
+
+                    contour += np.array([x1, y1])
+                    polygons.append(contour)
+                    confidences.append(conf * 100)
+            except Exception as e:
+                self.log.append(f"YOLO error: {e}")
+                polygons = self.cv_detector.detect_pellets(self.current_image)
+                confidences = [100.0] * len(polygons)
         else:
-            # Use the reliable Color CV detector if YOLO is not trained/forced off
-            self.status_lbl.setText("Detecting (Using Color-CV)...")
+            self.status_lbl.setText("Detecting (Color-CV)...")
             polygons = self.cv_detector.detect_pellets(self.current_image)
+            confidences = [100.0] * len(polygons)
 
-        # --- MEASUREMENT (Common to all successful detections) ---
-        for i, poly in enumerate(polygons):
-            # --- Measure the actual contour (Orientation-Independent) ---
+        for i, (poly, conf) in enumerate(zip(polygons, confidences)):
             meas = self.measure_pellet(poly, self.pixels_per_mm)
-
             pellet = {
                 'polygon': poly,
                 'diameter': meas['diameter'],
                 'length': meas['length'],
                 'within_tolerance': meas['within'],
-                'confidence': 100.0,  # 100% confidence for deterministic CV detection
+                'confidence': conf,
                 'id': i + 1
             }
             self.detected_pellets.append(pellet)
@@ -491,43 +486,30 @@ class PelletMeasurementApp(QMainWindow):
 
         self.update_stats()
         self.show_image(disp)
+        self.status_lbl.setText(f"Detected: {len(self.detected_pellets)} pellets")
 
     def measure_pellet(self, poly, ppm):
-        """Measures true Length/Width using minAreaRect (orientation-independent)."""
         rect = cv2.minAreaRect(poly.astype(np.float32))
         w_px, h_px = rect[1]
-
-        # Convert to mm
         w_mm = w_px / ppm
         h_mm = h_px / ppm
-
-        # Diameter is the minor axis, Length is the major axis
         dia = min(w_mm, h_mm)
         length = max(w_mm, h_mm)
-
-        # Check tolerance for both dimensions
         ok = (self.diameter_min <= dia <= self.diameter_max) and \
              (self.length_min <= length <= self.length_max)
-
         return {"diameter": dia, "length": length, "within": ok}
 
     def draw_pellet(self, img, p):
-        color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)  # Green or Red
-
-        # Get the rotated bounding box from the polygon for drawing
+        color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)
         rect = cv2.minAreaRect(p['polygon'].astype(np.float32))
         box_points = cv2.boxPoints(rect)
         box_points = np.intp(box_points)
 
-        # 1. Semi-transparent fill
         overlay = img.copy()
         cv2.fillPoly(overlay, [p['polygon'].reshape(-1, 1, 2)], color)
         cv2.addWeighted(overlay, 0.25, img, 0.75, 0, img)
-
-        # 2. Thick outline using the minAreaRect box
         cv2.drawContours(img, [box_points], 0, color, 3)
 
-        # 3. Centered ID
         M = cv2.moments(p['polygon'])
         cx = int(M["m10"] / M["m00"]) if M["m00"] else int(p['polygon'][:, 0].mean())
         cy = int(M["m01"] / M["m00"]) if M["m00"] else int(p['polygon'][:, 1].mean())
@@ -559,18 +541,15 @@ class PelletMeasurementApp(QMainWindow):
         for i, p in enumerate(self.detected_pellets, 1):
             status_text = "OK" if p['within_tolerance'] else "BAD"
             txt = (f"Pellet {i} - Status: {status_text}\n"
-                   f"  Diameter (W): {p['diameter']:.3f} mm\n"
-                   f"  Length (L):   {p['length']:.3f} mm\n"
+                   f"  Diameter: {p['diameter']:.3f} mm\n"
+                   f"  Length:   {p['length']:.3f} mm\n"
                    f"  Conf: {p['confidence']:.1f}%")
-
             lbl = QLabel(txt)
             lbl.setStyleSheet(f"padding:5px;margin:2px;border:1px solid {'green' if p['within_tolerance'] else 'red'};")
             self.det_layout.addWidget(lbl)
-
         self.det_layout.addStretch()
 
     def show_image(self, cv_img):
-        """Uses the robust helper function to display the image and prevent crashes."""
         target_size = QSize(max(self.img_lbl.width(), 400), max(self.img_lbl.height(), 400))
         pixmap = cv_to_qpixmap(cv_img, target_size=target_size)
         self.img_lbl.setPixmap(pixmap)
