@@ -503,8 +503,18 @@ class PelletMeasurementApp(QMainWindow):
         self.det_l.addStretch()
 
     def show_image(self, cv_img):
-        target = self.img_lbl.size()
-        pix = cv_to_qpixmap(cv_img, target)
+        available_width = self.img_lbl.parent().width() - 30   # ~30 px for scrollbar
+        # 2. Compute the scaling factor that makes the image fit the width
+        img_h, img_w = cv_img.shape[:2]
+        scale = available_width / img_w
+
+        # 3. Create a QPixmap that is **exactly** the needed size
+        target_w = int(img_w * scale)
+        target_h = int(img_h * scale)
+        pix = cv_to_qpixmap(cv_img, QSize(target_w, target_h))
+        # 4. Force the label to the new size (width fixed, height = image height)
+        self.img_lbl.setFixedWidth(target_w)
+        self.img_lbl.setMinimumHeight(target_h)   # allows vertical scrolling
         self.img_lbl.setPixmap(pix)
 
 

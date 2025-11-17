@@ -215,22 +215,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00044" summary="working recognition">
-      <option name="closed" value="true" />
-      <created>1763110525021</created>
-      <option name="number" value="00044" />
-      <option name="presentableId" value="LOCAL-00044" />
-      <option name="project" value="LOCAL" />
-      <updated>1763110525021</updated>
-    </task>
-    <task id="LOCAL-00045" summary="working recognition">
-      <option name="closed" value="true" />
-      <created>1763110950585</created>
-      <option name="number" value="00045" />
-      <option name="presentableId" value="LOCAL-00045" />
-      <option name="project" value="LOCAL" />
-      <updated>1763110950585</updated>
-    </task>
     <task id="LOCAL-00046" summary="changed initial pixel to 10">
       <option name="closed" value="true" />
       <created>1763172918465</created>
@@ -607,7 +591,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763348655777</updated>
     </task>
-    <option name="localTasksCounter" value="93" />
+    <task id="LOCAL-00093" summary="returned">
+      <option name="closed" value="true" />
+      <created>1763348757020</created>
+      <option name="number" value="00093" />
+      <option name="presentableId" value="LOCAL-00093" />
+      <option name="project" value="LOCAL" />
+      <updated>1763348757020</updated>
+    </task>
+    <task id="LOCAL-00094" summary="updated right panel">
+      <option name="closed" value="true" />
+      <created>1763348804382</created>
+      <option name="number" value="00094" />
+      <option name="presentableId" value="LOCAL-00094" />
+      <option name="project" value="LOCAL" />
+      <updated>1763348804382</updated>
+    </task>
+    <option name="localTasksCounter" value="95" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -622,7 +622,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updating py" />
     <MESSAGE value="modifying yolo model" />
     <MESSAGE value="changed .cvs to yoolo format" />
     <MESSAGE value="added yolo to files" />
@@ -643,10 +642,11 @@
     <MESSAGE value="debugging" />
     <MESSAGE value="finished" />
     <MESSAGE value="trying new" />
-    <MESSAGE value="returned" />
     <MESSAGE value="updated output side" />
     <MESSAGE value="updated right pannel" />
     <MESSAGE value="updated show_image" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated show_image" />
+    <MESSAGE value="returned" />
+    <MESSAGE value="updated right panel" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated right panel" />
   </component>
 </project>
