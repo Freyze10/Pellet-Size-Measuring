@@ -254,17 +254,19 @@ class PelletMeasurementApp(QMainWindow):
         l = QVBoxLayout()
         w.setLayout(l)
 
-        # ---- FIXED SIZE LABEL INSIDE SCROLL AREA ----
+        # ---- QLabel that will always show the FULL WIDTH of the image ----
         self.img_lbl = QLabel("Load image...")
-        self.img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.img_lbl.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self.img_lbl.setStyleSheet("border:2px solid #ccc;background:#f0f0f0;")
-        self.img_lbl.setFixedSize(1000, 800)  # Adjust as needed
-        self.img_lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        # start with a reasonable minimum width – it will be resized later
+        self.img_lbl.setMinimumWidth(800)
+        self.img_lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
 
+        # ---- Scroll area that only scrolls vertically --------------------
         scroll = QScrollArea()
-        scroll.setWidgetResizable(False)
+        scroll.setWidgetResizable(False)  # we control the size ourselves
         scroll.setWidget(self.img_lbl)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         l.addWidget(scroll)
         return w
