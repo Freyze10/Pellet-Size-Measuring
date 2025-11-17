@@ -303,8 +303,7 @@ class PelletMeasurementApp(QMainWindow):
     # ------------------- MODEL LOADING -------------------
     def load_existing_model(self):
         model_path = "runs/detect/pellet_detector5/weights/best.pt"
-        print("MODEL PATH:", model_path)
-        print("MODEL EXISTS:", os.path.exists(model_path))
+
         if os.path.exists(model_path):
             try:
                 self.yolo_detector = YOLO(model_path)
