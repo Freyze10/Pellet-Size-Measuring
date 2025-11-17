@@ -215,14 +215,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00039" summary="added new scanner">
-      <option name="closed" value="true" />
-      <created>1763104686801</created>
-      <option name="number" value="00039" />
-      <option name="presentableId" value="LOCAL-00039" />
-      <option name="project" value="LOCAL" />
-      <updated>1763104686801</updated>
-    </task>
     <task id="LOCAL-00040" summary="added new scanner">
       <option name="closed" value="true" />
       <created>1763104689562</created>
@@ -607,7 +599,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763347594034</updated>
     </task>
-    <option name="localTasksCounter" value="88" />
+    <task id="LOCAL-00088" summary="returned">
+      <option name="closed" value="true" />
+      <created>1763347758880</created>
+      <option name="number" value="00088" />
+      <option name="presentableId" value="LOCAL-00088" />
+      <option name="project" value="LOCAL" />
+      <updated>1763347758880</updated>
+    </task>
+    <option name="localTasksCounter" value="89" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -622,7 +622,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added new file Yolo model" />
     <MESSAGE value="added new files for yolo model" />
     <MESSAGE value="updated yolo" />
     <MESSAGE value="changed pellet_training contents" />
@@ -647,14 +646,15 @@
     <MESSAGE value="debugging" />
     <MESSAGE value="finished" />
     <MESSAGE value="trying new" />
-    <option name="LAST_COMMIT_MESSAGE" value="trying new" />
+    <MESSAGE value="returned" />
+    <option name="LAST_COMMIT_MESSAGE" value="returned" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/yolo_cv_scanner.py</url>
-          <line>476</line>
+          <line>473</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
       </breakpoints>
