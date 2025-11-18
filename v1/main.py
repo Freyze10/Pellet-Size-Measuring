@@ -312,7 +312,7 @@ class PelletMeasurementApp(QMainWindow):
         self.detected_pellets = []
 
         # --- YOLO detection ---
-        polygons, confidences = [], []
+        polygons, confidences, bboxes = [], [], []
         try:
             if self.yolo_detector:
                 results = self.yolo_detector.predict(
@@ -324,45 +324,71 @@ class PelletMeasurementApp(QMainWindow):
                 for box in r.boxes:
                     x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
                     conf = box.conf.item() * 100
+                    cx = (x1 + x2) // 2
+                    cy = (y1 + y2) // 2
+
                     roi = self.current_image[y1:y2, x1:x2]
                     if roi.size == 0: continue
                     cnts = self.cv_detector.detect_pellets(roi)
                     if not cnts: continue
                     c = max(cnts, key=cv2.contourArea)
                     c += np.array([x1, y1])
-                    M = cv2.moments(c)
-                    cx = int(M["m10"] / M["m00"]) if M["m00"] else int(c[:, 0].mean())
-                    cy = int(M["m01"] / M["m00"]) if M["m00"] else int(c[:, 1].mean())
-                    temp_pellets.append({'polygon': c, 'confidence': conf, 'center': (cx, cy)})
 
-                # --- FILTER DUPLICATES BY CENTER + HIGHEST CONF ---
+                    temp_pellets.append({
+                        'polygon': c,
+                        'confidence': conf,
+                        'center': (cx, cy),
+                        'bbox': (x1, y1, x2, y2)
+                    })
+
+                # --- FILTER OVERLAPPING BOXES BY IOU + HIGHEST CONF ---
                 filtered = []
-                threshold = 8
+
+                def calculate_iou(box1, box2):
+                    x1_1, y1_1, x2_1, y2_1 = box1
+                    x1_2, y1_2, x2_2, y2_2 = box2
+
+                    xi1 = max(x1_1, x1_2)
+                    yi1 = max(y1_1, y1_2)
+                    xi2 = min(x2_1, x2_2)
+                    yi2 = min(y2_1, y2_2)
+                    inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+
+                    box1_area = (x2_1 - x1_1) * (y2_1 - y1_1)
+                    box2_area = (x2_2 - x1_2) * (y2_2 - y1_2)
+                    union_area = box1_area + box2_area - inter_area
+
+                    return inter_area / union_area if union_area > 0 else 0
+
+                iou_threshold = 0.3
                 for p in sorted(temp_pellets, key=lambda x: -x['confidence']):
-                    duplicate = False
+                    is_duplicate = False
                     for f in filtered:
-                        dist = np.hypot(p['center'][0] - f['center'][0], p['center'][1] - f['center'][1])
-                        if dist < threshold:
-                            duplicate = True
+                        iou = calculate_iou(p['bbox'], f['bbox'])
+                        if iou > iou_threshold:
+                            is_duplicate = True
                             break
-                    if not duplicate:
+                    if not is_duplicate:
                         filtered.append(p)
 
                 polygons = [p['polygon'] for p in filtered]
                 confidences = [p['confidence'] for p in filtered]
+                bboxes = [p['bbox'] for p in filtered]
 
         except:
             polygons = self.cv_detector.detect_pellets(self.current_image)
             confidences = [100] * len(polygons)
+            bboxes = [None] * len(polygons)
 
         # --- Measurement & Drawing ---
-        for i, (poly, conf) in enumerate(zip(polygons, confidences), 1):
+        for i, (poly, conf, bbox) in enumerate(zip(polygons, confidences, bboxes), 1):
             rect = cv2.minAreaRect(poly.astype(np.float32))
             w, h = rect[1]
             d = min(w, h) / self.pixels_per_mm
             l = max(w, h) / self.pixels_per_mm
             ok = self.d_min <= d <= self.d_max and self.l_min <= l <= self.l_max
-            pellet = {'polygon': poly, 'diameter': d, 'length': l, 'within': ok, 'confidence': conf, 'id': i}
+            pellet = {'polygon': poly, 'diameter': d, 'length': l, 'within': ok, 'confidence': conf, 'id': i,
+                      'bbox': bbox}
             self.detected_pellets.append(pellet)
             self.draw_pellet(img_disp, pellet)
 
@@ -372,11 +398,22 @@ class PelletMeasurementApp(QMainWindow):
 
     def draw_pellet(self, img, p):
         color = (0, 255, 0) if p['within'] else (0, 0, 255)
+
+        # Draw YOLO bounding box if available
+        if p['bbox'] is not None:
+            x1, y1, x2, y2 = p['bbox']
+            cv2.rectangle(img, (x1, y1), (x2, y2), (255, 165, 0), 2)  # Orange bbox
+
+        # Draw filled polygon
         overlay = img.copy()
         cv2.fillPoly(overlay, [p['polygon'].reshape(-1, 1, 2)], color)
         cv2.addWeighted(overlay, 0.25, img, 0.75, 0, img)
+
+        # Draw rotated rectangle around polygon
         box = np.intp(cv2.boxPoints(cv2.minAreaRect(p['polygon'].astype(np.float32))))
         cv2.drawContours(img, [box], 0, color, 3)
+
+        # Draw pellet ID
         M = cv2.moments(p['polygon'])
         cx = int(M["m10"] / M["m00"]) if M["m00"] else int(p['polygon'][:, 0].mean())
         cy = int(M["m01"] / M["m00"]) if M["m00"] else int(p['polygon'][:, 1].mean())
@@ -387,9 +424,11 @@ class PelletMeasurementApp(QMainWindow):
         cv2.putText(img, str(p['id']), (cx - 25, cy + 15),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 2)
 
-        if p['confidence'] < 100:
-            cv2.putText(img, f"{p['confidence']:.0f}%", (cx - 35, cy - 25),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 3)
+        # Draw confidence on bbox if available
+        if p['confidence'] < 100 and p['bbox'] is not None:
+            x1, y1, x2, y2 = p['bbox']
+            cv2.putText(img, f"{p['confidence']:.0f}%", (x1 + 5, y1 + 25),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 165, 0), 2)
 
     def update_stats(self):
         total = len(self.detected_pellets)
