@@ -222,14 +222,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00066" summary="trying yolo">
-      <option name="closed" value="true" />
-      <created>1763188020050</created>
-      <option name="number" value="00066" />
-      <option name="presentableId" value="LOCAL-00066" />
-      <option name="project" value="LOCAL" />
-      <updated>1763188020050</updated>
-    </task>
     <task id="LOCAL-00067" summary="delete prev">
       <option name="closed" value="true" />
       <created>1763188047336</created>
@@ -614,7 +606,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763443262642</updated>
     </task>
-    <option name="localTasksCounter" value="115" />
+    <task id="LOCAL-00115" summary="modifying ui">
+      <option name="closed" value="true" />
+      <created>1763443435859</created>
+      <option name="number" value="00115" />
+      <option name="presentableId" value="LOCAL-00115" />
+      <option name="project" value="LOCAL" />
+      <updated>1763443435859</updated>
+    </task>
+    <option name="localTasksCounter" value="116" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
