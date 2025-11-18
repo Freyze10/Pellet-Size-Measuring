@@ -397,23 +397,23 @@ class PelletMeasurementApp(QMainWindow):
         self.show_image(img_disp)
 
     def draw_pellet(self, img, p):
-        color = (0, 255, 0) if p['within'] else (0, 0, 255)  # Green = OK, Red = Failed
+        color = (0, 255, 0) if p['within'] else (0, 0, 255)
 
-        # Optional: draw YOLO orange bounding box
+        # Draw YOLO bounding box if available
         if p['bbox'] is not None:
             x1, y1, x2, y2 = p['bbox']
-            cv2.rectangle(img, (x1, y1), (x2, y2), (255, 165, 0), 2)
+            cv2.rectangle(img, (x1, y1), (x2, y2), (255, 165, 0), 2)  # Orange bbox
 
-        # Semi-transparent filled pellet
+        # Draw filled polygon (semi-transparent)
         overlay = img.copy()
         cv2.fillPoly(overlay, [p['polygon'].reshape(-1, 1, 2)], color)
         cv2.addWeighted(overlay, 0.25, img, 0.75, 0, img)
 
-        # Rotated rectangle around pellet outline
+        # Draw rotated rectangle around polygon
         box = np.intp(cv2.boxPoints(cv2.minAreaRect(p['polygon'].astype(np.float32))))
         cv2.drawContours(img, [box], 0, color, 3)
 
-        # Center of the pellet
+        # Calculate center using moments (more accurate)
         M = cv2.moments(p['polygon'])
         if M["m00"] != 0:
             cx = int(M["m10"] / M["m00"])
@@ -422,34 +422,35 @@ class PelletMeasurementApp(QMainWindow):
             cx = int(p['polygon'][:, 0].mean())
             cy = int(p['polygon'][:, 1].mean())
 
-        # Big bold number
-        text = str(p['id'])
+        # === BIGGER & BOLDER PELLET NUMBER ===
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 3.2  # Very large
-        thickness = 8  # White part
-        outline_thickness = 14  # Black outline (drawn first)
+        font_scale = 2.8  # Increased from 1.5 → much bigger!
+        thickness = 7  # Very thick for visibility
+        shadow_thickness = 10  # Even thicker shadow for contrast
 
-        # Get text size to center it perfectly
-        (tw, th), baseline = cv2.getTextSize(text, font, font_scale, outline_thickness)
-        text_x = cx - tw // 2
-        text_y = cy + th // 2
+        text = str(p['id'])
+        (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
 
-        # Padding for the background box
-        padding = 18
-        box_tl = (text_x - padding, text_y - th - padding + baseline)
-        box_br = (text_x + tw + padding, text_y + padding)
+        # Optional: center text better
+        text_x = cx - text_width // 2
+        text_y = cy + text_height // 2
 
-        # Draw solid colored background box
-        cv2.rectangle(img, box_tl, box_br, color, -1)  # Filled box
-        cv2.rectangle(img, box_tl, box_br, (0, 0, 0), 4)  # Black border
-
-        # Black outline/shadow of the text
+        # Black shadow/outline (drawn first)
         cv2.putText(img, text, (text_x, text_y),
-                    font, font_scale, (0, 0, 0), outline_thickness, cv2.LINE_AA)
+                    font, font_scale, (0, 0, 0), shadow_thickness, cv2.LINE_AA)
 
-        # White text on top
+        # White fill
         cv2.putText(img, text, (text_x, text_y),
                     font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+
+        # Optional: add colored border ring around text for extra pop
+        cv2.circle(img, (cx, cy), text_height + 10, color, 5)
+
+        # Draw confidence on bbox if available
+        if p['confidence'] < 100 and p['bbox'] is not None:
+            x1, y1, x2, y2 = p['bbox']
+            cv2.putText(img, f"{p['confidence']:.0f}%", (x1 + 8, y1 + 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 165, 0), 3)
 
     def update_stats(self):
         total = len(self.detected_pellets)
