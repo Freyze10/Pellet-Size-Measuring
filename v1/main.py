@@ -69,13 +69,21 @@ class PelletMeasurementApp(QMainWindow):
         self.setWindowTitle("Pellet Inspector - YOLO Scanner")
         self.setGeometry(100, 100, 1200, 700)
 
-        self.pixels_per_mm = 25.4
+        # Standard image size for YOLO model (150 DPI scanner size)
+        self.STANDARD_WIDTH = 1275
+        self.STANDARD_HEIGHT = 1754
+
+        # Calculate pixels per mm based on 150 DPI
+        # 150 DPI = 150 pixels per inch = 150/25.4 pixels per mm ≈ 5.906 px/mm
+        self.pixels_per_mm = 150 / 25.4  # approximately 5.906
+
         self.target_diameter = 3.0
         self.target_length = 3.0
         self.tolerance = 0.5
         self.update_ranges()
 
         self.current_image = None
+        self.original_image = None  # Store original before resize
         self.processed_image = None
         self.detected_pellets = []
         self.show_processed = True
@@ -191,18 +199,19 @@ class PelletMeasurementApp(QMainWindow):
         self.toggle_btn.setEnabled(False)
         l.addWidget(self.toggle_btn)
 
-        # Calibration
-        g = QGroupBox("⚙️ Calibration")
+        # Calibration Info
+        g = QGroupBox("⚙️ Calibration Info")
         gl = QVBoxLayout()
         gl.setSpacing(8)
-        h = QHBoxLayout()
-        h.addWidget(QLabel("Pixels per mm:"))
-        self.px_spin = QDoubleSpinBox()
-        self.px_spin.setRange(0.1, 200)
-        self.px_spin.setValue(self.pixels_per_mm)
-        self.px_spin.valueChanged.connect(lambda v: setattr(self, 'pixels_per_mm', v))
-        h.addWidget(self.px_spin)
-        gl.addLayout(h)
+
+        info_text = f"Standard Size: {self.STANDARD_WIDTH}×{self.STANDARD_HEIGHT}px\n"
+        info_text += f"Resolution: 150 DPI\n"
+        info_text += f"Pixels per mm: {self.pixels_per_mm:.3f}"
+
+        info_lbl = QLabel(info_text)
+        info_lbl.setStyleSheet("padding: 5px; background-color: #f8f9fa; border-radius: 4px;")
+        gl.addWidget(info_lbl)
+
         g.setLayout(gl)
         l.addWidget(g)
 
@@ -287,10 +296,19 @@ class PelletMeasurementApp(QMainWindow):
     def load_image(self):
         path, _ = QFileDialog.getOpenFileName(self, "Load Image", "", "Images (*.png *.jpg *.jpeg *.bmp)")
         if not path: return
-        self.current_image = cv2_safe_imread(path)
-        if self.current_image is None:
+
+        loaded_img = cv2_safe_imread(path)
+        if loaded_img is None:
             QMessageBox.critical(self, "Error", "Failed to load image")
             return
+
+        # Store original image
+        self.original_image = loaded_img.copy()
+
+        # Resize to standard size (1275x1754)
+        self.current_image = cv2.resize(loaded_img, (self.STANDARD_WIDTH, self.STANDARD_HEIGHT),
+                                        interpolation=cv2.INTER_LINEAR)
+
         self.show_processed = True
         self.toggle_btn.setText("🔄 Show Original Image")
         self.toggle_btn.setEnabled(True)
@@ -375,7 +393,8 @@ class PelletMeasurementApp(QMainWindow):
                 confidences = [p['confidence'] for p in filtered]
                 bboxes = [p['bbox'] for p in filtered]
 
-        except:
+        except Exception as e:
+            print(f"YOLO detection error: {e}")
             polygons = self.cv_detector.detect_pellets(self.current_image)
             confidences = [100] * len(polygons)
             bboxes = [None] * len(polygons)
@@ -384,8 +403,11 @@ class PelletMeasurementApp(QMainWindow):
         for i, (poly, conf, bbox) in enumerate(zip(polygons, confidences, bboxes), 1):
             rect = cv2.minAreaRect(poly.astype(np.float32))
             w, h = rect[1]
+
+            # Convert pixels to mm using the standard calibration
             d = min(w, h) / self.pixels_per_mm
             l = max(w, h) / self.pixels_per_mm
+
             ok = self.d_min <= d <= self.d_max and self.l_min <= l <= self.l_max
             pellet = {'polygon': poly, 'diameter': d, 'length': l, 'within': ok, 'confidence': conf, 'id': i,
                       'bbox': bbox}
@@ -399,17 +421,12 @@ class PelletMeasurementApp(QMainWindow):
     def draw_pellet(self, img, p):
         color = (0, 255, 0) if p['within'] else (0, 0, 255)
 
-        # Draw YOLO bounding box if available
-        if p['bbox'] is not None:
-            x1, y1, x2, y2 = p['bbox']
-            cv2.rectangle(img, (x1, y1), (x2, y2), (255, 165, 0), 2)  # Orange bbox
-
         # Draw filled polygon
         overlay = img.copy()
         cv2.fillPoly(overlay, [p['polygon'].reshape(-1, 1, 2)], color)
         cv2.addWeighted(overlay, 0.25, img, 0.75, 0, img)
 
-        # Draw rotated rectangle around polygon
+        # Draw rotated rectangle around polygon (tight fit)
         box = np.intp(cv2.boxPoints(cv2.minAreaRect(p['polygon'].astype(np.float32))))
         cv2.drawContours(img, [box], 0, color, 3)
 
@@ -424,11 +441,10 @@ class PelletMeasurementApp(QMainWindow):
         cv2.putText(img, str(p['id']), (cx - 25, cy + 15),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 2)
 
-        # Draw confidence on bbox if available
-        if p['confidence'] < 100 and p['bbox'] is not None:
-            x1, y1, x2, y2 = p['bbox']
-            cv2.putText(img, f"{p['confidence']:.0f}%", (x1 + 5, y1 + 25),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 165, 0), 2)
+        # Draw confidence near the pellet
+        if p['confidence'] < 100:
+            cv2.putText(img, f"{p['confidence']:.0f}%", (cx - 35, cy - 25),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 165, 0), 3)
 
     def update_stats(self):
         total = len(self.detected_pellets)

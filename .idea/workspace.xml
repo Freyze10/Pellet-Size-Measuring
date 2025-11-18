@@ -57,10 +57,12 @@
     "Python.new_scanner.executor": "Run",
     "Python.scanner.executor": "Run",
     "Python.scanner_coco (1).executor": "Run",
+    "Python.scanner_coco.executor": "Run",
     "Python.scanner_no_ml.executor": "Run",
     "Python.scanner_yolo.executor": "Run",
     "Python.test_new.executor": "Run",
     "Python.yolo_cv_scanner (1).executor": "Run",
+    "Python.yolo_cv_scanner.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "try__notebook",
     "last_opened_file_path": "C:/Users/Brant/PycharmProjects/Pellet_Measure/pellet_label_yolo",
@@ -221,22 +223,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00073" summary="fixing error image">
-      <option name="closed" value="true" />
-      <created>1763189074558</created>
-      <option name="number" value="00073" />
-      <option name="presentableId" value="LOCAL-00073" />
-      <option name="project" value="LOCAL" />
-      <updated>1763189074558</updated>
-    </task>
-    <task id="LOCAL-00074" summary="working but not accurate">
-      <option name="closed" value="true" />
-      <created>1763189352997</created>
-      <option name="number" value="00074" />
-      <option name="presentableId" value="LOCAL-00074" />
-      <option name="project" value="LOCAL" />
-      <updated>1763189352998</updated>
     </task>
     <task id="LOCAL-00075" summary="return">
       <option name="closed" value="true" />
@@ -614,7 +600,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763451432951</updated>
     </task>
-    <option name="localTasksCounter" value="122" />
+    <task id="LOCAL-00122" summary="replaced best">
+      <option name="closed" value="true" />
+      <created>1763452253380</created>
+      <option name="number" value="00122" />
+      <option name="presentableId" value="LOCAL-00122" />
+      <option name="project" value="LOCAL" />
+      <updated>1763452253380</updated>
+    </task>
+    <task id="LOCAL-00123" summary="updated img">
+      <option name="closed" value="true" />
+      <created>1763452743194</created>
+      <option name="number" value="00123" />
+      <option name="presentableId" value="LOCAL-00123" />
+      <option name="project" value="LOCAL" />
+      <updated>1763452743194</updated>
+    </task>
+    <option name="localTasksCounter" value="124" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -641,8 +643,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="debugging" />
-    <MESSAGE value="finished" />
     <MESSAGE value="trying new" />
     <MESSAGE value="updated output side" />
     <MESSAGE value="updated right pannel" />
@@ -666,6 +666,8 @@
     <MESSAGE value="claude design" />
     <MESSAGE value="added bbox yolo" />
     <MESSAGE value="updated trained model" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated trained model" />
+    <MESSAGE value="replaced best" />
+    <MESSAGE value="updated img" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated img" />
   </component>
 </project>
