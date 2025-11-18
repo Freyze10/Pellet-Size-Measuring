@@ -224,30 +224,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00075" summary="return">
-      <option name="closed" value="true" />
-      <created>1763190061197</created>
-      <option name="number" value="00075" />
-      <option name="presentableId" value="LOCAL-00075" />
-      <option name="project" value="LOCAL" />
-      <updated>1763190061197</updated>
-    </task>
-    <task id="LOCAL-00076" summary="working new scanner with ml">
-      <option name="closed" value="true" />
-      <created>1763190761064</created>
-      <option name="number" value="00076" />
-      <option name="presentableId" value="LOCAL-00076" />
-      <option name="project" value="LOCAL" />
-      <updated>1763190761064</updated>
-    </task>
-    <task id="LOCAL-00077" summary="working new scanner with ml">
-      <option name="closed" value="true" />
-      <created>1763191427499</created>
-      <option name="number" value="00077" />
-      <option name="presentableId" value="LOCAL-00077" />
-      <option name="project" value="LOCAL" />
-      <updated>1763191427499</updated>
-    </task>
     <task id="LOCAL-00078" summary="refactored file name">
       <option name="closed" value="true" />
       <created>1763194663079</created>
@@ -616,7 +592,31 @@
       <option name="project" value="LOCAL" />
       <updated>1763452743194</updated>
     </task>
-    <option name="localTasksCounter" value="124" />
+    <task id="LOCAL-00124" summary="updated img">
+      <option name="closed" value="true" />
+      <created>1763452985375</created>
+      <option name="number" value="00124" />
+      <option name="presentableId" value="LOCAL-00124" />
+      <option name="project" value="LOCAL" />
+      <updated>1763452985375</updated>
+    </task>
+    <task id="LOCAL-00125" summary="updated img">
+      <option name="closed" value="true" />
+      <created>1763453029859</created>
+      <option name="number" value="00125" />
+      <option name="presentableId" value="LOCAL-00125" />
+      <option name="project" value="LOCAL" />
+      <updated>1763453029859</updated>
+    </task>
+    <task id="LOCAL-00126" summary="revert">
+      <option name="closed" value="true" />
+      <created>1763453093760</created>
+      <option name="number" value="00126" />
+      <option name="presentableId" value="LOCAL-00126" />
+      <option name="project" value="LOCAL" />
+      <updated>1763453093760</updated>
+    </task>
+    <option name="localTasksCounter" value="127" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -643,7 +643,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="trying new" />
     <MESSAGE value="updated output side" />
     <MESSAGE value="updated right pannel" />
     <MESSAGE value="updated show_image" />
@@ -668,6 +667,7 @@
     <MESSAGE value="updated trained model" />
     <MESSAGE value="replaced best" />
     <MESSAGE value="updated img" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated img" />
+    <MESSAGE value="revert" />
+    <option name="LAST_COMMIT_MESSAGE" value="revert" />
   </component>
 </project>
