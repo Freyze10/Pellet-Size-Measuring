@@ -8,8 +8,9 @@ import random
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QLabel, QFileDialog, QGroupBox, QScrollArea, QTextEdit,
                              QDoubleSpinBox, QMessageBox, QSizePolicy, QFrame)
-from PyQt6.QtCore import Qt, QSize, QTimer
-from PyQt6.QtGui import QPixmap, QImage, QFont, QPalette, QColor
+from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QPixmap, QImage, QFont
+
 
 # --- Helper functions ---
 def cv_to_qpixmap(cv_img, target_size=None):
@@ -24,10 +25,10 @@ def cv_to_qpixmap(cv_img, target_size=None):
         bytes_line = w
         qimg = QImage(cv_img.data, w, h, bytes_line, QImage.Format.Format_Grayscale8)
     pix = QPixmap.fromImage(qimg)
-    if target_size:
-        pix = pix.scaled(target_size, Qt.AspectRatioMode.KeepAspectRatio,
-                         Qt.TransformationMode.SmoothTransformation)
+    if target_size: pix = pix.scaled(target_size, Qt.AspectRatioMode.KeepAspectRatio,
+                                     Qt.TransformationMode.SmoothTransformation)
     return pix
+
 
 def cv2_safe_imread(path):
     try:
@@ -36,6 +37,7 @@ def cv2_safe_imread(path):
         return cv2.imdecode(arr, cv2.IMREAD_COLOR)
     except:
         return None
+
 
 # --- Color fallback detector ---
 class ColorPelletDetector:
@@ -47,7 +49,7 @@ class ColorPelletDetector:
     def detect_pellets(self, img):
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self.LOWER_BLUE, self.UPPER_BLUE)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7,7))
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         valid = []
@@ -55,33 +57,17 @@ class ColorPelletDetector:
             a = cv2.contourArea(c)
             if self.MIN_PIXEL_AREA <= a <= self.MAX_PIXEL_AREA:
                 w, h = cv2.minAreaRect(c)[1]
-                if min(w,h)>0 and 1.0 <= max(w,h)/min(w,h) <= 5.0:
+                if min(w, h) > 0 and 1.0 <= max(w, h) / min(w, h) <= 5.0:
                     valid.append(c)
         return valid
+
 
 # --- Main app ---
 class PelletMeasurementApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Pellet Inspector Pro")
-        self.setGeometry(100, 100, 1200, 800)
-        self.setStyleSheet("""
-            QMainWindow { background-color: #f8f9fc; }
-            QLabel { font-size: 13px; color: #2c3e50; }
-            QPushButton {
-                background-color: #3498db; color: white; border: none;
-                padding: 10px 16px; border-radius: 6px; font-weight: bold;
-            }
-            QPushButton:hover { background-color: #2980b9; }
-            QPushButton#toggleBtn:checked { background-color: #27ae60; }
-            QGroupBox {
-                font-weight: bold; font-size: 14px; color: #2c3e50;
-                border: 2px solid #dcdcdc; border-radius: 8px; margin: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title { subcontrol-origin: margin; left: 15px; padding: 0 8px; }
-            QDoubleSpinBox { padding: 6px; border: 1px solid #bdc3c7; border-radius: 4px; }
-        """)
+        self.setWindowTitle("Pellet Inspector - YOLO Scanner")
+        self.setGeometry(100, 100, 1200, 700)
 
         self.pixels_per_mm = 25.4
         self.target_diameter = 3.0
@@ -90,15 +76,78 @@ class PelletMeasurementApp(QMainWindow):
         self.update_ranges()
 
         self.current_image = None
-        self.raw_image = None
-        self.annotated_image = None
+        self.processed_image = None
         self.detected_pellets = []
+        self.show_processed = True
         self.yolo_detector = None
         self.cv_detector = ColorPelletDetector()
-        self.show_annotated = True
+        self.dataset_folder = "pellet_label_yolo"
 
+        self.setup_styles()
         self.init_ui()
         self.load_model("trained_model/best.pt")
+
+    def setup_styles(self):
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #f5f5f5;
+            }
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                font-size: 13px;
+                font-weight: bold;
+                border-radius: 5px;
+                min-height: 35px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+            QPushButton#toggleBtn {
+                background-color: #2196F3;
+            }
+            QPushButton#toggleBtn:hover {
+                background-color: #0b7dda;
+            }
+            QGroupBox {
+                font-weight: bold;
+                font-size: 13px;
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 15px;
+                background-color: white;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 5px;
+                color: #2c3e50;
+            }
+            QLabel {
+                font-size: 12px;
+                color: #333;
+            }
+            QDoubleSpinBox {
+                padding: 5px;
+                border: 2px solid #e0e0e0;
+                border-radius: 4px;
+                background-color: white;
+                font-size: 12px;
+            }
+            QDoubleSpinBox:focus {
+                border: 2px solid #4CAF50;
+            }
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+        """)
 
     def update_ranges(self):
         self.d_min = self.target_diameter - self.tolerance
@@ -109,147 +158,160 @@ class PelletMeasurementApp(QMainWindow):
     def init_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
-        main_layout = QHBoxLayout(central)
-        main_layout.setSpacing(15)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-
-        # Left Panel
-        left = self.create_left_panel()
-        main_layout.addWidget(left, 1)
-
-        # Right Panel - Image Viewer
-        right = self.create_right_panel()
-        main_layout.addWidget(right, 3)
-
-    def create_left_panel(self):
-        panel = QWidget()
-        panel.setStyleSheet("background: white; border-radius: 10px; border: 1px solid #e0e0e0;")
-        layout = QVBoxLayout(panel)
-        layout.setSpacing(12)
+        layout = QHBoxLayout()
+        layout.setSpacing(15)
         layout.setContentsMargins(15, 15, 15, 15)
+        central.setLayout(layout)
+
+        layout.addWidget(self.left_panel(), 1)
+        layout.addWidget(self.right_panel(), 3)
+
+    def left_panel(self):
+        w = QWidget()
+        l = QVBoxLayout()
+        l.setSpacing(12)
+        w.setLayout(l)
 
         # Title
-        title = QLabel("Pellet Inspector Pro")
-        title.setStyleSheet("font-size: 18px; font-weight: bold; color: #2c3e50;")
+        title = QLabel("📊 Pellet Inspector")
+        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        title.setStyleSheet("color: #2c3e50; padding: 10px; background-color: white; border-radius: 8px;")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
+        l.addWidget(title)
 
-        # Load Button
-        self.load_btn = QPushButton("Load Image")
-        self.load_btn.setFixedHeight(45)
+        # Load Image button
+        self.load_btn = QPushButton("📁 Load Image")
         self.load_btn.clicked.connect(self.load_image)
-        layout.addWidget(self.load_btn)
+        l.addWidget(self.load_btn)
 
-        # Toggle View Button
-        self.toggle_btn = QPushButton("Show Raw Image")
+        # Toggle View button
+        self.toggle_btn = QPushButton("🔄 Show Original Image")
         self.toggle_btn.setObjectName("toggleBtn")
-        self.toggle_btn.setCheckable(True)
-        self.toggle_btn.setFixedHeight(40)
-        self.toggle_btn.clicked.connect(self.toggle_image_view)
-        layout.addWidget(self.toggle_btn)
+        self.toggle_btn.clicked.connect(self.toggle_view)
+        self.toggle_btn.setEnabled(False)
+        l.addWidget(self.toggle_btn)
 
         # Calibration
-        cal_box = QGroupBox("Calibration")
-        cal_layout = QHBoxLayout()
-        cal_layout.addWidget(QLabel("Pixels per mm:"))
+        g = QGroupBox("⚙️ Calibration")
+        gl = QVBoxLayout()
+        gl.setSpacing(8)
+        h = QHBoxLayout()
+        h.addWidget(QLabel("Pixels per mm:"))
         self.px_spin = QDoubleSpinBox()
-        self.px_spin.setRange(1.0, 200.0)
-        self.px_spin.setDecimals(2)
+        self.px_spin.setRange(0.1, 200)
         self.px_spin.setValue(self.pixels_per_mm)
         self.px_spin.valueChanged.connect(lambda v: setattr(self, 'pixels_per_mm', v))
-        cal_layout.addWidget(self.px_spin)
-        cal_box.setLayout(cal_layout)
-        layout.addWidget(cal_box)
+        h.addWidget(self.px_spin)
+        gl.addLayout(h)
+        g.setLayout(gl)
+        l.addWidget(g)
 
         # Stats
-        stats_box = QGroupBox("Detection Summary")
-        stats_layout = QVBoxLayout()
-        self.total_lbl = QLabel("Total Pellets: 0")
-        self.ok_lbl = QLabel("OK: 0")
-        self.bad_lbl = QLabel("Out of Spec: 0")
-        for lbl in [self.total_lbl, self.ok_lbl, self.bad_lbl]:
-            lbl.setStyleSheet("font-size: 15px; font-weight: bold;")
-        self.ok_lbl.setStyleSheet(self.ok_lbl.styleSheet() + "color: #27ae60;")
-        self.bad_lbl.setStyleSheet(self.bad_lbl.styleSheet() + "color: #e74c3c;")
-        stats_layout.addWidget(self.total_lbl)
-        stats_layout.addWidget(self.ok_lbl)
-        stats_layout.addWidget(self.bad_lbl)
-        stats_box.setLayout(stats_layout)
-        layout.addWidget(stats_box)
+        g = QGroupBox("📈 Detection Statistics")
+        gl = QVBoxLayout()
+        gl.setSpacing(8)
 
-        # Details Scroll
-        details_box = QGroupBox("Pellet Measurements")
-        details_layout = QVBoxLayout()
+        self.total_lbl = QLabel("Total Pellets: 0")
+        self.total_lbl.setStyleSheet("font-size: 13px; padding: 5px; color: #2c3e50; font-weight: bold;")
+
+        self.ok_lbl = QLabel("✓ Passed: 0")
+        self.ok_lbl.setStyleSheet("font-size: 13px; padding: 5px; color: #27ae60; font-weight: bold;")
+
+        self.bad_lbl = QLabel("✗ Failed: 0")
+        self.bad_lbl.setStyleSheet("font-size: 13px; padding: 5px; color: #e74c3c; font-weight: bold;")
+
+        gl.addWidget(self.total_lbl)
+        gl.addWidget(self.ok_lbl)
+        gl.addWidget(self.bad_lbl)
+        g.setLayout(gl)
+        l.addWidget(g)
+
+        # Details
+        g = QGroupBox("📋 Pellet Details")
+        gl = QVBoxLayout()
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
-        self.scroll.setStyleSheet("QScrollArea { border: none; }")
-        self.detail_container = QWidget()
-        self.detail_layout = QVBoxLayout(self.detail_container)
-        self.detail_layout.setSpacing(6)
-        self.scroll.setWidget(self.detail_container)
-        details_layout.addWidget(self.scroll)
-        details_box.setLayout(details_layout)
-        layout.addWidget(details_box)
+        self.det_w = QWidget()
+        self.det_w.setStyleSheet("background-color: #fafafa;")
+        self.det_l = QVBoxLayout()
+        self.det_l.setSpacing(8)
+        self.det_w.setLayout(self.det_l)
+        self.scroll.setWidget(self.det_w)
+        gl.addWidget(self.scroll)
+        g.setLayout(gl)
+        l.addWidget(g)
 
-        layout.addStretch()
-        return panel
+        l.addStretch()
+        return w
 
-    def create_right_panel(self):
-        panel = QFrame()
-        panel.setStyleSheet("background: white; border-radius: 10px; border: 1px solid #e0e0e0;")
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(0, 0, 0, 0)
+    def right_panel(self):
+        w = QWidget()
+        l = QVBoxLayout()
+        l.setContentsMargins(0, 0, 0, 0)
+        w.setLayout(l)
 
-        self.img_label = QLabel("Load an image to begin...")
-        self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.img_label.setStyleSheet("font-size: 16px; color: #95a5a6;")
-        self.img_label.setMinimumSize(600, 400)
+        self.img_lbl = QLabel("📷 Load an image to begin inspection...")
+        self.img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.img_lbl.setStyleSheet("""
+            border: 3px dashed #bdc3c7;
+            background: white;
+            border-radius: 8px;
+            color: #7f8c8d;
+            font-size: 14px;
+            padding: 20px;
+        """)
 
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setWidget(self.img_label)
-        scroll_area.setStyleSheet("QScrollArea { border: none; }")
-
-        layout.addWidget(scroll_area)
-        return panel
-
-    def toggle_image_view(self):
-        self.show_annotated = not self.toggle_btn.isChecked()
-        if self.show_annotated:
-            self.toggle_btn.setText("Show Raw Image")
-        else:
-            self.toggle_btn.setText("Show Annotated Image")
-        self.display_current_image()
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(False)
+        scroll.setWidget(self.img_lbl)
+        scroll.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: white;
+                border-radius: 8px;
+            }
+        """)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        l.addWidget(scroll)
+        return w
 
     def load_model(self, path):
         if os.path.exists(path):
             try:
                 self.yolo_detector = YOLO(path)
-                print(f"Model loaded: {path}")
+                QMessageBox.information(self, "✓ Model Loaded", f"YOLO model successfully loaded from:\n{path}")
             except Exception as e:
-                QMessageBox.warning(self, "Model Warning", f"Could not load model:\n{e}")
-        else:
-            QMessageBox.information(self, "Info", "No YOLO model found. Using color detection only.")
+                print("YOLO load error:", e)
 
     def load_image(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select Image", "", "Images (*.png *.jpg *.jpeg *.bmp)")
+        path, _ = QFileDialog.getOpenFileName(self, "Load Image", "", "Images (*.png *.jpg *.jpeg *.bmp)")
         if not path: return
-
-        img = cv2_safe_imread(path)
-        if img is None:
-            QMessageBox.critical(self, "Error", "Failed to load image.")
+        self.current_image = cv2_safe_imread(path)
+        if self.current_image is None:
+            QMessageBox.critical(self, "Error", "Failed to load image")
             return
-
-        self.raw_image = img.copy()
-        self.current_image = img.copy()
+        self.show_processed = True
+        self.toggle_btn.setText("🔄 Show Original Image")
+        self.toggle_btn.setEnabled(True)
         self.process_image()
+
+    def toggle_view(self):
+        if self.current_image is None: return
+        self.show_processed = not self.show_processed
+        if self.show_processed:
+            self.toggle_btn.setText("🔄 Show Original Image")
+            self.show_image(self.processed_image)
+        else:
+            self.toggle_btn.setText("🔄 Show Processed Image")
+            self.show_image(self.current_image)
 
     def process_image(self):
         if self.current_image is None: return
-
         img_disp = self.current_image.copy()
         self.detected_pellets = []
 
+        # --- YOLO detection ---
         polygons, confidences = [], []
         try:
             if self.yolo_detector:
@@ -257,6 +319,7 @@ class PelletMeasurementApp(QMainWindow):
                     self.current_image, conf=0.05, imgsz=640, device='cpu', verbose=False
                 )
                 r = results[0]
+
                 temp_pellets = []
                 for box in r.boxes:
                     x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
@@ -272,19 +335,27 @@ class PelletMeasurementApp(QMainWindow):
                     cy = int(M["m01"] / M["m00"]) if M["m00"] else int(c[:, 1].mean())
                     temp_pellets.append({'polygon': c, 'confidence': conf, 'center': (cx, cy)})
 
+                # --- FILTER DUPLICATES BY CENTER + HIGHEST CONF ---
                 filtered = []
-                threshold = 10
+                threshold = 8
                 for p in sorted(temp_pellets, key=lambda x: -x['confidence']):
-                    if not any(np.hypot(p['center'][0] - f['center'][0], p['center'][1] - f['center'][1]) < threshold for f in filtered):
+                    duplicate = False
+                    for f in filtered:
+                        dist = np.hypot(p['center'][0] - f['center'][0], p['center'][1] - f['center'][1])
+                        if dist < threshold:
+                            duplicate = True
+                            break
+                    if not duplicate:
                         filtered.append(p)
 
                 polygons = [p['polygon'] for p in filtered]
                 confidences = [p['confidence'] for p in filtered]
+
         except:
             polygons = self.cv_detector.detect_pellets(self.current_image)
             confidences = [100] * len(polygons)
 
-        # Measure and draw
+        # --- Measurement & Drawing ---
         for i, (poly, conf) in enumerate(zip(polygons, confidences), 1):
             rect = cv2.minAreaRect(poly.astype(np.float32))
             w, h = rect[1]
@@ -295,86 +366,84 @@ class PelletMeasurementApp(QMainWindow):
             self.detected_pellets.append(pellet)
             self.draw_pellet(img_disp, pellet)
 
-        self.annotated_image = img_disp
+        self.processed_image = img_disp
         self.update_stats()
-        self.display_current_image()
+        self.show_image(img_disp)
 
     def draw_pellet(self, img, p):
         color = (0, 255, 0) if p['within'] else (0, 0, 255)
         overlay = img.copy()
-        cv2.fillPoly(overlay, [p['polygon'].reshape((-1, 1, 2))], color)
-        cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
-
+        cv2.fillPoly(overlay, [p['polygon'].reshape(-1, 1, 2)], color)
+        cv2.addWeighted(overlay, 0.25, img, 0.75, 0, img)
         box = np.intp(cv2.boxPoints(cv2.minAreaRect(p['polygon'].astype(np.float32))))
-        cv2.drawContours(img, [box], 0, color, 4)
-
+        cv2.drawContours(img, [box], 0, color, 3)
         M = cv2.moments(p['polygon'])
-        cx = int(M["m10"]/M["m00"]) if M["m00"] else int(p['polygon'][:,0].mean())
-        cy = int(M["m01"]/M["m00"]) if M["m00"] else int(p['polygon'][:,1].mean())
+        cx = int(M["m10"] / M["m00"]) if M["m00"] else int(p['polygon'][:, 0].mean())
+        cy = int(M["m01"] / M["m00"]) if M["m00"] else int(p['polygon'][:, 1].mean())
 
-        # Large readable ID
-        cv2.putText(img, str(p['id']), (cx - 30, cy + 15),
-                    cv2.FONT_HERSHEY_DUPLEX, 2.2, (255, 255, 255), 6)
-        cv2.putText(img, str(p['id']), (cx - 30, cy + 15),
-                    cv2.FONT_HERSHEY_DUPLEX, 2.2, (0, 0, 0), 3)
+        # Larger, more readable label
+        cv2.putText(img, str(p['id']), (cx - 25, cy + 15),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 4)
+        cv2.putText(img, str(p['id']), (cx - 25, cy + 15),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 2)
 
         if p['confidence'] < 100:
-            cv2.putText(img, f"{p['confidence']:.0f}%", (cx - 40, cy - 40),
+            cv2.putText(img, f"{p['confidence']:.0f}%", (cx - 35, cy - 25),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 3)
-
-    def display_current_image(self):
-        if self.show_annotated and self.annotated_image is not None:
-            img = self.annotated_image
-        else:
-            img = self.raw_image if self.raw_image is not None else self.current_image
-
-        if img is None: return
-
-        h, w = img.shape[:2]
-        max_w = self.img_label.width() - 20
-        scale = min(max_w / w, 800 / h) if max_w > 0 else 1.0
-        target_size = QSize(int(w * scale), int(h * scale))
-
-        pixmap = cv_to_qpixmap(img, target_size)
-        self.img_label.setPixmap(pixmap)
 
     def update_stats(self):
         total = len(self.detected_pellets)
         ok = sum(1 for p in self.detected_pellets if p['within'])
         bad = total - ok
-
         self.total_lbl.setText(f"Total Pellets: {total}")
-        self.ok_lbl.setText(f"OK: {ok}")
-        self.bad_lbl.setText(f"Out of Spec: {bad}")
+        self.ok_lbl.setText(f"✓ Passed: {ok}")
+        self.bad_lbl.setText(f"✗ Failed: {bad}")
 
-        # Clear detail list
-        for i in reversed(range(self.detail_layout.count())):
-            child = self.detail_layout.itemAt(i).widget()
-            if child: child.setParent(None)
+        for i in reversed(range(self.det_l.count())):
+            w = self.det_l.itemAt(i).widget()
+            if w: w.deleteLater()
 
-        for p in self.detected_pellets:
-            status = "OK" if p['within'] else "BAD"
-            color = "#27ae60" if p['within'] else "#e74c3c"
-            text = f"Pellet {p['id']:2d} → {status} | D: {p['diameter']:.3f} mm | L: {p['length']:.3f} mm | Conf: {p['confidence']:.1f}%"
-            lbl = QLabel(text)
+        for i, p in enumerate(self.detected_pellets, 1):
+            status = "✓ PASSED" if p['within'] else "✗ FAILED"
+            color = "#d5f4e6" if p['within'] else "#fadbd8"
+            border_color = "#27ae60" if p['within'] else "#e74c3c"
+
+            txt = f"<b>Pellet {i}</b> - {status}<br>" \
+                  f"<span style='color: #555;'>Diameter: {p['diameter']:.3f} mm | " \
+                  f"Length: {p['length']:.3f} mm | Confidence: {p['confidence']:.1f}%</span>"
+
+            lbl = QLabel(txt)
             lbl.setStyleSheet(f"""
-                background: {color}20; border: 2px solid {color};
-                padding: 10px; border-radius: 8px; font-size: 13px;
+                padding: 10px;
+                margin: 2px;
+                border-left: 4px solid {border_color};
+                background-color: {color};
+                border-radius: 4px;
+                font-size: 12px;
             """)
-            self.detail_layout.addWidget(lbl)
-        self.detail_layout.addStretch()
+            lbl.setWordWrap(True)
+            self.det_l.addWidget(lbl)
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        QTimer.singleShot(10, self.display_current_image)
+        self.det_l.addStretch()
+
+    def show_image(self, cv_img):
+        avail_w = self.img_lbl.parent().width() - 30
+        h, w = cv_img.shape[:2]
+        scale = avail_w / w
+        pix = cv_to_qpixmap(cv_img, QSize(int(w * scale), int(h * scale)))
+        self.img_lbl.setFixedWidth(int(w * scale))
+        self.img_lbl.setMinimumHeight(int(h * scale))
+        self.img_lbl.setPixmap(pix)
+        self.img_lbl.setStyleSheet("border: none; background: white;")
 
 
 def main():
     app = QApplication(sys.argv)
-    app.setStyle("Fusion")  # Clean modern look
+    app.setStyle('Fusion')
     win = PelletMeasurementApp()
     win.show()
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()
