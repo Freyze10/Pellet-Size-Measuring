@@ -52,6 +52,7 @@
     "Python.Main.executor": "Run",
     "Python.env.executor": "Run",
     "Python.label.executor": "Run",
+    "Python.main.executor": "Run",
     "Python.newOpencv.executor": "Run",
     "Python.new_scanner.executor": "Run",
     "Python.scanner.executor": "Run",
@@ -220,22 +221,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00053" summary="changed pellet_training contents">
-      <option name="closed" value="true" />
-      <created>1763177776603</created>
-      <option name="number" value="00053" />
-      <option name="presentableId" value="LOCAL-00053" />
-      <option name="project" value="LOCAL" />
-      <updated>1763177776603</updated>
-    </task>
-    <task id="LOCAL-00054" summary="updating py">
-      <option name="closed" value="true" />
-      <created>1763177981642</created>
-      <option name="number" value="00054" />
-      <option name="presentableId" value="LOCAL-00054" />
-      <option name="project" value="LOCAL" />
-      <updated>1763177981642</updated>
     </task>
     <task id="LOCAL-00055" summary="updating py">
       <option name="closed" value="true" />
@@ -613,7 +598,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763435891968</updated>
     </task>
-    <option name="localTasksCounter" value="102" />
+    <task id="LOCAL-00102" summary="working model">
+      <option name="closed" value="true" />
+      <created>1763435986750</created>
+      <option name="number" value="00102" />
+      <option name="presentableId" value="LOCAL-00102" />
+      <option name="project" value="LOCAL" />
+      <updated>1763435986750</updated>
+    </task>
+    <task id="LOCAL-00103" summary="updated process image">
+      <option name="closed" value="true" />
+      <created>1763436115587</created>
+      <option name="number" value="00103" />
+      <option name="presentableId" value="LOCAL-00103" />
+      <option name="project" value="LOCAL" />
+      <updated>1763436115587</updated>
+    </task>
+    <option name="localTasksCounter" value="104" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -640,8 +641,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="delete prev" />
-    <MESSAGE value="trying new approach" />
     <MESSAGE value="fixing error" />
     <MESSAGE value="fixing error image" />
     <MESSAGE value="working but not accurate" />
@@ -665,6 +664,8 @@
     <MESSAGE value="added generate" />
     <MESSAGE value="creating new ver" />
     <MESSAGE value="added trained model" />
-    <option name="LAST_COMMIT_MESSAGE" value="added trained model" />
+    <MESSAGE value="working model" />
+    <MESSAGE value="updated process image" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated process image" />
   </component>
 </project>
