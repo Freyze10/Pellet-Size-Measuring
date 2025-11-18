@@ -77,7 +77,7 @@ class PelletMeasurementApp(QMainWindow):
         self.dataset_folder = "pellet_label_yolo"
 
         self.init_ui()
-        self.load_model("runs/detect/train5/weights/best.pt")  # <- your trained model
+        self.load_model("trained_model/best.pt")  # <- your trained model
 
     def update_ranges(self):
         self.d_min = self.target_diameter - self.tolerance

@@ -78,13 +78,14 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\pellet_label_yolo" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\v1\trained_model" />
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\pellet_label_yolo\labels\train" />
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\pellet_label_yolo" />
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.yolo_cv_scanner (1)">
-    <configuration name="scanner_coco (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.main">
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -93,11 +94,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/v1" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/scanner_coco.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/v1/main.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -196,11 +197,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.main" />
         <item itemvalue="Python.yolo_cv_scanner (1)" />
         <item itemvalue="Python.yolo_cv_scanner" />
         <item itemvalue="Python.scanner_yolo" />
         <item itemvalue="Python.scanner_no_ml" />
-        <item itemvalue="Python.scanner_coco (1)" />
       </list>
     </recent_temporary>
   </component>
@@ -219,22 +220,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00051" summary="changed pellet_training contents">
-      <option name="closed" value="true" />
-      <created>1763174427765</created>
-      <option name="number" value="00051" />
-      <option name="presentableId" value="LOCAL-00051" />
-      <option name="project" value="LOCAL" />
-      <updated>1763174427765</updated>
-    </task>
-    <task id="LOCAL-00052" summary="changed pellet_training contents">
-      <option name="closed" value="true" />
-      <created>1763174435843</created>
-      <option name="number" value="00052" />
-      <option name="presentableId" value="LOCAL-00052" />
-      <option name="project" value="LOCAL" />
-      <updated>1763174435843</updated>
     </task>
     <task id="LOCAL-00053" summary="changed pellet_training contents">
       <option name="closed" value="true" />
@@ -612,7 +597,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763435758835</updated>
     </task>
-    <option name="localTasksCounter" value="100" />
+    <task id="LOCAL-00100" summary="added trained model">
+      <option name="closed" value="true" />
+      <created>1763435885148</created>
+      <option name="number" value="00100" />
+      <option name="presentableId" value="LOCAL-00100" />
+      <option name="project" value="LOCAL" />
+      <updated>1763435885148</updated>
+    </task>
+    <task id="LOCAL-00101" summary="added trained model">
+      <option name="closed" value="true" />
+      <created>1763435891968</created>
+      <option name="number" value="00101" />
+      <option name="presentableId" value="LOCAL-00101" />
+      <option name="project" value="LOCAL" />
+      <updated>1763435891968</updated>
+    </task>
+    <option name="localTasksCounter" value="102" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -639,7 +640,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="trying yolo" />
     <MESSAGE value="delete prev" />
     <MESSAGE value="trying new approach" />
     <MESSAGE value="fixing error" />
@@ -664,6 +664,7 @@
     <MESSAGE value="added yolov11 model to try training" />
     <MESSAGE value="added generate" />
     <MESSAGE value="creating new ver" />
-    <option name="LAST_COMMIT_MESSAGE" value="creating new ver" />
+    <MESSAGE value="added trained model" />
+    <option name="LAST_COMMIT_MESSAGE" value="added trained model" />
   </component>
 </project>
