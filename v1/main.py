@@ -187,34 +187,56 @@ class PelletMeasurementApp(QMainWindow):
         polygons, confidences = [], []
         try:
             if self.yolo_detector:
-                results = self.yolo_detector.predict(self.current_image, conf=0.05, imgsz=640, device='cpu', verbose=False)
+                results = self.yolo_detector.predict(
+                    self.current_image, conf=0.05, imgsz=640, device='cpu', verbose=False
+                )
                 r = results[0]
+
+                temp_pellets = []
                 for box in r.boxes:
-                    x1,y1,x2,y2 = map(int, box.xyxy[0].tolist())
-                    conf = box.conf.item()*100
-                    cv2.rectangle(img_disp, (x1,y1),(x2,y2),(0,255,255),2)
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                    conf = box.conf.item() * 100
                     roi = self.current_image[y1:y2, x1:x2]
                     if roi.size == 0: continue
                     cnts = self.cv_detector.detect_pellets(roi)
                     if not cnts: continue
-                    c = max(cnts,key=cv2.contourArea)
-                    c += np.array([x1,y1])
-                    polygons.append(c)
-                    confidences.append(conf)
+                    c = max(cnts, key=cv2.contourArea)
+                    c += np.array([x1, y1])
+                    M = cv2.moments(c)
+                    cx = int(M["m10"] / M["m00"]) if M["m00"] else int(c[:, 0].mean())
+                    cy = int(M["m01"] / M["m00"]) if M["m00"] else int(c[:, 1].mean())
+                    temp_pellets.append({'polygon': c, 'confidence': conf, 'center': (cx, cy)})
+
+                # --- FILTER DUPLICATES BY CENTER + HIGHEST CONF ---
+                filtered = []
+                threshold = 8  # px distance to consider same pellet
+                for p in sorted(temp_pellets, key=lambda x: -x['confidence']):
+                    duplicate = False
+                    for f in filtered:
+                        dist = np.hypot(p['center'][0] - f['center'][0], p['center'][1] - f['center'][1])
+                        if dist < threshold:
+                            duplicate = True
+                            break
+                    if not duplicate:
+                        filtered.append(p)
+
+                polygons = [p['polygon'] for p in filtered]
+                confidences = [p['confidence'] for p in filtered]
+
         except:
             polygons = self.cv_detector.detect_pellets(self.current_image)
-            confidences = [100]*len(polygons)
+            confidences = [100] * len(polygons)
 
-        # --- Measurement ---
-        for i,(poly,conf) in enumerate(zip(polygons,confidences),1):
+        # --- Measurement & Drawing ---
+        for i, (poly, conf) in enumerate(zip(polygons, confidences), 1):
             rect = cv2.minAreaRect(poly.astype(np.float32))
-            w,h = rect[1]
-            d = min(w,h)/self.pixels_per_mm
-            l = max(w,h)/self.pixels_per_mm
+            w, h = rect[1]
+            d = min(w, h) / self.pixels_per_mm
+            l = max(w, h) / self.pixels_per_mm
             ok = self.d_min <= d <= self.d_max and self.l_min <= l <= self.l_max
-            pellet = {'polygon':poly,'diameter':d,'length':l,'within':ok,'confidence':conf,'id':i}
+            pellet = {'polygon': poly, 'diameter': d, 'length': l, 'within': ok, 'confidence': conf, 'id': i}
             self.detected_pellets.append(pellet)
-            self.draw_pellet(img_disp,pellet)
+            self.draw_pellet(img_disp, pellet)
 
         self.update_stats()
         self.show_image(img_disp)
