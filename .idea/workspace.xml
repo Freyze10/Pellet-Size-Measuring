@@ -222,22 +222,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00055" summary="updating py">
-      <option name="closed" value="true" />
-      <created>1763183982436</created>
-      <option name="number" value="00055" />
-      <option name="presentableId" value="LOCAL-00055" />
-      <option name="project" value="LOCAL" />
-      <updated>1763183982436</updated>
-    </task>
-    <task id="LOCAL-00056" summary="modifying yolo model">
-      <option name="closed" value="true" />
-      <created>1763184001700</created>
-      <option name="number" value="00056" />
-      <option name="presentableId" value="LOCAL-00056" />
-      <option name="project" value="LOCAL" />
-      <updated>1763184001700</updated>
-    </task>
     <task id="LOCAL-00057" summary="changed .cvs to yoolo format">
       <option name="closed" value="true" />
       <created>1763184605822</created>
@@ -614,7 +598,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763436115587</updated>
     </task>
-    <option name="localTasksCounter" value="104" />
+    <task id="LOCAL-00104" summary="updated process image">
+      <option name="closed" value="true" />
+      <created>1763436339363</created>
+      <option name="number" value="00104" />
+      <option name="presentableId" value="LOCAL-00104" />
+      <option name="project" value="LOCAL" />
+      <updated>1763436339363</updated>
+    </task>
+    <task id="LOCAL-00105" summary="returned">
+      <option name="closed" value="true" />
+      <created>1763436452963</created>
+      <option name="number" value="00105" />
+      <option name="presentableId" value="LOCAL-00105" />
+      <option name="project" value="LOCAL" />
+      <updated>1763436452964</updated>
+    </task>
+    <option name="localTasksCounter" value="106" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -656,7 +656,6 @@
     <MESSAGE value="updated output side" />
     <MESSAGE value="updated right pannel" />
     <MESSAGE value="updated show_image" />
-    <MESSAGE value="returned" />
     <MESSAGE value="updated right panel" />
     <MESSAGE value="updated show image to scroll" />
     <MESSAGE value="updated initial px per mm val" />
@@ -666,6 +665,18 @@
     <MESSAGE value="added trained model" />
     <MESSAGE value="working model" />
     <MESSAGE value="updated process image" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated process image" />
+    <MESSAGE value="returned" />
+    <option name="LAST_COMMIT_MESSAGE" value="returned" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/v1/main.py</url>
+          <line>180</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>
