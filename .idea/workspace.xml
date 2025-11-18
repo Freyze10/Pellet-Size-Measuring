@@ -18,6 +18,11 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RESET_MODE" value="HARD" />
   </component>
@@ -42,32 +47,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.Main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.env.executor&quot;: &quot;Run&quot;,
-    &quot;Python.label.executor&quot;: &quot;Run&quot;,
-    &quot;Python.newOpencv.executor&quot;: &quot;Run&quot;,
-    &quot;Python.new_scanner.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_coco (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_no_ml.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_yolo.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_new.executor&quot;: &quot;Run&quot;,
-    &quot;Python.yolo_cv_scanner (1).executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Brant/PycharmProjects/Pellet_Measure/pellet_label_yolo&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.Main.executor": "Run",
+    "Python.env.executor": "Run",
+    "Python.label.executor": "Run",
+    "Python.newOpencv.executor": "Run",
+    "Python.new_scanner.executor": "Run",
+    "Python.scanner.executor": "Run",
+    "Python.scanner_coco (1).executor": "Run",
+    "Python.scanner_no_ml.executor": "Run",
+    "Python.scanner_yolo.executor": "Run",
+    "Python.test_new.executor": "Run",
+    "Python.yolo_cv_scanner (1).executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "try__notebook",
+    "last_opened_file_path": "C:/Users/Brant/PycharmProjects/Pellet_Measure/pellet_label_yolo",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;GitStage.ChangesTree.GroupingKeys&quot;: [
-      &quot;directory&quot;,
-      &quot;module&quot;,
-      &quot;repository&quot;
+  "keyToStringList": {
+    "GitStage.ChangesTree.GroupingKeys": [
+      "directory",
+      "module",
+      "repository"
     ]
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\pellet_label_yolo" />
@@ -192,8 +197,8 @@
     <recent_temporary>
       <list>
         <item itemvalue="Python.yolo_cv_scanner (1)" />
-        <item itemvalue="Python.scanner_yolo" />
         <item itemvalue="Python.yolo_cv_scanner" />
+        <item itemvalue="Python.scanner_yolo" />
         <item itemvalue="Python.scanner_no_ml" />
         <item itemvalue="Python.scanner_coco (1)" />
       </list>
@@ -214,14 +219,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00050" summary="updated yolo">
-      <option name="closed" value="true" />
-      <created>1763174314808</created>
-      <option name="number" value="00050" />
-      <option name="presentableId" value="LOCAL-00050" />
-      <option name="project" value="LOCAL" />
-      <updated>1763174314808</updated>
     </task>
     <task id="LOCAL-00051" summary="changed pellet_training contents">
       <option name="closed" value="true" />
@@ -607,7 +604,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763365602755</updated>
     </task>
-    <option name="localTasksCounter" value="99" />
+    <task id="LOCAL-00099" summary="creating new ver">
+      <option name="closed" value="true" />
+      <created>1763435758835</created>
+      <option name="number" value="00099" />
+      <option name="presentableId" value="LOCAL-00099" />
+      <option name="project" value="LOCAL" />
+      <updated>1763435758835</updated>
+    </task>
+    <option name="localTasksCounter" value="100" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -615,15 +620,25 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="try_notebook" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
           </value>
         </entry>
       </map>
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added yaml dataset" />
-    <MESSAGE value="refactored dataset to label yolo" />
     <MESSAGE value="trying yolo" />
     <MESSAGE value="delete prev" />
     <MESSAGE value="trying new approach" />
@@ -647,6 +662,8 @@
     <MESSAGE value="updated show image to scroll" />
     <MESSAGE value="updated initial px per mm val" />
     <MESSAGE value="added yolov11 model to try training" />
-    <option name="LAST_COMMIT_MESSAGE" value="added yolov11 model to try training" />
+    <MESSAGE value="added generate" />
+    <MESSAGE value="creating new ver" />
+    <option name="LAST_COMMIT_MESSAGE" value="creating new ver" />
   </component>
 </project>
