@@ -239,7 +239,7 @@ class PelletMeasurementApp(QMainWindow):
         self.scroll.setWidget(self.det_w)
         gl.addWidget(self.scroll)
         g.setLayout(gl)
-        l.addWidget(g)
+        l.addWidget(g, stretch=1)
 
         l.addStretch()
         return w
