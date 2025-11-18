@@ -184,48 +184,50 @@ class PelletMeasurementApp(QMainWindow):
         self.detected_pellets = []
 
         # --- YOLO detection ---
-        polygons, confidences, centers = [], [], []
+        polygons, confidences = [], []
         try:
             if self.yolo_detector:
                 results = self.yolo_detector.predict(
-                    self.current_image, conf=0.05, imgsz=640, device='cpu', verbose=False)
+                    self.current_image, conf=0.05, imgsz=640, device='cpu', verbose=False
+                )
                 r = results[0]
+
+                temp_pellets = []
                 for box in r.boxes:
                     x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
                     conf = box.conf.item() * 100
-
                     roi = self.current_image[y1:y2, x1:x2]
                     if roi.size == 0: continue
-
                     cnts = self.cv_detector.detect_pellets(roi)
                     if not cnts: continue
                     c = max(cnts, key=cv2.contourArea)
                     c += np.array([x1, y1])
-                    cx, cy = int(c[:, 0].mean()), int(c[:, 1].mean())
+                    M = cv2.moments(c)
+                    cx = int(M["m10"] / M["m00"]) if M["m00"] else int(c[:, 0].mean())
+                    cy = int(M["m01"] / M["m00"]) if M["m00"] else int(c[:, 1].mean())
+                    temp_pellets.append({'polygon': c, 'confidence': conf, 'center': (cx, cy)})
 
-                    # --- Check if near existing pellet center ---
-                    too_close = False
-                    for existing_c, existing_conf in zip(centers, confidences):
-                        dist = np.hypot(existing_c[0] - cx, existing_c[1] - cy)
-                        if dist < 15:  # distance threshold in pixels
-                            too_close = True
-                            # Keep the higher confidence one
-                            if conf > existing_conf:
-                                idx = centers.index(existing_c)
-                                polygons[idx] = c
-                                confidences[idx] = conf
-                                centers[idx] = (cx, cy)
+                # --- FILTER DUPLICATES BY CENTER + HIGHEST CONF ---
+                filtered = []
+                threshold = 8  # px distance to consider same pellet
+                for p in sorted(temp_pellets, key=lambda x: -x['confidence']):
+                    duplicate = False
+                    for f in filtered:
+                        dist = np.hypot(p['center'][0] - f['center'][0], p['center'][1] - f['center'][1])
+                        if dist < threshold:
+                            duplicate = True
                             break
-                    if not too_close:
-                        polygons.append(c)
-                        confidences.append(conf)
-                        centers.append((cx, cy))
+                    if not duplicate:
+                        filtered.append(p)
+
+                polygons = [p['polygon'] for p in filtered]
+                confidences = [p['confidence'] for p in filtered]
 
         except:
             polygons = self.cv_detector.detect_pellets(self.current_image)
             confidences = [100] * len(polygons)
 
-        # --- Measurement and drawing ---
+        # --- Measurement & Drawing ---
         for i, (poly, conf) in enumerate(zip(polygons, confidences), 1):
             rect = cv2.minAreaRect(poly.astype(np.float32))
             w, h = rect[1]
