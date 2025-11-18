@@ -224,14 +224,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00078" summary="refactored file name">
-      <option name="closed" value="true" />
-      <created>1763194663079</created>
-      <option name="number" value="00078" />
-      <option name="presentableId" value="LOCAL-00078" />
-      <option name="project" value="LOCAL" />
-      <updated>1763194663079</updated>
-    </task>
     <task id="LOCAL-00079" summary="updated">
       <option name="closed" value="true" />
       <created>1763196313430</created>
@@ -616,7 +608,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763453093760</updated>
     </task>
-    <option name="localTasksCounter" value="127" />
+    <task id="LOCAL-00127" summary="updated draw pellet">
+      <option name="closed" value="true" />
+      <created>1763453572959</created>
+      <option name="number" value="00127" />
+      <option name="presentableId" value="LOCAL-00127" />
+      <option name="project" value="LOCAL" />
+      <updated>1763453572959</updated>
+    </task>
+    <option name="localTasksCounter" value="128" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -643,7 +643,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updated output side" />
     <MESSAGE value="updated right pannel" />
     <MESSAGE value="updated show_image" />
     <MESSAGE value="updated right panel" />
@@ -668,6 +667,7 @@
     <MESSAGE value="replaced best" />
     <MESSAGE value="updated img" />
     <MESSAGE value="revert" />
-    <option name="LAST_COMMIT_MESSAGE" value="revert" />
+    <MESSAGE value="updated draw pellet" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated draw pellet" />
   </component>
 </project>
