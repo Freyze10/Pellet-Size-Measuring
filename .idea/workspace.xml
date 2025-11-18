@@ -222,22 +222,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00064" summary="trying yolo">
-      <option name="closed" value="true" />
-      <created>1763185551846</created>
-      <option name="number" value="00064" />
-      <option name="presentableId" value="LOCAL-00064" />
-      <option name="project" value="LOCAL" />
-      <updated>1763185551846</updated>
-    </task>
-    <task id="LOCAL-00065" summary="trying yolo">
-      <option name="closed" value="true" />
-      <created>1763185663903</created>
-      <option name="number" value="00065" />
-      <option name="presentableId" value="LOCAL-00065" />
-      <option name="project" value="LOCAL" />
-      <updated>1763185663903</updated>
-    </task>
     <task id="LOCAL-00066" summary="trying yolo">
       <option name="closed" value="true" />
       <created>1763188020050</created>
@@ -614,7 +598,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763442942707</updated>
     </task>
-    <option name="localTasksCounter" value="113" />
+    <task id="LOCAL-00113" summary="modifying ui">
+      <option name="closed" value="true" />
+      <created>1763443005933</created>
+      <option name="number" value="00113" />
+      <option name="presentableId" value="LOCAL-00113" />
+      <option name="project" value="LOCAL" />
+      <updated>1763443005933</updated>
+    </task>
+    <task id="LOCAL-00114" summary="modifying ui">
+      <option name="closed" value="true" />
+      <created>1763443262642</created>
+      <option name="number" value="00114" />
+      <option name="presentableId" value="LOCAL-00114" />
+      <option name="project" value="LOCAL" />
+      <updated>1763443262642</updated>
+    </task>
+    <option name="localTasksCounter" value="115" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
