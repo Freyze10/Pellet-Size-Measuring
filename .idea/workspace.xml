@@ -47,35 +47,35 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.Main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.env.executor&quot;: &quot;Run&quot;,
-    &quot;Python.label.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.newOpencv.executor&quot;: &quot;Run&quot;,
-    &quot;Python.new_scanner.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_coco (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_coco.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_no_ml.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_yolo.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_new.executor&quot;: &quot;Run&quot;,
-    &quot;Python.yolo_cv_scanner (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.yolo_cv_scanner.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;try__notebook&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Brant/PycharmProjects/Pellet_Measure/pellet_label_yolo&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.Main.executor": "Run",
+    "Python.env.executor": "Run",
+    "Python.label.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.newOpencv.executor": "Run",
+    "Python.new_scanner.executor": "Run",
+    "Python.scanner.executor": "Run",
+    "Python.scanner_coco (1).executor": "Run",
+    "Python.scanner_coco.executor": "Run",
+    "Python.scanner_no_ml.executor": "Run",
+    "Python.scanner_yolo.executor": "Run",
+    "Python.test_new.executor": "Run",
+    "Python.yolo_cv_scanner (1).executor": "Run",
+    "Python.yolo_cv_scanner.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "trial-of-models",
+    "last_opened_file_path": "C:/Users/Brant/PycharmProjects/Pellet_Measure/pellet_label_yolo",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;GitStage.ChangesTree.GroupingKeys&quot;: [
-      &quot;directory&quot;,
-      &quot;module&quot;,
-      &quot;repository&quot;
+  "keyToStringList": {
+    "GitStage.ChangesTree.GroupingKeys": [
+      "directory",
+      "module",
+      "repository"
     ]
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\pellet_label_yolo" />
@@ -87,8 +87,8 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.main">
-    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.newOpencv">
+    <configuration name="label" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -97,11 +97,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/v1" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/v1/main.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/label.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -200,10 +200,10 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.main" />
+        <item itemvalue="Python.newOpencv" />
+        <item itemvalue="Python.label" />
         <item itemvalue="Python.yolo_cv_scanner" />
         <item itemvalue="Python.scanner_yolo" />
-        <item itemvalue="Python.newOpencv" />
         <item itemvalue="Python.scanner_coco" />
       </list>
     </recent_temporary>
