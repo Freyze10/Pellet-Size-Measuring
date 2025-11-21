@@ -216,17 +216,15 @@ def draw_overlay(frame, pellets):
         top_y = int(min(box[:, 1]))
         left_x = int(min(box[:, 0]))
 
-        # Text background (smaller box)
-        bg_y = max(top_y - 45, 0)
-        cv2.rectangle(frame, (left_x, bg_y), (left_x + 120, top_y - 5), (0, 0, 0), -1)
+        # Text background (compact size)
+        bg_y = max(top_y - 30, 0)
+        cv2.rectangle(frame, (left_x, bg_y), (left_x + 95, top_y - 5), (0, 0, 0), -1)
 
-        # Display measurements and angle
-        cv2.putText(frame, f"D: {p['diameter']:.2f}mm", (left_x + 5, bg_y + 15),
+        # Display measurements only
+        cv2.putText(frame, f"D: {p['diameter']:.2f}mm", (left_x + 3, bg_y + 12),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
-        cv2.putText(frame, f"L: {p['length']:.2f}mm", (left_x + 5, bg_y + 30),
+        cv2.putText(frame, f"L: {p['length']:.2f}mm", (left_x + 3, bg_y + 24),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
-        cv2.putText(frame, f"A: {p['angle']:.1f}deg", (left_x + 5, bg_y + 43),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (150, 150, 255), 1)
 
         # Warning indicator for out-of-tolerance pellets
         if not p['within_tolerance']:
