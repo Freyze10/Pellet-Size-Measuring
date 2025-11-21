@@ -224,14 +224,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00083" summary="updated yolo trained model">
-      <option name="closed" value="true" />
-      <created>1763345286322</created>
-      <option name="number" value="00083" />
-      <option name="presentableId" value="LOCAL-00083" />
-      <option name="project" value="LOCAL" />
-      <updated>1763345286322</updated>
-    </task>
     <task id="LOCAL-00084" summary="debugging">
       <option name="closed" value="true" />
       <created>1763345985833</created>
@@ -616,7 +608,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763687303953</updated>
     </task>
-    <option name="localTasksCounter" value="132" />
+    <task id="LOCAL-00132" summary="lessen the size of the black background">
+      <option name="closed" value="true" />
+      <created>1763687952972</created>
+      <option name="number" value="00132" />
+      <option name="presentableId" value="LOCAL-00132" />
+      <option name="project" value="LOCAL" />
+      <updated>1763687952972</updated>
+    </task>
+    <option name="localTasksCounter" value="133" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -643,7 +643,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updated right panel" />
     <MESSAGE value="updated show image to scroll" />
     <MESSAGE value="updated initial px per mm val" />
     <MESSAGE value="added yolov11 model to try training" />
@@ -668,7 +667,8 @@
     <MESSAGE value="updated draw pellet" />
     <MESSAGE value="updated draw pellet to circle" />
     <MESSAGE value="updated pellet detection" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated pellet detection" />
+    <MESSAGE value="lessen the size of the black background" />
+    <option name="LAST_COMMIT_MESSAGE" value="lessen the size of the black background" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
