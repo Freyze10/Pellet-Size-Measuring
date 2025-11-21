@@ -113,7 +113,7 @@ def detect_pellets(frame):
         # Get minimum area rectangle (handles rotation)
         rect = cv2.minAreaRect(cnt)
         box = cv2.boxPoints(rect)
-        box = np.int0(box)
+        box = np.intp(box)
 
         # Extract center, size, and angle
         center, (width_px, height_px), angle = rect
