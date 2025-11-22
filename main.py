@@ -11,7 +11,7 @@ PIXELS_PER_MM = 6.0
 TARGET_DIAMETER = 3.0
 TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
-EXCLUSION_THRESHOLD = 2.0
+EXCLUSION_THRESHOLD = 1.0
 
 
 def update_ranges():
@@ -131,11 +131,16 @@ def mouse_callback(event, x, y, flags, param):
 def detect_pellets(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    # More aggressive thresholding to get tighter contours
     thresh = cv2.adaptiveThreshold(blur, 255,
                                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 11, 2)
+                                   cv2.THRESH_BINARY_INV, 11, 4)
 
-    kernel = np.ones((3, 3), np.uint8)
+    # Refined morphological operations for tighter detection
+    kernel = np.ones((2, 2), np.uint8)
+    # Erode slightly to remove edge noise and tighten boundaries
+    thresh = cv2.erode(thresh, kernel, iterations=1)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 
@@ -148,11 +153,18 @@ def detect_pellets(frame):
         if not (MIN_CONTOUR_AREA <= area <= MAX_CONTOUR_AREA):
             continue
 
+        # Use minimum area rectangle for accurate measurement
         rect = cv2.minAreaRect(cnt)
         box = cv2.boxPoints(rect)
         box = np.intp(box)
 
         center, (width_px, height_px), angle = rect
+
+        # Apply a small correction factor to account for edge detection
+        # Typically edge detection adds 1-2 pixels, so we subtract slightly
+        correction_factor = 0.95  # Adjust this between 0.90-0.98 if needed
+        width_px = width_px * correction_factor
+        height_px = height_px * correction_factor
 
         width_mm = width_px / PIXELS_PER_MM
         height_mm = height_px / PIXELS_PER_MM
@@ -255,14 +267,14 @@ def draw_ruler_calibration_mode(frame):
 
     # Draw reference line with measurement markers
     if reference_line_start and reference_line_end:
-        # Main line
-        cv2.line(frame, reference_line_start, reference_line_end, (0, 255, 255), 3)
+        # Main line - thinner for better alignment
+        cv2.line(frame, reference_line_start, reference_line_end, (0, 255, 255), 1)
 
-        # End circles
-        cv2.circle(frame, reference_line_start, 8, (0, 255, 0), -1)
-        cv2.circle(frame, reference_line_start, 10, (255, 255, 255), 2)
-        cv2.circle(frame, reference_line_end, 8, (0, 255, 0), -1)
-        cv2.circle(frame, reference_line_end, 10, (255, 255, 255), 2)
+        # End circles - smaller for precision
+        cv2.circle(frame, reference_line_start, 5, (0, 255, 0), -1)
+        cv2.circle(frame, reference_line_start, 7, (255, 255, 255), 1)
+        cv2.circle(frame, reference_line_end, 5, (0, 255, 0), -1)
+        cv2.circle(frame, reference_line_end, 7, (255, 255, 255), 1)
 
         # Calculate line properties
         dx = reference_line_end[0] - reference_line_start[0]

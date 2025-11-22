@@ -224,14 +224,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00092" summary="updated show_image">
-      <option name="closed" value="true" />
-      <created>1763348655777</created>
-      <option name="number" value="00092" />
-      <option name="presentableId" value="LOCAL-00092" />
-      <option name="project" value="LOCAL" />
-      <updated>1763348655777</updated>
-    </task>
     <task id="LOCAL-00093" summary="returned">
       <option name="closed" value="true" />
       <created>1763348757020</created>
@@ -616,7 +608,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763777714032</updated>
     </task>
-    <option name="localTasksCounter" value="141" />
+    <task id="LOCAL-00141" summary="adjusted exclusion">
+      <option name="closed" value="true" />
+      <created>1763778890926</created>
+      <option name="number" value="00141" />
+      <option name="presentableId" value="LOCAL-00141" />
+      <option name="project" value="LOCAL" />
+      <updated>1763778890926</updated>
+    </task>
+    <option name="localTasksCounter" value="142" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -643,7 +643,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added generate" />
     <MESSAGE value="creating new ver" />
     <MESSAGE value="added trained model" />
     <MESSAGE value="working model" />
@@ -668,7 +667,8 @@
     <MESSAGE value="use of 3 inch measure to  calib" />
     <MESSAGE value="added space" />
     <MESSAGE value="included mm in the measure" />
-    <option name="LAST_COMMIT_MESSAGE" value="included mm in the measure" />
+    <MESSAGE value="adjusted exclusion" />
+    <option name="LAST_COMMIT_MESSAGE" value="adjusted exclusion" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
