@@ -270,28 +270,37 @@ def draw_ruler_calibration_mode(frame):
         length = math.sqrt(dx ** 2 + dy ** 2)
         angle = math.atan2(dy, dx)
 
-        # Draw cm markers (every 10mm along the 76.2mm line)
+        # Draw mm and cm markers along the 76.2mm line
         if length > 0:
-            for i in range(8):  # 0 to 7 cm markers
-                t = (i * 10) / REFERENCE_LENGTH_MM  # Position along line
+            # Draw mm markers (every 1mm)
+            for i in range(int(REFERENCE_LENGTH_MM) + 1):  # 0 to 76 mm
+                t = i / REFERENCE_LENGTH_MM  # Position along line
                 marker_x = int(reference_line_start[0] + dx * t)
                 marker_y = int(reference_line_start[1] + dy * t)
 
                 # Perpendicular offset for tick marks
-                perp_dx = int(8 * math.sin(angle))
-                perp_dy = int(-8 * math.cos(angle))
+                # Larger ticks for cm, smaller for mm
+                is_cm = (i % 10 == 0)
+                tick_length = 12 if is_cm else 5
+                tick_thickness = 2 if is_cm else 1
+
+                perp_dx = int(tick_length * math.sin(angle))
+                perp_dy = int(-tick_length * math.cos(angle))
 
                 # Draw tick mark
                 tick_start = (marker_x - perp_dx, marker_y - perp_dy)
                 tick_end = (marker_x + perp_dx, marker_y + perp_dy)
-                cv2.line(frame, tick_start, tick_end, (255, 255, 255), 2)
+                tick_color = (255, 255, 255) if is_cm else (200, 200, 200)
+                cv2.line(frame, tick_start, tick_end, tick_color, tick_thickness)
 
-                # Draw cm number
-                text_offset_x = int(15 * math.sin(angle))
-                text_offset_y = int(-15 * math.cos(angle))
-                cv2.putText(frame, f"{i}",
-                            (marker_x + text_offset_x - 5, marker_y + text_offset_y + 5),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
+                # Draw cm numbers (every 10mm)
+                if is_cm:
+                    cm_num = i // 10
+                    text_offset_x = int(20 * math.sin(angle))
+                    text_offset_y = int(-20 * math.cos(angle))
+                    cv2.putText(frame, f"{cm_num}",
+                                (marker_x + text_offset_x - 5, marker_y + text_offset_y + 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 0), 2)
 
         # Display pixel length below midpoint
         mid_x = (reference_line_start[0] + reference_line_end[0]) // 2
@@ -461,4 +470,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
