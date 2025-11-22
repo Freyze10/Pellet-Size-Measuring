@@ -224,22 +224,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00097" summary="added yolov11 model to try training">
-      <option name="closed" value="true" />
-      <created>1763365595914</created>
-      <option name="number" value="00097" />
-      <option name="presentableId" value="LOCAL-00097" />
-      <option name="project" value="LOCAL" />
-      <updated>1763365595914</updated>
-    </task>
-    <task id="LOCAL-00098" summary="added yolov11 model to try training">
-      <option name="closed" value="true" />
-      <created>1763365602755</created>
-      <option name="number" value="00098" />
-      <option name="presentableId" value="LOCAL-00098" />
-      <option name="project" value="LOCAL" />
-      <updated>1763365602755</updated>
-    </task>
     <task id="LOCAL-00099" summary="creating new ver">
       <option name="closed" value="true" />
       <created>1763435758835</created>
@@ -616,7 +600,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763794112912</updated>
     </task>
-    <option name="localTasksCounter" value="146" />
+    <task id="LOCAL-00146" summary="added tresholding">
+      <option name="closed" value="true" />
+      <created>1763794793716</created>
+      <option name="number" value="00146" />
+      <option name="presentableId" value="LOCAL-00146" />
+      <option name="project" value="LOCAL" />
+      <updated>1763794793716</updated>
+    </task>
+    <task id="LOCAL-00147" summary="fixed height error">
+      <option name="closed" value="true" />
+      <created>1763795133448</created>
+      <option name="number" value="00147" />
+      <option name="presentableId" value="LOCAL-00147" />
+      <option name="project" value="LOCAL" />
+      <updated>1763795133448</updated>
+    </task>
+    <option name="localTasksCounter" value="148" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -643,8 +643,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="returned" />
-    <MESSAGE value="updated inteerface" />
     <MESSAGE value="updated interface" />
     <MESSAGE value="updating interface" />
     <MESSAGE value="good UI" />
@@ -668,7 +666,9 @@
     <MESSAGE value="thinner measure line calib and used approxPolyDp" />
     <MESSAGE value="use of fit elipse" />
     <MESSAGE value="returned-1" />
-    <option name="LAST_COMMIT_MESSAGE" value="returned-1" />
+    <MESSAGE value="added tresholding" />
+    <MESSAGE value="fixed height error" />
+    <option name="LAST_COMMIT_MESSAGE" value="fixed height error" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
