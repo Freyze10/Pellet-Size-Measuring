@@ -224,22 +224,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00090" summary="updated output side">
-      <option name="closed" value="true" />
-      <created>1763348166421</created>
-      <option name="number" value="00090" />
-      <option name="presentableId" value="LOCAL-00090" />
-      <option name="project" value="LOCAL" />
-      <updated>1763348166421</updated>
-    </task>
-    <task id="LOCAL-00091" summary="updated right pannel">
-      <option name="closed" value="true" />
-      <created>1763348625070</created>
-      <option name="number" value="00091" />
-      <option name="presentableId" value="LOCAL-00091" />
-      <option name="project" value="LOCAL" />
-      <updated>1763348625070</updated>
-    </task>
     <task id="LOCAL-00092" summary="updated show_image">
       <option name="closed" value="true" />
       <created>1763348655777</created>
@@ -616,7 +600,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763774504398</updated>
     </task>
-    <option name="localTasksCounter" value="139" />
+    <task id="LOCAL-00139" summary="added space">
+      <option name="closed" value="true" />
+      <created>1763777700771</created>
+      <option name="number" value="00139" />
+      <option name="presentableId" value="LOCAL-00139" />
+      <option name="project" value="LOCAL" />
+      <updated>1763777700771</updated>
+    </task>
+    <task id="LOCAL-00140" summary="included mm in the measure">
+      <option name="closed" value="true" />
+      <created>1763777714032</created>
+      <option name="number" value="00140" />
+      <option name="presentableId" value="LOCAL-00140" />
+      <option name="project" value="LOCAL" />
+      <updated>1763777714032</updated>
+    </task>
+    <option name="localTasksCounter" value="141" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -643,7 +643,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added yolov11 model to try training" />
     <MESSAGE value="added generate" />
     <MESSAGE value="creating new ver" />
     <MESSAGE value="added trained model" />
@@ -665,10 +664,11 @@
     <MESSAGE value="updated draw pellet to circle" />
     <MESSAGE value="updated pellet detection" />
     <MESSAGE value="lessen the size of the black background" />
-    <MESSAGE value="added space" />
     <MESSAGE value="attempting ruler calibration" />
     <MESSAGE value="use of 3 inch measure to  calib" />
-    <option name="LAST_COMMIT_MESSAGE" value="use of 3 inch measure to  calib" />
+    <MESSAGE value="added space" />
+    <MESSAGE value="included mm in the measure" />
+    <option name="LAST_COMMIT_MESSAGE" value="included mm in the measure" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
