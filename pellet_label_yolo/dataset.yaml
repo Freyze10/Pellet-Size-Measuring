@@ -1,6 +1,0 @@
-path: ./pellet_label_yolo
-train: images/train
-val: images/train
-
-nc: 1
-names: ['pellet']
