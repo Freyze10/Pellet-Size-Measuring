@@ -132,17 +132,18 @@ def detect_pellets(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # More aggressive thresholding to get tighter contours
+    # More aggressive thresholding for better edge detection
     thresh = cv2.adaptiveThreshold(blur, 255,
                                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 11, 4)
+                                   cv2.THRESH_BINARY_INV, 15, 3)
 
-    # Refined morphological operations for tighter detection
+    # Refined morphological operations
     kernel = np.ones((2, 2), np.uint8)
-    # Erode slightly to remove edge noise and tighten boundaries
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
+
+    # Optional: edge refinement
     thresh = cv2.erode(thresh, kernel, iterations=1)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL,
                                    cv2.CHAIN_APPROX_SIMPLE)
@@ -153,22 +154,23 @@ def detect_pellets(frame):
         if not (MIN_CONTOUR_AREA <= area <= MAX_CONTOUR_AREA):
             continue
 
-        # Use minimum area rectangle for accurate measurement
-        rect = cv2.minAreaRect(cnt)
+        # Use more accurate contour approximation
+        epsilon = 0.001 * cv2.arcLength(cnt, True)
+        approx = cv2.approxPolyDP(cnt, epsilon, True)
+
+        # Get minimum area rectangle (handles rotation)
+        rect = cv2.minAreaRect(approx)
         box = cv2.boxPoints(rect)
         box = np.intp(box)
 
+        # Extract center, size, and angle
         center, (width_px, height_px), angle = rect
 
-        # Apply a small correction factor to account for edge detection
-        # Typically edge detection adds 1-2 pixels, so we subtract slightly
-        correction_factor = 0.95  # Adjust this between 0.90-0.98 if needed
-        width_px = width_px * correction_factor
-        height_px = height_px * correction_factor
-
+        # Convert to mm
         width_mm = width_px / PIXELS_PER_MM
         height_mm = height_px / PIXELS_PER_MM
 
+        # Diameter is the smaller dimension, length is the larger
         diameter = min(width_mm, height_mm)
         length = max(width_mm, height_mm)
 
@@ -267,14 +269,14 @@ def draw_ruler_calibration_mode(frame):
 
     # Draw reference line with measurement markers
     if reference_line_start and reference_line_end:
-        # Main line - thinner for better alignment
-        cv2.line(frame, reference_line_start, reference_line_end, (0, 255, 255), 1)
+        # Main line - thinner for precision
+        cv2.line(frame, reference_line_start, reference_line_end, (0, 255, 255), 2)
 
-        # End circles - smaller for precision
-        cv2.circle(frame, reference_line_start, 5, (0, 255, 0), -1)
-        cv2.circle(frame, reference_line_start, 7, (255, 255, 255), 1)
-        cv2.circle(frame, reference_line_end, 5, (0, 255, 0), -1)
-        cv2.circle(frame, reference_line_end, 7, (255, 255, 255), 1)
+        # End circles
+        cv2.circle(frame, reference_line_start, 6, (0, 255, 0), -1)
+        cv2.circle(frame, reference_line_start, 8, (255, 255, 255), 2)
+        cv2.circle(frame, reference_line_end, 6, (0, 255, 0), -1)
+        cv2.circle(frame, reference_line_end, 8, (255, 255, 255), 2)
 
         # Calculate line properties
         dx = reference_line_end[0] - reference_line_start[0]
@@ -293,8 +295,8 @@ def draw_ruler_calibration_mode(frame):
                 # Perpendicular offset for tick marks
                 # Larger ticks for cm, smaller for mm
                 is_cm = (i % 10 == 0)
-                tick_length = 12 if is_cm else 5
-                tick_thickness = 2 if is_cm else 1
+                tick_length = 10 if is_cm else 4
+                tick_thickness = 1  # All lines thin for precision
 
                 perp_dx = int(tick_length * math.sin(angle))
                 perp_dy = int(-tick_length * math.cos(angle))
@@ -302,17 +304,17 @@ def draw_ruler_calibration_mode(frame):
                 # Draw tick mark
                 tick_start = (marker_x - perp_dx, marker_y - perp_dy)
                 tick_end = (marker_x + perp_dx, marker_y + perp_dy)
-                tick_color = (255, 255, 255) if is_cm else (200, 200, 200)
+                tick_color = (255, 255, 255) if is_cm else (180, 180, 180)
                 cv2.line(frame, tick_start, tick_end, tick_color, tick_thickness)
 
                 # Draw cm numbers (every 10mm)
                 if is_cm:
                     cm_num = i // 10
-                    text_offset_x = int(20 * math.sin(angle))
-                    text_offset_y = int(-20 * math.cos(angle))
+                    text_offset_x = int(18 * math.sin(angle))
+                    text_offset_y = int(-18 * math.cos(angle))
                     cv2.putText(frame, f"{cm_num}",
                                 (marker_x + text_offset_x - 5, marker_y + text_offset_y + 5),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 0), 2)
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
 
         # Display pixel length below midpoint
         mid_x = (reference_line_start[0] + reference_line_end[0]) // 2
