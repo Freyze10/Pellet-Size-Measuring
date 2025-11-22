@@ -160,7 +160,6 @@ def main():
     global in_ruler_calib_mode, calibration_frozen_frame
 
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    # Set highest res possible for better measurement accuracy
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
@@ -171,6 +170,11 @@ def main():
         ret, frame = cap.read()
         if not ret: break
 
+        # --- FIX STARTS HERE ---
+        # Get dimensions of the current frame
+        height, width = frame.shape[:2]
+        # -----------------------
+
         display = frame.copy()
 
         if in_ruler_calib_mode:
@@ -178,7 +182,6 @@ def main():
                 calibration_frozen_frame = frame.copy()
             display = calibration_frozen_frame.copy()
 
-            # Draw instructions
             cv2.putText(display, f"Draw line for {REFERENCE_MM}mm (3 inches)", (20, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
 
@@ -189,23 +192,17 @@ def main():
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
         else:
             calibration_frozen_frame = None
-            # Run detection
             pellets, markers = detect_pellets_advanced(frame, PIXELS_PER_MM)
-
-            # Visualization
-            # Optional: Visualize Watershed markers to debug separation
-            # marker_vis = np.uint8(markers * 10) # Scale for visibility
-            # cv2.imshow("Debug Markers", marker_vis)
 
             for p in pellets:
                 color = (0, 255, 0) if p['valid'] else (0, 0, 255)
                 cv2.drawContours(display, [p['box']], 0, color, 2)
 
-                # Label
                 lbl = f"D:{p['diameter']:.1f} L:{p['length']:.1f}"
                 cv2.putText(display, lbl, (p['box'][1][0], p['box'][1][1]),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
+            # Now 'height' is defined, so this line will work
             cv2.putText(display, "Press 'c' to Calibrate", (10, height - 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
 
