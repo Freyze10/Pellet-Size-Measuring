@@ -39,24 +39,19 @@ MAX_CONTOUR_AREA = 10000
 # Ruler Calibration State
 # ----------------------------------------------------------------------
 in_ruler_calib_mode = False
-ruler_point1 = None
-ruler_point2 = None
-ruler_distance_mm = 10.0  # Default reference distance
+REFERENCE_LENGTH_MM = 76.2  # 3 inches = 76.2mm
+reference_line_start = None
+reference_line_end = None
 calibration_frozen_frame = None
-
-# Input panel for distance
-distance_input_active = False
-distance_input_buffer = ""
+is_dragging = False
 
 # Button rectangles for ruler calibration
 RULER_PANEL_X, RULER_PANEL_Y = 10, 80
-RULER_PANEL_W, RULER_PANEL_H = 380, 320
+RULER_PANEL_W, RULER_PANEL_H = 380, 280
 
-CLEAR_BTN = (RULER_PANEL_X + 20, RULER_PANEL_Y + 200, 100, 40)
+RESET_BTN = (RULER_PANEL_X + 20, RULER_PANEL_Y + 200, 100, 40)
 APPLY_BTN = (RULER_PANEL_X + 140, RULER_PANEL_Y + 200, 100, 40)
 CANCEL_BTN = (RULER_PANEL_X + 260, RULER_PANEL_Y + 200, 100, 40)
-
-DISTANCE_INPUT_BOX = (RULER_PANEL_X + 20, RULER_PANEL_Y + 140, 340, 40)
 
 
 # ----------------------------------------------------------------------
@@ -76,7 +71,7 @@ def should_process_pellet(diameter: float, length: float) -> bool:
 # Mouse Callback for Ruler Calibration
 # ----------------------------------------------------------------------
 def mouse_callback(event, x, y, flags, param):
-    global ruler_point1, ruler_point2, distance_input_active, distance_input_buffer
+    global reference_line_start, reference_line_end, is_dragging
     global in_ruler_calib_mode, PIXELS_PER_MM
 
     if not in_ruler_calib_mode:
@@ -86,41 +81,48 @@ def mouse_callback(event, x, y, flags, param):
         rx, ry, rw, rh = rect
         return rx <= px <= rx + rw and ry <= py <= ry + rh
 
-    # Handle drawing the ruler line
+    # Handle button clicks
     if event == cv2.EVENT_LBUTTONDOWN:
-        # Check if clicking on buttons
-        if in_rect(x, y, CLEAR_BTN):
-            ruler_point1 = None
-            ruler_point2 = None
+        if in_rect(x, y, RESET_BTN):
+            reference_line_start = None
+            reference_line_end = None
+            is_dragging = False
             return
         elif in_rect(x, y, APPLY_BTN):
-            if ruler_point1 and ruler_point2 and ruler_distance_mm > 0:
-                # Calculate pixels per mm
-                dx = ruler_point2[0] - ruler_point1[0]
-                dy = ruler_point2[1] - ruler_point1[1]
+            if reference_line_start and reference_line_end:
+                # Calculate pixels per mm based on 3 inch reference
+                dx = reference_line_end[0] - reference_line_start[0]
+                dy = reference_line_end[1] - reference_line_start[1]
                 pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
-                PIXELS_PER_MM = round(pixel_distance / ruler_distance_mm, 2)
+                PIXELS_PER_MM = round(pixel_distance / REFERENCE_LENGTH_MM, 2)
                 update_ranges()
                 # Exit calibration mode
                 in_ruler_calib_mode = False
-                ruler_point1 = None
-                ruler_point2 = None
+                reference_line_start = None
+                reference_line_end = None
+                is_dragging = False
             return
         elif in_rect(x, y, CANCEL_BTN):
             in_ruler_calib_mode = False
-            ruler_point1 = None
-            ruler_point2 = None
-            return
-        elif in_rect(x, y, DISTANCE_INPUT_BOX):
-            distance_input_active = True
+            reference_line_start = None
+            reference_line_end = None
+            is_dragging = False
             return
 
-        # Drawing ruler line on the frame
-        if y > RULER_PANEL_Y + RULER_PANEL_H or y < RULER_PANEL_Y - 20:
-            if not ruler_point1:
-                ruler_point1 = (x, y)
-            else:
-                ruler_point2 = (x, y)
+        # Start dragging the reference line
+        if not in_rect(x, y, (RULER_PANEL_X, RULER_PANEL_Y, RULER_PANEL_W, RULER_PANEL_H)):
+            reference_line_start = (x, y)
+            reference_line_end = (x, y)
+            is_dragging = True
+
+    elif event == cv2.EVENT_MOUSEMOVE and is_dragging:
+        # Update end point while dragging
+        reference_line_end = (x, y)
+
+    elif event == cv2.EVENT_LBUTTONUP:
+        if is_dragging:
+            reference_line_end = (x, y)
+            is_dragging = False
 
 
 # ----------------------------------------------------------------------
@@ -194,9 +196,9 @@ def draw_ruler_calibration_mode(frame):
     # Instructions
     instructions = [
         "1. Place a ruler in camera view",
-        "2. Click two points on the ruler",
-        "3. Enter the distance in mm below",
-        "4. Click APPLY to calibrate"
+        "2. Click and drag to match the",
+        "   reference line (3 inch / 7.62 cm)",
+        "3. Click APPLY when aligned"
     ]
 
     y_offset = RULER_PANEL_Y + 60
@@ -205,28 +207,21 @@ def draw_ruler_calibration_mode(frame):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
         y_offset += 20
 
-    # Distance input box
-    input_color = (100, 200, 255) if distance_input_active else (150, 150, 150)
-    cv2.rectangle(overlay, (DISTANCE_INPUT_BOX[0], DISTANCE_INPUT_BOX[1]),
-                  (DISTANCE_INPUT_BOX[0] + DISTANCE_INPUT_BOX[2],
-                   DISTANCE_INPUT_BOX[1] + DISTANCE_INPUT_BOX[3]),
-                  input_color, 2)
-
-    display_text = distance_input_buffer if distance_input_buffer else f"{ruler_distance_mm:.1f}"
-    cv2.putText(overlay, f"Distance: {display_text} mm",
-                (DISTANCE_INPUT_BOX[0] + 10, DISTANCE_INPUT_BOX[1] + 28),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    # Reference measurement display
+    cv2.putText(overlay, "Reference: 3 inch (76.2 mm)",
+                (RULER_PANEL_X + 60, RULER_PANEL_Y + 165),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 255), 2)
 
     # Buttons
-    # CLEAR
-    cv2.rectangle(overlay, (CLEAR_BTN[0], CLEAR_BTN[1]),
-                  (CLEAR_BTN[0] + CLEAR_BTN[2], CLEAR_BTN[1] + CLEAR_BTN[3]),
+    # RESET
+    cv2.rectangle(overlay, (RESET_BTN[0], RESET_BTN[1]),
+                  (RESET_BTN[0] + RESET_BTN[2], RESET_BTN[1] + RESET_BTN[3]),
                   (50, 50, 200), -1)
-    cv2.putText(overlay, "CLEAR", (CLEAR_BTN[0] + 15, CLEAR_BTN[1] + 28),
+    cv2.putText(overlay, "RESET", (RESET_BTN[0] + 15, RESET_BTN[1] + 28),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
     # APPLY
-    apply_enabled = ruler_point1 and ruler_point2 and ruler_distance_mm > 0
+    apply_enabled = reference_line_start and reference_line_end
     apply_color = (0, 200, 0) if apply_enabled else (100, 100, 100)
     cv2.rectangle(overlay, (APPLY_BTN[0], APPLY_BTN[1]),
                   (APPLY_BTN[0] + APPLY_BTN[2], APPLY_BTN[1] + APPLY_BTN[3]),
@@ -243,40 +238,72 @@ def draw_ruler_calibration_mode(frame):
 
     # Current calibration value
     cv2.putText(overlay, f"Current: {PIXELS_PER_MM:.2f} px/mm",
-                (RULER_PANEL_X + 20, RULER_PANEL_Y + 270),
+                (RULER_PANEL_X + 20, RULER_PANEL_Y + 250),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 255, 150), 2)
 
-    # Show calculated value if both points are set
-    if ruler_point1 and ruler_point2:
-        dx = ruler_point2[0] - ruler_point1[0]
-        dy = ruler_point2[1] - ruler_point1[1]
+    # Show calculated value if line is drawn
+    if reference_line_start and reference_line_end:
+        dx = reference_line_end[0] - reference_line_start[0]
+        dy = reference_line_end[1] - reference_line_start[1]
         pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
-        new_px_per_mm = pixel_distance / ruler_distance_mm if ruler_distance_mm > 0 else 0
+        new_px_per_mm = pixel_distance / REFERENCE_LENGTH_MM if pixel_distance > 0 else 0
         cv2.putText(overlay, f"New: {new_px_per_mm:.2f} px/mm",
-                    (RULER_PANEL_X + 200, RULER_PANEL_Y + 270),
+                    (RULER_PANEL_X + 200, RULER_PANEL_Y + 250),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 255), 2)
 
     cv2.addWeighted(overlay, 0.9, frame, 0.1, 0, frame)
 
-    # Draw ruler line on top of overlay
-    if ruler_point1:
-        cv2.circle(frame, ruler_point1, 6, (0, 255, 0), -1)
-        cv2.circle(frame, ruler_point1, 8, (255, 255, 255), 2)
+    # Draw reference line with measurement markers
+    if reference_line_start and reference_line_end:
+        # Main line
+        cv2.line(frame, reference_line_start, reference_line_end, (0, 255, 255), 3)
 
-        if ruler_point2:
-            cv2.circle(frame, ruler_point2, 6, (0, 255, 0), -1)
-            cv2.circle(frame, ruler_point2, 8, (255, 255, 255), 2)
-            cv2.line(frame, ruler_point1, ruler_point2, (0, 255, 0), 3)
+        # End circles
+        cv2.circle(frame, reference_line_start, 8, (0, 255, 0), -1)
+        cv2.circle(frame, reference_line_start, 10, (255, 255, 255), 2)
+        cv2.circle(frame, reference_line_end, 8, (0, 255, 0), -1)
+        cv2.circle(frame, reference_line_end, 10, (255, 255, 255), 2)
 
-            # Show pixel distance on the line
-            mid_x = (ruler_point1[0] + ruler_point2[0]) // 2
-            mid_y = (ruler_point1[1] + ruler_point2[1]) // 2
-            dx = ruler_point2[0] - ruler_point1[0]
-            dy = ruler_point2[1] - ruler_point1[1]
-            pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
+        # Calculate line properties
+        dx = reference_line_end[0] - reference_line_start[0]
+        dy = reference_line_end[1] - reference_line_start[1]
+        length = math.sqrt(dx ** 2 + dy ** 2)
+        angle = math.atan2(dy, dx)
 
-            cv2.putText(frame, f"{pixel_distance:.1f} px", (mid_x + 10, mid_y - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+        # Draw cm markers (every 10mm along the 76.2mm line)
+        if length > 0:
+            for i in range(8):  # 0 to 7 cm markers
+                t = (i * 10) / REFERENCE_LENGTH_MM  # Position along line
+                marker_x = int(reference_line_start[0] + dx * t)
+                marker_y = int(reference_line_start[1] + dy * t)
+
+                # Perpendicular offset for tick marks
+                perp_dx = int(8 * math.sin(angle))
+                perp_dy = int(-8 * math.cos(angle))
+
+                # Draw tick mark
+                tick_start = (marker_x - perp_dx, marker_y - perp_dy)
+                tick_end = (marker_x + perp_dx, marker_y + perp_dy)
+                cv2.line(frame, tick_start, tick_end, (255, 255, 255), 2)
+
+                # Draw cm number
+                text_offset_x = int(15 * math.sin(angle))
+                text_offset_y = int(-15 * math.cos(angle))
+                cv2.putText(frame, f"{i}",
+                            (marker_x + text_offset_x - 5, marker_y + text_offset_y + 5),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
+
+        # Display pixel length below midpoint
+        mid_x = (reference_line_start[0] + reference_line_end[0]) // 2
+        mid_y = (reference_line_start[1] + reference_line_end[1]) // 2
+
+        # Offset text perpendicular to line
+        text_offset_x = int(-20 * math.sin(angle))
+        text_offset_y = int(20 * math.cos(angle))
+
+        cv2.putText(frame, f"{length:.1f} px",
+                    (mid_x + text_offset_x, mid_y + text_offset_y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
 
 
 # ----------------------------------------------------------------------
@@ -350,15 +377,14 @@ def get_camera():
 # Main Loop
 # ----------------------------------------------------------------------
 def main():
-    global in_ruler_calib_mode, calibration_frozen_frame, distance_input_active
-    global distance_input_buffer, ruler_distance_mm
+    global in_ruler_calib_mode, calibration_frozen_frame
 
     print("\nPellet Inspector with Ruler Calibration")
     print("=" * 55)
     print("Features:")
-    print("  - Interactive ruler-based calibration")
-    print("  - Click two points on a physical ruler")
-    print("  - Enter known distance for accurate calibration")
+    print("  - Visual 3-inch reference line calibration")
+    print("  - Drag to match your physical ruler")
+    print("  - CM markers for easy alignment")
     print("=" * 55)
     print("Press 'r' → Enter ruler calibration mode")
     print("Press 'q' → Quit")
@@ -420,26 +446,10 @@ def main():
         # Key handling
         key = cv2.waitKey(1) & 0xFF
 
-        if distance_input_active and in_ruler_calib_mode:
-            if key == 13:  # Enter key
-                try:
-                    ruler_distance_mm = float(distance_input_buffer) if distance_input_buffer else ruler_distance_mm
-                    distance_input_buffer = ""
-                    distance_input_active = False
-                except ValueError:
-                    distance_input_buffer = ""
-            elif key == 27:  # ESC key
-                distance_input_buffer = ""
-                distance_input_active = False
-            elif key == 8:  # Backspace
-                distance_input_buffer = distance_input_buffer[:-1]
-            elif 48 <= key <= 57 or key == 46:  # Numbers and decimal point
-                distance_input_buffer += chr(key)
-        else:
-            if key == ord('q'):
-                break
-            elif key == ord('r') and not in_ruler_calib_mode:
-                in_ruler_calib_mode = True
+        if key == ord('q'):
+            break
+        elif key == ord('r') and not in_ruler_calib_mode:
+            in_ruler_calib_mode = True
 
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
             break
