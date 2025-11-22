@@ -224,30 +224,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00087" summary="trying new">
-      <option name="closed" value="true" />
-      <created>1763347594034</created>
-      <option name="number" value="00087" />
-      <option name="presentableId" value="LOCAL-00087" />
-      <option name="project" value="LOCAL" />
-      <updated>1763347594034</updated>
-    </task>
-    <task id="LOCAL-00088" summary="returned">
-      <option name="closed" value="true" />
-      <created>1763347758880</created>
-      <option name="number" value="00088" />
-      <option name="presentableId" value="LOCAL-00088" />
-      <option name="project" value="LOCAL" />
-      <updated>1763347758880</updated>
-    </task>
-    <task id="LOCAL-00089" summary="returned">
-      <option name="closed" value="true" />
-      <created>1763348158468</created>
-      <option name="number" value="00089" />
-      <option name="presentableId" value="LOCAL-00089" />
-      <option name="project" value="LOCAL" />
-      <updated>1763348158468</updated>
-    </task>
     <task id="LOCAL-00090" summary="updated output side">
       <option name="closed" value="true" />
       <created>1763348166421</created>
@@ -616,7 +592,31 @@
       <option name="project" value="LOCAL" />
       <updated>1763715993557</updated>
     </task>
-    <option name="localTasksCounter" value="136" />
+    <task id="LOCAL-00136" summary="attempting ruler calibration">
+      <option name="closed" value="true" />
+      <created>1763773469626</created>
+      <option name="number" value="00136" />
+      <option name="presentableId" value="LOCAL-00136" />
+      <option name="project" value="LOCAL" />
+      <updated>1763773469626</updated>
+    </task>
+    <task id="LOCAL-00137" summary="attempting ruler calibration">
+      <option name="closed" value="true" />
+      <created>1763773686494</created>
+      <option name="number" value="00137" />
+      <option name="presentableId" value="LOCAL-00137" />
+      <option name="project" value="LOCAL" />
+      <updated>1763773686494</updated>
+    </task>
+    <task id="LOCAL-00138" summary="use of 3 inch measure to  calib">
+      <option name="closed" value="true" />
+      <created>1763774504398</created>
+      <option name="number" value="00138" />
+      <option name="presentableId" value="LOCAL-00138" />
+      <option name="project" value="LOCAL" />
+      <updated>1763774504398</updated>
+    </task>
+    <option name="localTasksCounter" value="139" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -643,8 +643,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updated show image to scroll" />
-    <MESSAGE value="updated initial px per mm val" />
     <MESSAGE value="added yolov11 model to try training" />
     <MESSAGE value="added generate" />
     <MESSAGE value="creating new ver" />
@@ -668,7 +666,9 @@
     <MESSAGE value="updated pellet detection" />
     <MESSAGE value="lessen the size of the black background" />
     <MESSAGE value="added space" />
-    <option name="LAST_COMMIT_MESSAGE" value="added space" />
+    <MESSAGE value="attempting ruler calibration" />
+    <MESSAGE value="use of 3 inch measure to  calib" />
+    <option name="LAST_COMMIT_MESSAGE" value="use of 3 inch measure to  calib" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
