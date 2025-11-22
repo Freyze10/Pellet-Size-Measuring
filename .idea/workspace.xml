@@ -224,14 +224,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00094" summary="updated right panel">
-      <option name="closed" value="true" />
-      <created>1763348804382</created>
-      <option name="number" value="00094" />
-      <option name="presentableId" value="LOCAL-00094" />
-      <option name="project" value="LOCAL" />
-      <updated>1763348804382</updated>
-    </task>
     <task id="LOCAL-00095" summary="updated show image to scroll">
       <option name="closed" value="true" />
       <created>1763349853256</created>
@@ -616,7 +608,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763783095160</updated>
     </task>
-    <option name="localTasksCounter" value="143" />
+    <task id="LOCAL-00143" summary="thinner measure line calib and used approxPolyDp">
+      <option name="closed" value="true" />
+      <created>1763792285286</created>
+      <option name="number" value="00143" />
+      <option name="presentableId" value="LOCAL-00143" />
+      <option name="project" value="LOCAL" />
+      <updated>1763792285286</updated>
+    </task>
+    <option name="localTasksCounter" value="144" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -643,7 +643,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added trained model" />
     <MESSAGE value="working model" />
     <MESSAGE value="updated process image" />
     <MESSAGE value="returned" />
@@ -668,7 +667,8 @@
     <MESSAGE value="included mm in the measure" />
     <MESSAGE value="adjusted exclusion" />
     <MESSAGE value="thinner measure line for calibration" />
-    <option name="LAST_COMMIT_MESSAGE" value="thinner measure line for calibration" />
+    <MESSAGE value="thinner measure line calib and used approxPolyDp" />
+    <option name="LAST_COMMIT_MESSAGE" value="thinner measure line calib and used approxPolyDp" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

@@ -130,23 +130,20 @@ def mouse_callback(event, x, y, flags, param):
 # ----------------------------------------------------------------------
 def detect_pellets(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # More aggressive thresholding for better edge detection
-    thresh = cv2.adaptiveThreshold(blur, 255,
-                                   cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 15, 3)
+    # Enhanced preprocessing for better edge detection
+    # Apply bilateral filter to reduce noise while keeping edges sharp
+    bilateral = cv2.bilateralFilter(gray, 9, 75, 75)
 
-    # Refined morphological operations
-    kernel = np.ones((2, 2), np.uint8)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
+    # Use Canny edge detection for precise edges
+    edges = cv2.Canny(bilateral, 50, 150)
 
-    # Optional: edge refinement
-    thresh = cv2.erode(thresh, kernel, iterations=1)
+    # Dilate slightly to connect nearby edges
+    kernel_dilate = np.ones((2, 2), np.uint8)
+    edges = cv2.dilate(edges, kernel_dilate, iterations=1)
 
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL,
-                                   cv2.CHAIN_APPROX_SIMPLE)
+    # Find contours from edges
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     pellets = []
     for cnt in contours:
@@ -154,38 +151,101 @@ def detect_pellets(frame):
         if not (MIN_CONTOUR_AREA <= area <= MAX_CONTOUR_AREA):
             continue
 
-        # Use more accurate contour approximation
-        epsilon = 0.001 * cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, epsilon, True)
+        # Filter by shape - pellets should be relatively compact
+        perimeter = cv2.arcLength(cnt, True)
+        if perimeter == 0:
+            continue
+        circularity = 4 * np.pi * area / (perimeter * perimeter)
 
-        # Get minimum area rectangle (handles rotation)
-        rect = cv2.minAreaRect(approx)
-        box = cv2.boxPoints(rect)
-        box = np.intp(box)
+        # Skip very irregular shapes (circularity should be reasonable for cylindrical pellets)
+        if circularity < 0.3:
+            continue
 
-        # Extract center, size, and angle
-        center, (width_px, height_px), angle = rect
+        # Fit an ellipse for more accurate measurement
+        if len(cnt) >= 5:  # Need at least 5 points to fit ellipse
+            try:
+                ellipse = cv2.fitEllipse(cnt)
+                center, (width_px, height_px), angle = ellipse
 
-        # Convert to mm
-        width_mm = width_px / PIXELS_PER_MM
-        height_mm = height_px / PIXELS_PER_MM
+                # Get the actual contour bounding box for visualization
+                rect = cv2.minAreaRect(cnt)
+                box = cv2.boxPoints(rect)
+                box = np.intp(box)
 
-        # Diameter is the smaller dimension, length is the larger
-        diameter = min(width_mm, height_mm)
-        length = max(width_mm, height_mm)
+                # Use ellipse dimensions for measurement (more accurate)
+                width_mm = width_px / PIXELS_PER_MM
+                height_mm = height_px / PIXELS_PER_MM
 
-        if should_process_pellet(diameter, length):
-            pellets.append({
-                'contour': cnt,
-                'box': box,
-                'center': center,
-                'angle': angle,
-                'width_px': width_px,
-                'height_px': height_px,
-                'diameter': diameter,
-                'length': length,
-                'within_tolerance': is_within_tolerance(diameter, length)
-            })
+                # Diameter is the smaller dimension, length is the larger
+                diameter = min(width_mm, height_mm)
+                length = max(width_mm, height_mm)
+
+                if should_process_pellet(diameter, length):
+                    pellets.append({
+                        'contour': cnt,
+                        'box': box,
+                        'ellipse': ellipse,  # Store ellipse for better visualization
+                        'center': center,
+                        'angle': angle,
+                        'width_px': width_px,
+                        'height_px': height_px,
+                        'diameter': diameter,
+                        'length': length,
+                        'within_tolerance': is_within_tolerance(diameter, length)
+                    })
+            except:
+                # If ellipse fitting fails, fall back to minAreaRect
+                rect = cv2.minAreaRect(cnt)
+                box = cv2.boxPoints(rect)
+                box = np.intp(box)
+                center, (width_px, height_px), angle = rect
+
+                width_mm = width_px / PIXELS_PER_MM
+                height_mm = height_px / PIXELS_PER_MM
+
+                diameter = min(width_mm, height_mm)
+                length = max(width_mm, height_mm)
+
+                if should_process_pellet(diameter, length):
+                    pellets.append({
+                        'contour': cnt,
+                        'box': box,
+                        'ellipse': None,
+                        'center': center,
+                        'angle': angle,
+                        'width_px': width_px,
+                        'height_px': height_px,
+                        'diameter': diameter,
+                        'length': length,
+                        'within_tolerance': is_within_tolerance(diameter, length)
+                    })
+        else:
+            # For small contours, use minAreaRect
+            rect = cv2.minAreaRect(cnt)
+            box = cv2.boxPoints(rect)
+            box = np.intp(box)
+            center, (width_px, height_px), angle = rect
+
+            width_mm = width_px / PIXELS_PER_MM
+            height_mm = height_px / PIXELS_PER_MM
+
+            diameter = min(width_mm, height_mm)
+            length = max(width_mm, height_mm)
+
+            if should_process_pellet(diameter, length):
+                pellets.append({
+                    'contour': cnt,
+                    'box': box,
+                    'ellipse': None,
+                    'center': center,
+                    'angle': angle,
+                    'width_px': width_px,
+                    'height_px': height_px,
+                    'diameter': diameter,
+                    'length': length,
+                    'within_tolerance': is_within_tolerance(diameter, length)
+                })
+
     return pellets
 
 
@@ -349,10 +409,18 @@ def draw_overlay(frame, pellets):
     for p in pellets:
         box = p['box']
         center = p['center']
+        ellipse = p.get('ellipse')
 
         color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)
 
-        cv2.drawContours(frame, [box], 0, color, 2)
+        # Draw ellipse if available (more accurate representation)
+        if ellipse:
+            cv2.ellipse(frame, ellipse, color, 2)
+        else:
+            # Fall back to box
+            cv2.drawContours(frame, [box], 0, color, 2)
+
+        # Draw center point
         cv2.circle(frame, (int(center[0]), int(center[1])), 3, color, -1)
 
         top_y = int(min(box[:, 1]))
