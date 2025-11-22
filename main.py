@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import time
 import sys
+import math
 
 # ----------------------------------------------------------------------
 # Global Calibration
@@ -35,43 +36,27 @@ MIN_CONTOUR_AREA = 100
 MAX_CONTOUR_AREA = 10000
 
 # ----------------------------------------------------------------------
-# Calibration Panel State
+# Ruler Calibration State
 # ----------------------------------------------------------------------
-in_calib_mode = False
+in_ruler_calib_mode = False
+ruler_point1 = None
+ruler_point2 = None
+ruler_distance_mm = 10.0  # Default reference distance
+calibration_frozen_frame = None
 
-# Panel layout
-PANEL_X, PANEL_Y = 10, 300
-PANEL_W, PANEL_H = 300, 180
+# Input panel for distance
+distance_input_active = False
+distance_input_buffer = ""
 
-# Button rects
-UP_BTN = (PANEL_X + 230, PANEL_Y + 40, 50, 40)
-DOWN_BTN = (PANEL_X + 230, PANEL_Y + 90, 50, 40)
-BACK_BTN = (PANEL_X + 20, PANEL_Y + 130, 80, 35)
+# Button rectangles for ruler calibration
+RULER_PANEL_X, RULER_PANEL_Y = 10, 80
+RULER_PANEL_W, RULER_PANEL_H = 380, 320
 
+CLEAR_BTN = (RULER_PANEL_X + 20, RULER_PANEL_Y + 200, 100, 40)
+APPLY_BTN = (RULER_PANEL_X + 140, RULER_PANEL_Y + 200, 100, 40)
+CANCEL_BTN = (RULER_PANEL_X + 260, RULER_PANEL_Y + 200, 100, 40)
 
-# ----------------------------------------------------------------------
-# Mouse Callback
-# ----------------------------------------------------------------------
-def mouse_callback(event, x, y, flags, param):
-    global PIXELS_PER_MM, in_calib_mode
-
-    if not in_calib_mode:
-        return
-
-    def in_rect(px, py, rect):
-        rx, ry, rw, rh = rect
-        return rx <= px <= rx + rw and ry <= py <= ry + rh
-
-    if event == cv2.EVENT_LBUTTONDOWN:
-        if in_rect(x, y, UP_BTN):
-            PIXELS_PER_MM = round(PIXELS_PER_MM + 0.1, 2)
-            update_ranges()
-        elif in_rect(x, y, DOWN_BTN):
-            if PIXELS_PER_MM > 0.5:
-                PIXELS_PER_MM = round(PIXELS_PER_MM - 0.1, 2)
-                update_ranges()
-        elif in_rect(x, y, BACK_BTN):
-            in_calib_mode = False
+DISTANCE_INPUT_BOX = (RULER_PANEL_X + 20, RULER_PANEL_Y + 140, 340, 40)
 
 
 # ----------------------------------------------------------------------
@@ -85,6 +70,57 @@ def is_within_tolerance(diameter: float, length: float) -> bool:
 def should_process_pellet(diameter: float, length: float) -> bool:
     return (DIAMETER_EXCLUDE_MIN <= diameter <= DIAMETER_EXCLUDE_MAX and
             LENGTH_EXCLUDE_MIN <= length <= LENGTH_EXCLUDE_MAX)
+
+
+# ----------------------------------------------------------------------
+# Mouse Callback for Ruler Calibration
+# ----------------------------------------------------------------------
+def mouse_callback(event, x, y, flags, param):
+    global ruler_point1, ruler_point2, distance_input_active, distance_input_buffer
+    global in_ruler_calib_mode, PIXELS_PER_MM
+
+    if not in_ruler_calib_mode:
+        return
+
+    def in_rect(px, py, rect):
+        rx, ry, rw, rh = rect
+        return rx <= px <= rx + rw and ry <= py <= ry + rh
+
+    # Handle drawing the ruler line
+    if event == cv2.EVENT_LBUTTONDOWN:
+        # Check if clicking on buttons
+        if in_rect(x, y, CLEAR_BTN):
+            ruler_point1 = None
+            ruler_point2 = None
+            return
+        elif in_rect(x, y, APPLY_BTN):
+            if ruler_point1 and ruler_point2 and ruler_distance_mm > 0:
+                # Calculate pixels per mm
+                dx = ruler_point2[0] - ruler_point1[0]
+                dy = ruler_point2[1] - ruler_point1[1]
+                pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
+                PIXELS_PER_MM = round(pixel_distance / ruler_distance_mm, 2)
+                update_ranges()
+                # Exit calibration mode
+                in_ruler_calib_mode = False
+                ruler_point1 = None
+                ruler_point2 = None
+            return
+        elif in_rect(x, y, CANCEL_BTN):
+            in_ruler_calib_mode = False
+            ruler_point1 = None
+            ruler_point2 = None
+            return
+        elif in_rect(x, y, DISTANCE_INPUT_BOX):
+            distance_input_active = True
+            return
+
+        # Drawing ruler line on the frame
+        if y > RULER_PANEL_Y + RULER_PANEL_H or y < RULER_PANEL_Y - 20:
+            if not ruler_point1:
+                ruler_point1 = (x, y)
+            else:
+                ruler_point2 = (x, y)
 
 
 # ----------------------------------------------------------------------
@@ -110,26 +146,22 @@ def detect_pellets(frame):
         if not (MIN_CONTOUR_AREA <= area <= MAX_CONTOUR_AREA):
             continue
 
-        # Get minimum area rectangle (handles rotation)
         rect = cv2.minAreaRect(cnt)
         box = cv2.boxPoints(rect)
         box = np.intp(box)
 
-        # Extract center, size, and angle
         center, (width_px, height_px), angle = rect
 
-        # Convert to mm
         width_mm = width_px / PIXELS_PER_MM
         height_mm = height_px / PIXELS_PER_MM
 
-        # Diameter is the smaller dimension, length is the larger
         diameter = min(width_mm, height_mm)
         length = max(width_mm, height_mm)
 
         if should_process_pellet(diameter, length):
             pellets.append({
                 'contour': cnt,
-                'box': box,  # 4 corner points of rotated rectangle
+                'box': box,
                 'center': center,
                 'angle': angle,
                 'width_px': width_px,
@@ -142,48 +174,113 @@ def detect_pellets(frame):
 
 
 # ----------------------------------------------------------------------
-# Draw Calibration Mode
+# Draw Ruler Calibration Mode
 # ----------------------------------------------------------------------
-def draw_calibration_mode(frame):
+def draw_ruler_calibration_mode(frame):
     overlay = frame.copy()
 
-    # Panel background
-    cv2.rectangle(overlay, (PANEL_X, PANEL_Y), (PANEL_X + PANEL_W, PANEL_Y + PANEL_H),
+    # Semi-transparent panel background
+    cv2.rectangle(overlay, (RULER_PANEL_X, RULER_PANEL_Y),
+                  (RULER_PANEL_X + RULER_PANEL_W, RULER_PANEL_Y + RULER_PANEL_H),
                   (30, 30, 50), -1)
-    cv2.rectangle(overlay, (PANEL_X, PANEL_Y), (PANEL_X + PANEL_W, PANEL_Y + PANEL_H),
+    cv2.rectangle(overlay, (RULER_PANEL_X, RULER_PANEL_Y),
+                  (RULER_PANEL_X + RULER_PANEL_W, RULER_PANEL_Y + RULER_PANEL_H),
                   (100, 150, 255), 3)
 
     # Title
-    cv2.putText(overlay, "CALIBRATION MODE", (PANEL_X + 15, PANEL_Y + 30),
+    cv2.putText(overlay, "RULER CALIBRATION", (RULER_PANEL_X + 80, RULER_PANEL_Y + 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+    # Instructions
+    instructions = [
+        "1. Place a ruler in camera view",
+        "2. Click two points on the ruler",
+        "3. Enter the distance in mm below",
+        "4. Click APPLY to calibrate"
+    ]
+
+    y_offset = RULER_PANEL_Y + 60
+    for instr in instructions:
+        cv2.putText(overlay, instr, (RULER_PANEL_X + 20, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
+        y_offset += 20
+
+    # Distance input box
+    input_color = (100, 200, 255) if distance_input_active else (150, 150, 150)
+    cv2.rectangle(overlay, (DISTANCE_INPUT_BOX[0], DISTANCE_INPUT_BOX[1]),
+                  (DISTANCE_INPUT_BOX[0] + DISTANCE_INPUT_BOX[2],
+                   DISTANCE_INPUT_BOX[1] + DISTANCE_INPUT_BOX[3]),
+                  input_color, 2)
+
+    display_text = distance_input_buffer if distance_input_buffer else f"{ruler_distance_mm:.1f}"
+    cv2.putText(overlay, f"Distance: {display_text} mm",
+                (DISTANCE_INPUT_BOX[0] + 10, DISTANCE_INPUT_BOX[1] + 28),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-    # Current value
-    cv2.putText(overlay, f"{PIXELS_PER_MM:.2f} px/mm", (PANEL_X + 15, PANEL_Y + 75),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
-
-    # UP Button
-    cv2.rectangle(overlay, (UP_BTN[0], UP_BTN[1]), (UP_BTN[0] + UP_BTN[2], UP_BTN[1] + UP_BTN[3]),
-                  (0, 200, 0), -1)
-    cv2.putText(overlay, "UP", (UP_BTN[0] + 12, UP_BTN[1] + 28),
+    # Buttons
+    # CLEAR
+    cv2.rectangle(overlay, (CLEAR_BTN[0], CLEAR_BTN[1]),
+                  (CLEAR_BTN[0] + CLEAR_BTN[2], CLEAR_BTN[1] + CLEAR_BTN[3]),
+                  (50, 50, 200), -1)
+    cv2.putText(overlay, "CLEAR", (CLEAR_BTN[0] + 15, CLEAR_BTN[1] + 28),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-    # DOWN Button
-    cv2.rectangle(overlay, (DOWN_BTN[0], DOWN_BTN[1]), (DOWN_BTN[0] + DOWN_BTN[2], DOWN_BTN[1] + DOWN_BTN[3]),
-                  (200, 0, 0), -1)
-    cv2.putText(overlay, "DOWN", (DOWN_BTN[0] + 5, DOWN_BTN[1] + 28),
+    # APPLY
+    apply_enabled = ruler_point1 and ruler_point2 and ruler_distance_mm > 0
+    apply_color = (0, 200, 0) if apply_enabled else (100, 100, 100)
+    cv2.rectangle(overlay, (APPLY_BTN[0], APPLY_BTN[1]),
+                  (APPLY_BTN[0] + APPLY_BTN[2], APPLY_BTN[1] + APPLY_BTN[3]),
+                  apply_color, -1)
+    cv2.putText(overlay, "APPLY", (APPLY_BTN[0] + 15, APPLY_BTN[1] + 28),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-    # BACK Button
-    cv2.rectangle(overlay, (BACK_BTN[0], BACK_BTN[1]), (BACK_BTN[0] + BACK_BTN[2], BACK_BTN[1] + BACK_BTN[3]),
+    # CANCEL
+    cv2.rectangle(overlay, (CANCEL_BTN[0], CANCEL_BTN[1]),
+                  (CANCEL_BTN[0] + CANCEL_BTN[2], CANCEL_BTN[1] + CANCEL_BTN[3]),
                   (100, 100, 100), -1)
-    cv2.putText(overlay, "BACK", (BACK_BTN[0] + 10, BACK_BTN[1] + 25),
+    cv2.putText(overlay, "CANCEL", (CANCEL_BTN[0] + 10, CANCEL_BTN[1] + 28),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-    cv2.addWeighted(overlay, 0.95, frame, 0.05, 0, frame)
+    # Current calibration value
+    cv2.putText(overlay, f"Current: {PIXELS_PER_MM:.2f} px/mm",
+                (RULER_PANEL_X + 20, RULER_PANEL_Y + 270),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 255, 150), 2)
+
+    # Show calculated value if both points are set
+    if ruler_point1 and ruler_point2:
+        dx = ruler_point2[0] - ruler_point1[0]
+        dy = ruler_point2[1] - ruler_point1[1]
+        pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
+        new_px_per_mm = pixel_distance / ruler_distance_mm if ruler_distance_mm > 0 else 0
+        cv2.putText(overlay, f"New: {new_px_per_mm:.2f} px/mm",
+                    (RULER_PANEL_X + 200, RULER_PANEL_Y + 270),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 255), 2)
+
+    cv2.addWeighted(overlay, 0.9, frame, 0.1, 0, frame)
+
+    # Draw ruler line on top of overlay
+    if ruler_point1:
+        cv2.circle(frame, ruler_point1, 6, (0, 255, 0), -1)
+        cv2.circle(frame, ruler_point1, 8, (255, 255, 255), 2)
+
+        if ruler_point2:
+            cv2.circle(frame, ruler_point2, 6, (0, 255, 0), -1)
+            cv2.circle(frame, ruler_point2, 8, (255, 255, 255), 2)
+            cv2.line(frame, ruler_point1, ruler_point2, (0, 255, 0), 3)
+
+            # Show pixel distance on the line
+            mid_x = (ruler_point1[0] + ruler_point2[0]) // 2
+            mid_y = (ruler_point1[1] + ruler_point2[1]) // 2
+            dx = ruler_point2[0] - ruler_point1[0]
+            dy = ruler_point2[1] - ruler_point1[1]
+            pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
+
+            cv2.putText(frame, f"{pixel_distance:.1f} px", (mid_x + 10, mid_y - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
 
 
 # ----------------------------------------------------------------------
-# Main Overlay with Rotated Boxes
+# Main Overlay
 # ----------------------------------------------------------------------
 def draw_overlay(frame, pellets):
     # Status bar
@@ -198,35 +295,27 @@ def draw_overlay(frame, pellets):
     cv2.putText(frame, status_text, (20, 38),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.75, status_color, 2)
 
-    # Draw pellets with rotated boxes
+    # Draw pellets
     for p in pellets:
         box = p['box']
         center = p['center']
-        angle = p['angle']
 
         color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)
 
-        # Draw the rotated bounding box
         cv2.drawContours(frame, [box], 0, color, 2)
-
-        # Draw center point
         cv2.circle(frame, (int(center[0]), int(center[1])), 3, color, -1)
 
-        # Calculate text position (above the topmost point of the box)
         top_y = int(min(box[:, 1]))
         left_x = int(min(box[:, 0]))
 
-        # Text background (compact size)
         bg_y = max(top_y - 30, 0)
         cv2.rectangle(frame, (left_x, bg_y), (left_x + 95, top_y - 5), (0, 0, 0), -1)
 
-        # Display measurements only
         cv2.putText(frame, f"D: {p['diameter']:.2f}mm", (left_x + 3, bg_y + 12),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
         cv2.putText(frame, f"L: {p['length']:.2f}mm", (left_x + 3, bg_y + 24),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
 
-        # Warning indicator for out-of-tolerance pellets
         if not p['within_tolerance']:
             top_right = box[np.argmax(box[:, 0])]
             cv2.circle(frame, tuple(top_right), 8, (0, 0, 255), -1)
@@ -234,14 +323,14 @@ def draw_overlay(frame, pellets):
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
     # Calibration hint
-    if not in_calib_mode:
-        cv2.putText(frame, "Press 'c' to enter calibration mode",
+    if not in_ruler_calib_mode:
+        cv2.putText(frame, "Press 'r' for ruler calibration | 'q' to quit",
                     (10, frame.shape[0] - 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 220, 255), 2)
 
-    # Draw calibration panel
-    if in_calib_mode:
-        draw_calibration_mode(frame)
+    # Draw ruler calibration panel
+    if in_ruler_calib_mode:
+        draw_ruler_calibration_mode(frame)
 
     return frame
 
@@ -261,18 +350,18 @@ def get_camera():
 # Main Loop
 # ----------------------------------------------------------------------
 def main():
-    global in_calib_mode, PIXELS_PER_MM
+    global in_ruler_calib_mode, calibration_frozen_frame, distance_input_active
+    global distance_input_buffer, ruler_distance_mm
 
-    print("\nPellet Inspector with Rotated Detection")
+    print("\nPellet Inspector with Ruler Calibration")
     print("=" * 55)
     print("Features:")
-    print("  - Detects pellets at any angle/orientation")
-    print("  - Shows exact corner points and rotation angle")
-    print("  - Accurate diameter & length measurements")
+    print("  - Interactive ruler-based calibration")
+    print("  - Click two points on a physical ruler")
+    print("  - Enter known distance for accurate calibration")
     print("=" * 55)
-    print("Press 'c' → Enter calibration mode")
-    print("Click UP/DOWN to adjust | Click BACK to exit")
-    print("Press 'q' to quit")
+    print("Press 'r' → Enter ruler calibration mode")
+    print("Press 'q' → Quit")
     print("=" * 55)
 
     cap = get_camera()
@@ -284,7 +373,7 @@ def main():
     fps_start = time.time()
     fps_display = 0
 
-    window_name = "Pellet Size Measurement - Rotated Detection"
+    window_name = "Pellet Inspector - Ruler Calibration"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     cv2.setMouseCallback(window_name, mouse_callback)
 
@@ -299,9 +388,20 @@ def main():
                 break
             continue
 
-        display_frame = frame.copy()
-        pellets = detect_pellets(display_frame)
-        display_frame = draw_overlay(display_frame, pellets)
+        # Freeze frame when entering calibration mode
+        if in_ruler_calib_mode and calibration_frozen_frame is None:
+            calibration_frozen_frame = frame.copy()
+        elif not in_ruler_calib_mode:
+            calibration_frozen_frame = None
+
+        # Use frozen frame during calibration
+        display_frame = calibration_frozen_frame.copy() if in_ruler_calib_mode else frame.copy()
+
+        if not in_ruler_calib_mode:
+            pellets = detect_pellets(display_frame)
+            display_frame = draw_overlay(display_frame, pellets)
+        else:
+            display_frame = draw_overlay(display_frame, [])
 
         # FPS
         fps_counter += 1
@@ -319,10 +419,27 @@ def main():
 
         # Key handling
         key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
-        if key == ord('c') and not in_calib_mode:
-            in_calib_mode = True
+
+        if distance_input_active and in_ruler_calib_mode:
+            if key == 13:  # Enter key
+                try:
+                    ruler_distance_mm = float(distance_input_buffer) if distance_input_buffer else ruler_distance_mm
+                    distance_input_buffer = ""
+                    distance_input_active = False
+                except ValueError:
+                    distance_input_buffer = ""
+            elif key == 27:  # ESC key
+                distance_input_buffer = ""
+                distance_input_active = False
+            elif key == 8:  # Backspace
+                distance_input_buffer = distance_input_buffer[:-1]
+            elif 48 <= key <= 57 or key == 46:  # Numbers and decimal point
+                distance_input_buffer += chr(key)
+        else:
+            if key == ord('q'):
+                break
+            elif key == ord('r') and not in_ruler_calib_mode:
+                in_ruler_calib_mode = True
 
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
             break
