@@ -224,14 +224,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00115" summary="modifying ui">
-      <option name="closed" value="true" />
-      <created>1763443435859</created>
-      <option name="number" value="00115" />
-      <option name="presentableId" value="LOCAL-00115" />
-      <option name="project" value="LOCAL" />
-      <updated>1763443435859</updated>
-    </task>
     <task id="LOCAL-00116" summary="modifying ui">
       <option name="closed" value="true" />
       <created>1763443766947</created>
@@ -616,7 +608,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763969574434</updated>
     </task>
-    <option name="localTasksCounter" value="164" />
+    <task id="LOCAL-00164" summary="returned to working">
+      <option name="closed" value="true" />
+      <created>1763973928744</created>
+      <option name="number" value="00164" />
+      <option name="presentableId" value="LOCAL-00164" />
+      <option name="project" value="LOCAL" />
+      <updated>1763973928744</updated>
+    </task>
+    <option name="localTasksCounter" value="165" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -643,7 +643,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="revert" />
     <MESSAGE value="updated draw pellet" />
     <MESSAGE value="updated draw pellet to circle" />
     <MESSAGE value="updated pellet detection" />
@@ -668,7 +667,8 @@
     <MESSAGE value="testing longest run" />
     <MESSAGE value="return" />
     <MESSAGE value="fixed longtime runtime" />
-    <option name="LAST_COMMIT_MESSAGE" value="fixed longtime runtime" />
+    <MESSAGE value="returned to working" />
+    <option name="LAST_COMMIT_MESSAGE" value="returned to working" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
