@@ -224,14 +224,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00100" summary="added trained model">
-      <option name="closed" value="true" />
-      <created>1763435885148</created>
-      <option name="number" value="00100" />
-      <option name="presentableId" value="LOCAL-00100" />
-      <option name="project" value="LOCAL" />
-      <updated>1763435885148</updated>
-    </task>
     <task id="LOCAL-00101" summary="added trained model">
       <option name="closed" value="true" />
       <created>1763435891968</created>
@@ -616,7 +608,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763796247179</updated>
     </task>
-    <option name="localTasksCounter" value="149" />
+    <task id="LOCAL-00149" summary="thinner bbox">
+      <option name="closed" value="true" />
+      <created>1763798305108</created>
+      <option name="number" value="00149" />
+      <option name="presentableId" value="LOCAL-00149" />
+      <option name="project" value="LOCAL" />
+      <updated>1763798305108</updated>
+    </task>
+    <option name="localTasksCounter" value="150" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -643,7 +643,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updating interface" />
     <MESSAGE value="good UI" />
     <MESSAGE value="modifying ui" />
     <MESSAGE value="claude design" />
@@ -668,7 +667,8 @@
     <MESSAGE value="added tresholding" />
     <MESSAGE value="fixed height error" />
     <MESSAGE value="returned" />
-    <option name="LAST_COMMIT_MESSAGE" value="returned" />
+    <MESSAGE value="thinner bbox" />
+    <option name="LAST_COMMIT_MESSAGE" value="thinner bbox" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
