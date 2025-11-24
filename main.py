@@ -360,7 +360,7 @@ def draw_overlay(frame, pellets):
         left_x = int(min(box[:, 0]))
         bg_y = max(top_y - 30, 0)
 
-        cv2.rectangle(frame, (left_x, bg_y), (left_x + 95, top_y - 5), (0, 0, 0), -1)
+        cv2.rectangle(frame, (left_x, bg_y), (left_x + 70, top_y - 5), (0, 0, 0), -1)
         cv2.putText(frame, f"D: {p['diameter']:.2f}mm", (left_x + 3, bg_y + 12),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
         cv2.putText(frame, f"L: {p['length']:.2f}mm", (left_x + 3, bg_y + 24),
