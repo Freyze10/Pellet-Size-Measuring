@@ -3,6 +3,22 @@ import numpy as np
 import time
 import sys
 import math
+import logging
+from collections import deque
+from datetime import datetime
+
+# ----------------------------------------------------------------------
+# Logging Setup
+# ----------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(f'pellet_inspector_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------
 # Global Calibration
@@ -12,6 +28,12 @@ TARGET_DIAMETER = 3.0
 TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
+
+# Performance Settings
+FRAME_BUFFER_SIZE = 2  # Limit buffer to prevent memory buildup
+MEASUREMENT_HISTORY_SIZE = 100  # For temporal averaging
+RECONNECT_ATTEMPTS = 5
+RECONNECT_DELAY = 2.0
 
 
 def update_ranges():
@@ -33,19 +55,18 @@ def update_ranges():
 update_ranges()
 
 MIN_CONTOUR_AREA = 100
-MAX_CONTOUR_AREA = 20000  # Increased slightly to prevent cutting off large close-ups
+MAX_CONTOUR_AREA = 20000
 
 # ----------------------------------------------------------------------
 # Ruler Calibration State
 # ----------------------------------------------------------------------
 in_ruler_calib_mode = False
-REFERENCE_LENGTH_MM = 76.2  # 3 inches = 76.2mm
+REFERENCE_LENGTH_MM = 76.2
 reference_line_start = None
 reference_line_end = None
 calibration_frozen_frame = None
 is_dragging = False
 
-# Button rectangles for ruler calibration
 RULER_PANEL_X, RULER_PANEL_Y = 10, 80
 RULER_PANEL_W, RULER_PANEL_H = 380, 280
 
@@ -55,7 +76,79 @@ CANCEL_BTN = (RULER_PANEL_X + 260, RULER_PANEL_Y + 200, 100, 40)
 
 
 # ----------------------------------------------------------------------
-# Helper Checks
+# Performance Monitoring
+# ----------------------------------------------------------------------
+class PerformanceMonitor:
+    def __init__(self, window_size=30):
+        self.fps_history = deque(maxlen=window_size)
+        self.frame_times = deque(maxlen=window_size)
+        self.last_time = time.time()
+        self.total_frames = 0
+        self.start_time = time.time()
+
+    def update(self):
+        current_time = time.time()
+        delta = current_time - self.last_time
+        if delta > 0:
+            fps = 1.0 / delta
+            self.fps_history.append(fps)
+            self.frame_times.append(delta)
+        self.last_time = current_time
+        self.total_frames += 1
+
+    def get_fps(self):
+        if len(self.fps_history) > 0:
+            return int(sum(self.fps_history) / len(self.fps_history))
+        return 0
+
+    def get_avg_frame_time(self):
+        if len(self.frame_times) > 0:
+            return sum(self.frame_times) / len(self.frame_times)
+        return 0
+
+    def get_runtime(self):
+        return time.time() - self.start_time
+
+    def log_stats(self):
+        runtime = self.get_runtime()
+        avg_fps = self.total_frames / runtime if runtime > 0 else 0
+        logger.info(f"Runtime: {runtime / 3600:.2f}h | Frames: {self.total_frames} | Avg FPS: {avg_fps:.1f}")
+
+
+# ----------------------------------------------------------------------
+# Measurement History for Temporal Smoothing
+# ----------------------------------------------------------------------
+class MeasurementTracker:
+    def __init__(self, max_size=100):
+        self.history = deque(maxlen=max_size)
+
+    def add_measurement(self, diameter, length):
+        self.history.append({'diameter': diameter, 'length': length, 'time': time.time()})
+
+    def get_smoothed_measurement(self, diameter, length, window=5):
+        """Apply temporal smoothing to reduce jitter"""
+        if len(self.history) < 2:
+            return diameter, length
+
+        # Get recent similar measurements
+        recent = list(self.history)[-window:]
+        similar = [m for m in recent if abs(m['diameter'] - diameter) < 0.3 and abs(m['length'] - length) < 0.3]
+
+        if len(similar) >= 2:
+            avg_d = sum(m['diameter'] for m in similar) / len(similar)
+            avg_l = sum(m['length'] for m in similar) / len(similar)
+            # Blend with current measurement (70% history, 30% current)
+            return avg_d * 0.7 + diameter * 0.3, avg_l * 0.7 + length * 0.3
+
+        return diameter, length
+
+
+measurement_tracker = MeasurementTracker()
+perf_monitor = PerformanceMonitor()
+
+
+# ----------------------------------------------------------------------
+# Helper Functions
 # ----------------------------------------------------------------------
 def is_within_tolerance(diameter: float, length: float) -> bool:
     return (DIAMETER_MIN <= diameter <= DIAMETER_MAX and
@@ -72,7 +165,7 @@ def get_distance(p1, p2):
 
 
 # ----------------------------------------------------------------------
-# Mouse Callback for Ruler Calibration
+# Mouse Callback
 # ----------------------------------------------------------------------
 def mouse_callback(event, x, y, flags, param):
     global reference_line_start, reference_line_end, is_dragging
@@ -85,7 +178,6 @@ def mouse_callback(event, x, y, flags, param):
         rx, ry, rw, rh = rect
         return rx <= px <= rx + rw and ry <= py <= ry + rh
 
-    # Handle button clicks
     if event == cv2.EVENT_LBUTTONDOWN:
         if in_rect(x, y, RESET_BTN):
             reference_line_start = None
@@ -98,10 +190,10 @@ def mouse_callback(event, x, y, flags, param):
                 dy = reference_line_end[1] - reference_line_start[1]
                 pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
 
-                if pixel_distance > 10:  # Prevent division by zero or tiny clicks
+                if pixel_distance > 10:
                     PIXELS_PER_MM = pixel_distance / REFERENCE_LENGTH_MM
                     update_ranges()
-                    print(f"Calibrated: {PIXELS_PER_MM:.4f} px/mm based on {pixel_distance:.2f}px / 76.2mm")
+                    logger.info(f"Calibrated: {PIXELS_PER_MM:.4f} px/mm")
 
                 in_ruler_calib_mode = False
                 reference_line_start = None
@@ -130,29 +222,29 @@ def mouse_callback(event, x, y, flags, param):
 
 
 # ----------------------------------------------------------------------
-# Detection with Rotated Bounding Boxes (IMPROVED)
+# Enhanced Detection with Preprocessing Options
 # ----------------------------------------------------------------------
-def detect_pellets(frame):
+def detect_pellets(frame, use_clahe=True):
+    """Enhanced detection with optional CLAHE for better lighting handling"""
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # 1. Use Bilateral Filter instead of Gaussian.
-    # Bilateral keeps edges sharp while removing noise.
+    # Apply CLAHE for better contrast in variable lighting
+    if use_clahe:
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        gray = clahe.apply(gray)
+
+    # Bilateral filter for edge-preserving smoothing
     blur = cv2.bilateralFilter(gray, 9, 75, 75)
 
-    # 2. Adaptive Thresholding with tuned parameters.
-    # Block size 11, C=2 is generally tighter to the real edge than 15/3.
+    # Adaptive thresholding
     thresh = cv2.adaptiveThreshold(blur, 255,
                                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 11, 2)
 
-    # 3. Morphological Operations - ONLY remove noise, do NOT erode/shrink.
+    # Morphological operations
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    # Morph Open removes small white dots (noise)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
-    # Morph Close fills small black holes inside the pellet
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
-
-    # REMOVED: cv2.erode (This was shrinking your measurements)
 
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -162,18 +254,24 @@ def detect_pellets(frame):
         if not (MIN_CONTOUR_AREA <= area <= MAX_CONTOUR_AREA):
             continue
 
-        # REMOVED: approxPolyDP (This cuts corners on round objects)
+        # Shape filtering: check circularity/solidity
+        perimeter = cv2.arcLength(cnt, True)
+        if perimeter == 0:
+            continue
 
-        # Get minimum area rectangle
+        circularity = 4 * math.pi * area / (perimeter ** 2)
+        hull = cv2.convexHull(cnt)
+        hull_area = cv2.contourArea(hull)
+        solidity = area / hull_area if hull_area > 0 else 0
+
+        # Filter out non-pellet shapes (too irregular)
+        if circularity < 0.3 or solidity < 0.7:
+            continue
+
         rect = cv2.minAreaRect(cnt)
         (center_x, center_y), (w, h), angle = rect
         box = cv2.boxPoints(rect)
         box = np.intp(box)
-
-        # 4. Calculate dimensions manually from box corners for higher precision
-        # cv2.minAreaRect width/height can sometimes swap depending on rotation.
-        # We calculate the distance between adjacent corners.
-        # Order of box points: usually bottom-left, top-left, top-right, bottom-right (rotating)
 
         edge1 = get_distance(box[0], box[1])
         edge2 = get_distance(box[1], box[2])
@@ -185,15 +283,17 @@ def detect_pellets(frame):
             width_px = edge2
             height_px = edge1
 
-        # Convert to mm
         width_mm = width_px / PIXELS_PER_MM
         height_mm = height_px / PIXELS_PER_MM
 
-        # Diameter is the smaller dimension, length is the larger
         diameter = width_mm
         length = height_mm
 
         if should_process_pellet(diameter, length):
+            # Apply temporal smoothing
+            diameter_smooth, length_smooth = measurement_tracker.get_smoothed_measurement(diameter, length)
+            measurement_tracker.add_measurement(diameter, length)
+
             pellets.append({
                 'contour': cnt,
                 'box': box,
@@ -201,15 +301,18 @@ def detect_pellets(frame):
                 'angle': angle,
                 'width_px': width_px,
                 'height_px': height_px,
-                'diameter': diameter,
-                'length': length,
-                'within_tolerance': is_within_tolerance(diameter, length)
+                'diameter': diameter_smooth,
+                'length': length_smooth,
+                'within_tolerance': is_within_tolerance(diameter_smooth, length_smooth),
+                'circularity': circularity,
+                'solidity': solidity
             })
+
     return pellets
 
 
 # ----------------------------------------------------------------------
-# Draw Ruler Calibration Mode
+# Drawing Functions
 # ----------------------------------------------------------------------
 def draw_ruler_calibration_mode(frame):
     overlay = frame.copy()
@@ -277,64 +380,21 @@ def draw_ruler_calibration_mode(frame):
 
     cv2.addWeighted(overlay, 0.9, frame, 0.1, 0, frame)
 
-    # Draw reference line
     if reference_line_start and reference_line_end:
-        cv2.line(frame, reference_line_start, reference_line_end, (0, 255, 255), 1)
+        cv2.line(frame, reference_line_start, reference_line_end, (0, 255, 255), 2)
 
-        # Crosshairs for precision alignment
+        # Crosshairs
         cv2.line(frame, (reference_line_start[0] - 10, reference_line_start[1]),
-                 (reference_line_start[0] + 10, reference_line_start[1]), (0, 0, 255), 1)
+                 (reference_line_start[0] + 10, reference_line_start[1]), (0, 0, 255), 2)
         cv2.line(frame, (reference_line_start[0], reference_line_start[1] - 10),
-                 (reference_line_start[0], reference_line_start[1] + 10), (0, 0, 255), 1)
+                 (reference_line_start[0], reference_line_start[1] + 10), (0, 0, 255), 2)
 
         cv2.line(frame, (reference_line_end[0] - 10, reference_line_end[1]),
-                 (reference_line_end[0] + 10, reference_line_end[1]), (0, 0, 255), 1)
+                 (reference_line_end[0] + 10, reference_line_end[1]), (0, 0, 255), 2)
         cv2.line(frame, (reference_line_end[0], reference_line_end[1] - 10),
-                 (reference_line_end[0], reference_line_end[1] + 10), (0, 0, 255), 1)
-
-        dx = reference_line_end[0] - reference_line_start[0]
-        dy = reference_line_end[1] - reference_line_start[1]
-        length = math.sqrt(dx ** 2 + dy ** 2)
-        angle = math.atan2(dy, dx)
-
-        if length > 0:
-            # Draw markers
-            for i in range(int(REFERENCE_LENGTH_MM) + 1):
-                t = i / REFERENCE_LENGTH_MM
-                marker_x = int(reference_line_start[0] + dx * t)
-                marker_y = int(reference_line_start[1] + dy * t)
-
-                is_cm = (i % 10 == 0)
-                tick_length = 10 if is_cm else 4
-                perp_dx = int(tick_length * math.sin(angle))
-                perp_dy = int(-tick_length * math.cos(angle))
-
-                tick_start = (marker_x - perp_dx, marker_y - perp_dy)
-                tick_end = (marker_x + perp_dx, marker_y + perp_dy)
-                tick_color = (255, 255, 255) if is_cm else (180, 180, 180)
-                cv2.line(frame, tick_start, tick_end, tick_color, 1)
-
-                if is_cm:
-                    cm_num = i // 10
-                    text_offset_x = int(18 * math.sin(angle))
-                    text_offset_y = int(-18 * math.cos(angle))
-                    cv2.putText(frame, f"{cm_num}",
-                                (marker_x + text_offset_x - 5, marker_y + text_offset_y + 5),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
-
-        mid_x = (reference_line_start[0] + reference_line_end[0]) // 2
-        mid_y = (reference_line_start[1] + reference_line_end[1]) // 2
-        text_offset_x = int(-20 * math.sin(angle))
-        text_offset_y = int(20 * math.cos(angle))
-
-        cv2.putText(frame, f"{length:.1f} px",
-                    (mid_x + text_offset_x, mid_y + text_offset_y),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+                 (reference_line_end[0], reference_line_end[1] + 10), (0, 0, 255), 2)
 
 
-# ----------------------------------------------------------------------
-# Main Overlay
-# ----------------------------------------------------------------------
 def draw_overlay(frame, pellets):
     total = len(pellets)
     within = sum(1 for p in pellets if p['within_tolerance'])
@@ -352,30 +412,29 @@ def draw_overlay(frame, pellets):
         center = p['center']
         color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)
 
-        # Draw tight contour and box
-        cv2.drawContours(frame, [box], 0, color, 1)
-        cv2.circle(frame, (int(center[0]), int(center[1])), 2, color, -1)
+        cv2.drawContours(frame, [box], 0, color, 2)
+        cv2.circle(frame, (int(center[0]), int(center[1])), 3, color, -1)
 
         top_y = int(min(box[:, 1]))
         left_x = int(min(box[:, 0]))
-        bg_y = max(top_y - 30, 0)
+        bg_y = max(top_y - 35, 0)
 
-        cv2.rectangle(frame, (left_x, bg_y), (left_x + 70, top_y - 5), (0, 0, 0), -1)
-        cv2.putText(frame, f"D: {p['diameter']:.2f}mm", (left_x + 3, bg_y + 12),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
-        cv2.putText(frame, f"L: {p['length']:.2f}mm", (left_x + 3, bg_y + 24),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
+        cv2.rectangle(frame, (left_x, bg_y), (left_x + 85, top_y - 5), (0, 0, 0), -1)
+        cv2.putText(frame, f"D: {p['diameter']:.2f}mm", (left_x + 3, bg_y + 14),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+        cv2.putText(frame, f"L: {p['length']:.2f}mm", (left_x + 3, bg_y + 28),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
         if not p['within_tolerance']:
             top_right = box[np.argmax(box[:, 0])]
-            cv2.circle(frame, tuple(top_right), 8, (0, 0, 255), -1)
-            cv2.putText(frame, "!", (top_right[0] - 4, top_right[1] + 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            cv2.circle(frame, tuple(top_right), 10, (0, 0, 255), -1)
+            cv2.putText(frame, "!", (top_right[0] - 5, top_right[1] + 6),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
     if not in_ruler_calib_mode:
-        cv2.putText(frame, "Press 'r' for ruler calibration | 'q' to quit",
+        cv2.putText(frame, "Press 'r' = calibrate | 's' = stats | 'q' = quit",
                     (10, frame.shape[0] - 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 220, 255), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 220, 255), 2)
 
     if in_ruler_calib_mode:
         draw_ruler_calibration_mode(frame)
@@ -384,92 +443,165 @@ def draw_overlay(frame, pellets):
 
 
 # ----------------------------------------------------------------------
-# Camera
+# Enhanced Camera with Reconnection Logic
 # ----------------------------------------------------------------------
-def get_camera():
-    # Try different indices if 0 doesn't work (0, 1, 2)
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    cap.set(cv2.CAP_PROP_FPS, 30)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Attempt to disable autofocus for stability
-    return cap
+def get_camera(attempt=0):
+    """Get camera with retry logic and proper error handling"""
+    try:
+        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+
+        if not cap.isOpened():
+            raise Exception("Failed to open camera")
+
+        # Set properties
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, FRAME_BUFFER_SIZE)  # Limit buffer
+
+        # Verify camera is actually working
+        ret, test_frame = cap.read()
+        if not ret or test_frame is None:
+            cap.release()
+            raise Exception("Camera opened but cannot read frames")
+
+        logger.info(f"Camera initialized successfully (attempt {attempt + 1})")
+        return cap
+
+    except Exception as e:
+        logger.error(f"Camera initialization failed (attempt {attempt + 1}): {e}")
+        if attempt < RECONNECT_ATTEMPTS - 1:
+            logger.info(f"Retrying in {RECONNECT_DELAY} seconds...")
+            time.sleep(RECONNECT_DELAY)
+            return get_camera(attempt + 1)
+        else:
+            logger.critical("Failed to initialize camera after all attempts")
+            return None
 
 
 # ----------------------------------------------------------------------
-# Main Loop
+# Main Loop with Enhanced Error Handling
 # ----------------------------------------------------------------------
 def main():
     global in_ruler_calib_mode, calibration_frozen_frame
 
-    print("\nPellet Inspector with High Accuracy Mode")
-    print("=" * 55)
-    print("Press 'r' -> Calibrate (Drag 3-inch line)")
-    print("Press 'q' -> Quit")
-    print("=" * 55)
+    logger.info("=" * 60)
+    logger.info("Pellet Inspector - Long-Running Edition")
+    logger.info("=" * 60)
+    logger.info("Press 'r' -> Calibrate (Drag 3-inch line)")
+    logger.info("Press 's' -> Show statistics")
+    logger.info("Press 'q' -> Quit")
+    logger.info("=" * 60)
 
     cap = get_camera()
-    if not cap.isOpened():
-        print("Cannot open camera.")
+    if cap is None:
+        logger.critical("Cannot start without camera. Exiting.")
         sys.exit(1)
 
-    fps_counter = 0
-    fps_start = time.time()
-    fps_display = 0
-
-    window_name = "Pellet Inspector"
+    window_name = "Pellet Inspector - Long Run"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     cv2.setMouseCallback(window_name, mouse_callback)
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Camera lost – reconnecting...")
-            cap.release()
-            time.sleep(1)
-            cap = get_camera()
-            if not cap.isOpened():
+    consecutive_read_failures = 0
+    max_read_failures = 30
+    stats_log_interval = 300  # Log stats every 5 minutes
+    last_stats_log = time.time()
+
+    try:
+        while True:
+            ret, frame = cap.read()
+
+            if not ret or frame is None:
+                consecutive_read_failures += 1
+                logger.warning(f"Frame read failed ({consecutive_read_failures}/{max_read_failures})")
+
+                if consecutive_read_failures >= max_read_failures:
+                    logger.error("Too many consecutive read failures. Attempting reconnection...")
+                    cap.release()
+                    time.sleep(1)
+                    cap = get_camera()
+
+                    if cap is None:
+                        logger.critical("Reconnection failed. Exiting.")
+                        break
+
+                    consecutive_read_failures = 0
+                continue
+
+            # Reset failure counter on successful read
+            consecutive_read_failures = 0
+
+            # Handle calibration mode frame freezing
+            if in_ruler_calib_mode and calibration_frozen_frame is None:
+                calibration_frozen_frame = frame.copy()
+            elif not in_ruler_calib_mode:
+                calibration_frozen_frame = None
+
+            display_frame = calibration_frozen_frame.copy() if in_ruler_calib_mode else frame.copy()
+
+            # Process pellets only when not calibrating
+            if not in_ruler_calib_mode:
+                try:
+                    pellets = detect_pellets(display_frame)
+                    display_frame = draw_overlay(display_frame, pellets)
+                except Exception as e:
+                    logger.error(f"Detection error: {e}")
+                    pellets = []
+            else:
+                display_frame = draw_overlay(display_frame, [])
+
+            # Update performance monitoring
+            perf_monitor.update()
+            fps = perf_monitor.get_fps()
+
+            # Display FPS and runtime
+            runtime_hours = perf_monitor.get_runtime() / 3600
+            cv2.putText(display_frame, f"FPS: {fps} | Runtime: {runtime_hours:.1f}h",
+                        (display_frame.shape[1] - 250, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+            # Show window
+            cv2.imshow(window_name, display_frame)
+
+            # Periodic stats logging
+            if time.time() - last_stats_log > stats_log_interval:
+                perf_monitor.log_stats()
+                last_stats_log = time.time()
+
+            # Handle key presses
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                logger.info("Quit requested by user")
                 break
-            continue
+            elif key == ord('r') and not in_ruler_calib_mode:
+                in_ruler_calib_mode = True
+                logger.info("Entering calibration mode")
+            elif key == ord('s'):
+                perf_monitor.log_stats()
 
-        if in_ruler_calib_mode and calibration_frozen_frame is None:
-            calibration_frozen_frame = frame.copy()
-        elif not in_ruler_calib_mode:
-            calibration_frozen_frame = None
+            # Check if window was closed
+            try:
+                if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                    logger.info("Window closed by user")
+                    break
+            except cv2.error:
+                logger.warning("Window property check failed, continuing...")
 
-        display_frame = calibration_frozen_frame.copy() if in_ruler_calib_mode else frame.copy()
+    except KeyboardInterrupt:
+        logger.info("Interrupted by user (Ctrl+C)")
+    except Exception as e:
+        logger.critical(f"Unexpected error in main loop: {e}", exc_info=True)
+    finally:
+        # Cleanup
+        logger.info("Shutting down...")
+        perf_monitor.log_stats()
 
-        if not in_ruler_calib_mode:
-            pellets = detect_pellets(display_frame)
-            display_frame = draw_overlay(display_frame, pellets)
-        else:
-            display_frame = draw_overlay(display_frame, [])
+        if cap is not None:
+            cap.release()
 
-        fps_counter += 1
-        elapsed = time.time() - fps_start
-        if elapsed >= 1.0:
-            fps_display = fps_counter // int(elapsed)
-            fps_counter = 0
-            fps_start = time.time()
-
-        cv2.putText(display_frame, f"FPS: {fps_display}",
-                    (display_frame.shape[1] - 130, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
-        cv2.imshow(window_name, display_frame)
-
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
-        elif key == ord('r') and not in_ruler_calib_mode:
-            in_ruler_calib_mode = True
-
-        if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-    print("Shutdown complete.")
+        cv2.destroyAllWindows()
+        logger.info("Shutdown complete")
 
 
 if __name__ == "__main__":
