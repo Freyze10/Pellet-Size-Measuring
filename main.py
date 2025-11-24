@@ -3,7 +3,6 @@ import numpy as np
 import time
 import sys
 import math
-import gc
 
 # ----------------------------------------------------------------------
 # Global Calibration
@@ -34,13 +33,13 @@ def update_ranges():
 update_ranges()
 
 MIN_CONTOUR_AREA = 100
-MAX_CONTOUR_AREA = 20000
+MAX_CONTOUR_AREA = 20000  # Increased slightly to prevent cutting off large close-ups
 
 # ----------------------------------------------------------------------
 # Ruler Calibration State
 # ----------------------------------------------------------------------
 in_ruler_calib_mode = False
-REFERENCE_LENGTH_MM = 76.2
+REFERENCE_LENGTH_MM = 76.2  # 3 inches = 76.2mm
 reference_line_start = None
 reference_line_end = None
 calibration_frozen_frame = None
@@ -53,24 +52,6 @@ RULER_PANEL_W, RULER_PANEL_H = 380, 280
 RESET_BTN = (RULER_PANEL_X + 20, RULER_PANEL_Y + 200, 100, 40)
 APPLY_BTN = (RULER_PANEL_X + 140, RULER_PANEL_Y + 200, 100, 40)
 CANCEL_BTN = (RULER_PANEL_X + 260, RULER_PANEL_Y + 200, 100, 40)
-
-# ----------------------------------------------------------------------
-# Memory Management - Preallocate reusable buffers
-# ----------------------------------------------------------------------
-frame_buffer = None
-gray_buffer = None
-blur_buffer = None
-thresh_buffer = None
-kernel_3x3 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-
-
-def init_buffers(height, width):
-    """Initialize reusable buffers to reduce allocation overhead"""
-    global frame_buffer, gray_buffer, blur_buffer, thresh_buffer
-    frame_buffer = np.zeros((height, width, 3), dtype=np.uint8)
-    gray_buffer = np.zeros((height, width), dtype=np.uint8)
-    blur_buffer = np.zeros((height, width), dtype=np.uint8)
-    thresh_buffer = np.zeros((height, width), dtype=np.uint8)
 
 
 # ----------------------------------------------------------------------
@@ -87,10 +68,7 @@ def should_process_pellet(diameter: float, length: float) -> bool:
 
 
 def get_distance(p1, p2):
-    """Optimized distance calculation"""
-    dx = p1[0] - p2[0]
-    dy = p1[1] - p2[1]
-    return math.sqrt(dx * dx + dy * dy)
+    return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
 
 
 # ----------------------------------------------------------------------
@@ -107,6 +85,7 @@ def mouse_callback(event, x, y, flags, param):
         rx, ry, rw, rh = rect
         return rx <= px <= rx + rw and ry <= py <= ry + rh
 
+    # Handle button clicks
     if event == cv2.EVENT_LBUTTONDOWN:
         if in_rect(x, y, RESET_BTN):
             reference_line_start = None
@@ -117,9 +96,9 @@ def mouse_callback(event, x, y, flags, param):
             if reference_line_start and reference_line_end:
                 dx = reference_line_end[0] - reference_line_start[0]
                 dy = reference_line_end[1] - reference_line_start[1]
-                pixel_distance = math.sqrt(dx * dx + dy * dy)
+                pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
 
-                if pixel_distance > 10:
+                if pixel_distance > 10:  # Prevent division by zero or tiny clicks
                     PIXELS_PER_MM = pixel_distance / REFERENCE_LENGTH_MM
                     update_ranges()
                     print(f"Calibrated: {PIXELS_PER_MM:.4f} px/mm based on {pixel_distance:.2f}px / 76.2mm")
@@ -151,25 +130,31 @@ def mouse_callback(event, x, y, flags, param):
 
 
 # ----------------------------------------------------------------------
-# Detection with Rotated Bounding Boxes (OPTIMIZED)
+# Detection with Rotated Bounding Boxes (IMPROVED)
 # ----------------------------------------------------------------------
 def detect_pellets(frame):
-    """Optimized detection using preallocated buffers"""
-    # Use preallocated buffers
-    cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY, dst=gray_buffer)
-    cv2.bilateralFilter(gray_buffer, 9, 75, 75, dst=blur_buffer)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    cv2.adaptiveThreshold(blur_buffer, 255,
-                          cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                          cv2.THRESH_BINARY_INV, 11, 2, dst=thresh_buffer)
+    # 1. Use Bilateral Filter instead of Gaussian.
+    # Bilateral keeps edges sharp while removing noise.
+    blur = cv2.bilateralFilter(gray, 9, 75, 75)
 
-    # Morphological operations with reusable kernel
-    cv2.morphologyEx(thresh_buffer, cv2.MORPH_OPEN, kernel_3x3,
-                     dst=thresh_buffer, iterations=1)
-    cv2.morphologyEx(thresh_buffer, cv2.MORPH_CLOSE, kernel_3x3,
-                     dst=thresh_buffer, iterations=2)
+    # 2. Adaptive Thresholding with tuned parameters.
+    # Block size 11, C=2 is generally tighter to the real edge than 15/3.
+    thresh = cv2.adaptiveThreshold(blur, 255,
+                                   cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                   cv2.THRESH_BINARY_INV, 11, 2)
 
-    contours, _ = cv2.findContours(thresh_buffer, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # 3. Morphological Operations - ONLY remove noise, do NOT erode/shrink.
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    # Morph Open removes small white dots (noise)
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
+    # Morph Close fills small black holes inside the pellet
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+    # REMOVED: cv2.erode (This was shrinking your measurements)
+
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     pellets = []
     for cnt in contours:
@@ -177,12 +162,19 @@ def detect_pellets(frame):
         if not (MIN_CONTOUR_AREA <= area <= MAX_CONTOUR_AREA):
             continue
 
+        # REMOVED: approxPolyDP (This cuts corners on round objects)
+
+        # Get minimum area rectangle
         rect = cv2.minAreaRect(cnt)
         (center_x, center_y), (w, h), angle = rect
         box = cv2.boxPoints(rect)
         box = np.intp(box)
 
-        # Calculate dimensions from box corners
+        # 4. Calculate dimensions manually from box corners for higher precision
+        # cv2.minAreaRect width/height can sometimes swap depending on rotation.
+        # We calculate the distance between adjacent corners.
+        # Order of box points: usually bottom-left, top-left, top-right, bottom-right (rotating)
+
         edge1 = get_distance(box[0], box[1])
         edge2 = get_distance(box[1], box[2])
 
@@ -197,6 +189,7 @@ def detect_pellets(frame):
         width_mm = width_px / PIXELS_PER_MM
         height_mm = height_px / PIXELS_PER_MM
 
+        # Diameter is the smaller dimension, length is the larger
         diameter = width_mm
         length = height_mm
 
@@ -276,7 +269,7 @@ def draw_ruler_calibration_mode(frame):
     if reference_line_start and reference_line_end:
         dx = reference_line_end[0] - reference_line_start[0]
         dy = reference_line_end[1] - reference_line_start[1]
-        pixel_distance = math.sqrt(dx * dx + dy * dy)
+        pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
         new_px_per_mm = pixel_distance / REFERENCE_LENGTH_MM if pixel_distance > 0 else 0
         cv2.putText(overlay, f"New: {new_px_per_mm:.2f} px/mm",
                     (RULER_PANEL_X + 200, RULER_PANEL_Y + 250),
@@ -288,7 +281,7 @@ def draw_ruler_calibration_mode(frame):
     if reference_line_start and reference_line_end:
         cv2.line(frame, reference_line_start, reference_line_end, (0, 255, 255), 1)
 
-        # Crosshairs
+        # Crosshairs for precision alignment
         cv2.line(frame, (reference_line_start[0] - 10, reference_line_start[1]),
                  (reference_line_start[0] + 10, reference_line_start[1]), (0, 0, 255), 1)
         cv2.line(frame, (reference_line_start[0], reference_line_start[1] - 10),
@@ -301,7 +294,7 @@ def draw_ruler_calibration_mode(frame):
 
         dx = reference_line_end[0] - reference_line_start[0]
         dy = reference_line_end[1] - reference_line_start[1]
-        length = math.sqrt(dx * dx + dy * dy)
+        length = math.sqrt(dx ** 2 + dy ** 2)
         angle = math.atan2(dy, dx)
 
         if length > 0:
@@ -359,6 +352,7 @@ def draw_overlay(frame, pellets):
         center = p['center']
         color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)
 
+        # Draw tight contour and box
         cv2.drawContours(frame, [box], 0, color, 1)
         cv2.circle(frame, (int(center[0]), int(center[1])), 2, color, -1)
 
@@ -393,23 +387,22 @@ def draw_overlay(frame, pellets):
 # Camera
 # ----------------------------------------------------------------------
 def get_camera():
+    # Try different indices if 0 doesn't work (0, 1, 2)
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv2.CAP_PROP_FPS, 30)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-    # Reduce buffer size to minimize memory accumulation
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Attempt to disable autofocus for stability
     return cap
 
 
 # ----------------------------------------------------------------------
-# Main Loop with Memory Management
+# Main Loop
 # ----------------------------------------------------------------------
 def main():
     global in_ruler_calib_mode, calibration_frozen_frame
 
-    print("\nPellet Inspector - Optimized for Long Runtime")
+    print("\nPellet Inspector with High Accuracy Mode")
     print("=" * 55)
     print("Press 'r' -> Calibrate (Drag 3-inch line)")
     print("Press 'q' -> Quit")
@@ -420,83 +413,63 @@ def main():
         print("Cannot open camera.")
         sys.exit(1)
 
-    # Initialize buffers after camera is ready
-    init_buffers(480, 640)
-
     fps_counter = 0
     fps_start = time.time()
     fps_display = 0
-    frame_count = 0
-    gc_interval = 1000  # Run garbage collection every 1000 frames
 
     window_name = "Pellet Inspector"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     cv2.setMouseCallback(window_name, mouse_callback)
 
-    print("System initialized. Running...")
-
-    try:
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                print("Camera lost – reconnecting...")
-                cap.release()
-                time.sleep(1)
-                cap = get_camera()
-                if not cap.isOpened():
-                    break
-                continue
-
-            frame_count += 1
-
-            # Periodic garbage collection to prevent memory buildup
-            if frame_count % gc_interval == 0:
-                gc.collect()
-
-            if in_ruler_calib_mode and calibration_frozen_frame is None:
-                calibration_frozen_frame = frame.copy()
-            elif not in_ruler_calib_mode:
-                calibration_frozen_frame = None
-
-            display_frame = calibration_frozen_frame.copy() if in_ruler_calib_mode else frame.copy()
-
-            if not in_ruler_calib_mode:
-                pellets = detect_pellets(display_frame)
-                display_frame = draw_overlay(display_frame, pellets)
-            else:
-                display_frame = draw_overlay(display_frame, [])
-
-            fps_counter += 1
-            elapsed = time.time() - fps_start
-            if elapsed >= 1.0:
-                fps_display = fps_counter // int(elapsed)
-                fps_counter = 0
-                fps_start = time.time()
-
-            cv2.putText(display_frame, f"FPS: {fps_display}",
-                        (display_frame.shape[1] - 130, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
-            cv2.imshow(window_name, display_frame)
-
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Camera lost – reconnecting...")
+            cap.release()
+            time.sleep(1)
+            cap = get_camera()
+            if not cap.isOpened():
                 break
-            elif key == ord('r') and not in_ruler_calib_mode:
-                in_ruler_calib_mode = True
+            continue
 
-            if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
-                break
+        if in_ruler_calib_mode and calibration_frozen_frame is None:
+            calibration_frozen_frame = frame.copy()
+        elif not in_ruler_calib_mode:
+            calibration_frozen_frame = None
 
-    except KeyboardInterrupt:
-        print("\nInterrupted by user")
-    except Exception as e:
-        print(f"Error occurred: {e}")
-    finally:
-        cap.release()
-        cv2.destroyAllWindows()
-        gc.collect()
-        print("Shutdown complete.")
+        display_frame = calibration_frozen_frame.copy() if in_ruler_calib_mode else frame.copy()
+
+        if not in_ruler_calib_mode:
+            pellets = detect_pellets(display_frame)
+            display_frame = draw_overlay(display_frame, pellets)
+        else:
+            display_frame = draw_overlay(display_frame, [])
+
+        fps_counter += 1
+        elapsed = time.time() - fps_start
+        if elapsed >= 1.0:
+            fps_display = fps_counter // int(elapsed)
+            fps_counter = 0
+            fps_start = time.time()
+
+        cv2.putText(display_frame, f"FPS: {fps_display}",
+                    (display_frame.shape[1] - 130, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+        cv2.imshow(window_name, display_frame)
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
+            break
+        elif key == ord('r') and not in_ruler_calib_mode:
+            in_ruler_calib_mode = True
+
+        if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    print("Shutdown complete.")
 
 
 if __name__ == "__main__":
