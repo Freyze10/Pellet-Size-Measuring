@@ -3,7 +3,7 @@ import numpy as np
 import time
 import sys
 import math
-from collections import deque
+import gc
 
 # ----------------------------------------------------------------------
 # Global Calibration
@@ -37,20 +37,6 @@ MIN_CONTOUR_AREA = 100
 MAX_CONTOUR_AREA = 20000
 
 # ----------------------------------------------------------------------
-# Performance Optimization
-# ----------------------------------------------------------------------
-# Frame skipping for processing-heavy operations
-PROCESS_EVERY_N_FRAMES = 2  # Process every 2nd frame for better performance
-frame_counter = 0
-last_pellets = []
-
-# FPS smoothing
-fps_queue = deque(maxlen=30)
-
-# Pre-allocate reusable arrays
-kernel_3x3 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-
-# ----------------------------------------------------------------------
 # Ruler Calibration State
 # ----------------------------------------------------------------------
 in_ruler_calib_mode = False
@@ -60,12 +46,31 @@ reference_line_end = None
 calibration_frozen_frame = None
 is_dragging = False
 
+# Button rectangles for ruler calibration
 RULER_PANEL_X, RULER_PANEL_Y = 10, 80
 RULER_PANEL_W, RULER_PANEL_H = 380, 280
 
 RESET_BTN = (RULER_PANEL_X + 20, RULER_PANEL_Y + 200, 100, 40)
 APPLY_BTN = (RULER_PANEL_X + 140, RULER_PANEL_Y + 200, 100, 40)
 CANCEL_BTN = (RULER_PANEL_X + 260, RULER_PANEL_Y + 200, 100, 40)
+
+# ----------------------------------------------------------------------
+# Memory Management - Preallocate reusable buffers
+# ----------------------------------------------------------------------
+frame_buffer = None
+gray_buffer = None
+blur_buffer = None
+thresh_buffer = None
+kernel_3x3 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+
+
+def init_buffers(height, width):
+    """Initialize reusable buffers to reduce allocation overhead"""
+    global frame_buffer, gray_buffer, blur_buffer, thresh_buffer
+    frame_buffer = np.zeros((height, width, 3), dtype=np.uint8)
+    gray_buffer = np.zeros((height, width), dtype=np.uint8)
+    blur_buffer = np.zeros((height, width), dtype=np.uint8)
+    thresh_buffer = np.zeros((height, width), dtype=np.uint8)
 
 
 # ----------------------------------------------------------------------
@@ -82,7 +87,10 @@ def should_process_pellet(diameter: float, length: float) -> bool:
 
 
 def get_distance(p1, p2):
-    return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
+    """Optimized distance calculation"""
+    dx = p1[0] - p2[0]
+    dy = p1[1] - p2[1]
+    return math.sqrt(dx * dx + dy * dy)
 
 
 # ----------------------------------------------------------------------
@@ -109,7 +117,7 @@ def mouse_callback(event, x, y, flags, param):
             if reference_line_start and reference_line_end:
                 dx = reference_line_end[0] - reference_line_start[0]
                 dy = reference_line_end[1] - reference_line_start[1]
-                pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
+                pixel_distance = math.sqrt(dx * dx + dy * dy)
 
                 if pixel_distance > 10:
                     PIXELS_PER_MM = pixel_distance / REFERENCE_LENGTH_MM
@@ -146,17 +154,22 @@ def mouse_callback(event, x, y, flags, param):
 # Detection with Rotated Bounding Boxes (OPTIMIZED)
 # ----------------------------------------------------------------------
 def detect_pellets(frame):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    blur = cv2.bilateralFilter(gray, 9, 75, 75)
-    thresh = cv2.adaptiveThreshold(blur, 255,
-                                   cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 11, 2)
+    """Optimized detection using preallocated buffers"""
+    # Use preallocated buffers
+    cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY, dst=gray_buffer)
+    cv2.bilateralFilter(gray_buffer, 9, 75, 75, dst=blur_buffer)
 
-    # Use pre-allocated kernel
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel_3x3, iterations=1)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_3x3, iterations=2)
+    cv2.adaptiveThreshold(blur_buffer, 255,
+                          cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                          cv2.THRESH_BINARY_INV, 11, 2, dst=thresh_buffer)
 
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Morphological operations with reusable kernel
+    cv2.morphologyEx(thresh_buffer, cv2.MORPH_OPEN, kernel_3x3,
+                     dst=thresh_buffer, iterations=1)
+    cv2.morphologyEx(thresh_buffer, cv2.MORPH_CLOSE, kernel_3x3,
+                     dst=thresh_buffer, iterations=2)
+
+    contours, _ = cv2.findContours(thresh_buffer, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     pellets = []
     for cnt in contours:
@@ -169,6 +182,7 @@ def detect_pellets(frame):
         box = cv2.boxPoints(rect)
         box = np.intp(box)
 
+        # Calculate dimensions from box corners
         edge1 = get_distance(box[0], box[1])
         edge2 = get_distance(box[1], box[2])
 
@@ -179,6 +193,7 @@ def detect_pellets(frame):
             width_px = edge2
             height_px = edge1
 
+        # Convert to mm
         width_mm = width_px / PIXELS_PER_MM
         height_mm = height_px / PIXELS_PER_MM
 
@@ -233,6 +248,7 @@ def draw_ruler_calibration_mode(frame):
                 (RULER_PANEL_X + 60, RULER_PANEL_Y + 165),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 255), 2)
 
+    # Buttons
     cv2.rectangle(overlay, (RESET_BTN[0], RESET_BTN[1]),
                   (RESET_BTN[0] + RESET_BTN[2], RESET_BTN[1] + RESET_BTN[3]),
                   (50, 50, 200), -1)
@@ -260,7 +276,7 @@ def draw_ruler_calibration_mode(frame):
     if reference_line_start and reference_line_end:
         dx = reference_line_end[0] - reference_line_start[0]
         dy = reference_line_end[1] - reference_line_start[1]
-        pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
+        pixel_distance = math.sqrt(dx * dx + dy * dy)
         new_px_per_mm = pixel_distance / REFERENCE_LENGTH_MM if pixel_distance > 0 else 0
         cv2.putText(overlay, f"New: {new_px_per_mm:.2f} px/mm",
                     (RULER_PANEL_X + 200, RULER_PANEL_Y + 250),
@@ -268,9 +284,11 @@ def draw_ruler_calibration_mode(frame):
 
     cv2.addWeighted(overlay, 0.9, frame, 0.1, 0, frame)
 
+    # Draw reference line
     if reference_line_start and reference_line_end:
         cv2.line(frame, reference_line_start, reference_line_end, (0, 255, 255), 1)
 
+        # Crosshairs
         cv2.line(frame, (reference_line_start[0] - 10, reference_line_start[1]),
                  (reference_line_start[0] + 10, reference_line_start[1]), (0, 0, 255), 1)
         cv2.line(frame, (reference_line_start[0], reference_line_start[1] - 10),
@@ -283,10 +301,11 @@ def draw_ruler_calibration_mode(frame):
 
         dx = reference_line_end[0] - reference_line_start[0]
         dy = reference_line_end[1] - reference_line_start[1]
-        length = math.sqrt(dx ** 2 + dy ** 2)
+        length = math.sqrt(dx * dx + dy * dy)
         angle = math.atan2(dy, dx)
 
         if length > 0:
+            # Draw markers
             for i in range(int(REFERENCE_LENGTH_MM) + 1):
                 t = i / REFERENCE_LENGTH_MM
                 marker_x = int(reference_line_start[0] + dx * t)
@@ -321,7 +340,7 @@ def draw_ruler_calibration_mode(frame):
 
 
 # ----------------------------------------------------------------------
-# Main Overlay (OPTIMIZED)
+# Main Overlay
 # ----------------------------------------------------------------------
 def draw_overlay(frame, pellets):
     total = len(pellets)
@@ -371,7 +390,7 @@ def draw_overlay(frame, pellets):
 
 
 # ----------------------------------------------------------------------
-# Camera (OPTIMIZED)
+# Camera
 # ----------------------------------------------------------------------
 def get_camera():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
@@ -379,19 +398,18 @@ def get_camera():
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv2.CAP_PROP_FPS, 30)
     cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-    # Buffer settings to prevent memory buildup
+    # Reduce buffer size to minimize memory accumulation
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     return cap
 
 
 # ----------------------------------------------------------------------
-# Main Loop (ENHANCED STABILITY)
+# Main Loop with Memory Management
 # ----------------------------------------------------------------------
 def main():
     global in_ruler_calib_mode, calibration_frozen_frame
-    global frame_counter, last_pellets
 
-    print("\nPellet Inspector - Enhanced Stability Mode")
+    print("\nPellet Inspector - Optimized for Long Runtime")
     print("=" * 55)
     print("Press 'r' -> Calibrate (Drag 3-inch line)")
     print("Press 'q' -> Quit")
@@ -402,39 +420,39 @@ def main():
         print("Cannot open camera.")
         sys.exit(1)
 
-    last_frame_time = time.time()
-    reconnect_attempts = 0
-    max_reconnect_attempts = 5
+    # Initialize buffers after camera is ready
+    init_buffers(480, 640)
+
+    fps_counter = 0
+    fps_start = time.time()
+    fps_display = 0
+    frame_count = 0
+    gc_interval = 1000  # Run garbage collection every 1000 frames
 
     window_name = "Pellet Inspector"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     cv2.setMouseCallback(window_name, mouse_callback)
 
+    print("System initialized. Running...")
+
     try:
         while True:
             ret, frame = cap.read()
-
             if not ret:
-                print(f"Camera read failed - Attempt {reconnect_attempts + 1}/{max_reconnect_attempts}")
-                reconnect_attempts += 1
-
-                if reconnect_attempts >= max_reconnect_attempts:
-                    print("Max reconnection attempts reached. Exiting.")
-                    break
-
+                print("Camera lost – reconnecting...")
                 cap.release()
-                time.sleep(2)
+                time.sleep(1)
                 cap = get_camera()
-
-                if cap.isOpened():
-                    print("Camera reconnected successfully")
-                    reconnect_attempts = 0
+                if not cap.isOpened():
+                    break
                 continue
 
-            # Reset reconnect counter on successful read
-            reconnect_attempts = 0
+            frame_count += 1
 
-            # Freeze frame for calibration
+            # Periodic garbage collection to prevent memory buildup
+            if frame_count % gc_interval == 0:
+                gc.collect()
+
             if in_ruler_calib_mode and calibration_frozen_frame is None:
                 calibration_frozen_frame = frame.copy()
             elif not in_ruler_calib_mode:
@@ -442,25 +460,18 @@ def main():
 
             display_frame = calibration_frozen_frame.copy() if in_ruler_calib_mode else frame.copy()
 
-            # Frame skipping for performance
             if not in_ruler_calib_mode:
-                frame_counter += 1
-                if frame_counter % PROCESS_EVERY_N_FRAMES == 0:
-                    last_pellets = detect_pellets(display_frame)
-
-                display_frame = draw_overlay(display_frame, last_pellets)
+                pellets = detect_pellets(display_frame)
+                display_frame = draw_overlay(display_frame, pellets)
             else:
                 display_frame = draw_overlay(display_frame, [])
 
-            # FPS calculation with smoothing
-            current_time = time.time()
-            frame_time = current_time - last_frame_time
-            last_frame_time = current_time
-
-            if frame_time > 0:
-                fps_queue.append(1.0 / frame_time)
-
-            fps_display = int(sum(fps_queue) / len(fps_queue)) if fps_queue else 0
+            fps_counter += 1
+            elapsed = time.time() - fps_start
+            if elapsed >= 1.0:
+                fps_display = fps_counter // int(elapsed)
+                fps_counter = 0
+                fps_start = time.time()
 
             cv2.putText(display_frame, f"FPS: {fps_display}",
                         (display_frame.shape[1] - 130, 30),
@@ -480,10 +491,11 @@ def main():
     except KeyboardInterrupt:
         print("\nInterrupted by user")
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"Error occurred: {e}")
     finally:
         cap.release()
         cv2.destroyAllWindows()
+        gc.collect()
         print("Shutdown complete.")
 
 
