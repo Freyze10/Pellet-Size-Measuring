@@ -388,7 +388,8 @@ def draw_overlay(frame, pellets):
 # ----------------------------------------------------------------------
 def get_camera():
     # Try different indices if 0 doesn't work (0, 1, 2)
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    # obs in index 1
+    cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv2.CAP_PROP_FPS, 30)
