@@ -61,6 +61,7 @@
     "Python.scanner_no_ml.executor": "Run",
     "Python.scanner_yolo.executor": "Run",
     "Python.test_new.executor": "Run",
+    "Python.try-auto.executor": "Run",
     "Python.yolo_cv_scanner (1).executor": "Run",
     "Python.yolo_cv_scanner.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -87,7 +88,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.main">
+  <component name="RunManager" selected="Python.try-auto">
     <configuration name="label" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -154,7 +155,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="scanner_yolo" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="try-auto" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -167,7 +168,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/scanner_yolo.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/try-auto.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -200,11 +201,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.try-auto" />
         <item itemvalue="Python.main" />
         <item itemvalue="Python.newOpencv" />
         <item itemvalue="Python.label" />
         <item itemvalue="Python.yolo_cv_scanner" />
-        <item itemvalue="Python.scanner_yolo" />
       </list>
     </recent_temporary>
   </component>
@@ -223,22 +224,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00119" summary="claude design">
-      <option name="closed" value="true" />
-      <created>1763444309162</created>
-      <option name="number" value="00119" />
-      <option name="presentableId" value="LOCAL-00119" />
-      <option name="project" value="LOCAL" />
-      <updated>1763444309162</updated>
-    </task>
-    <task id="LOCAL-00120" summary="added bbox yolo">
-      <option name="closed" value="true" />
-      <created>1763451390081</created>
-      <option name="number" value="00120" />
-      <option name="presentableId" value="LOCAL-00120" />
-      <option name="project" value="LOCAL" />
-      <updated>1763451390081</updated>
     </task>
     <task id="LOCAL-00121" summary="updated trained model">
       <option name="closed" value="true" />
@@ -616,7 +601,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764030478435</updated>
     </task>
-    <option name="localTasksCounter" value="168" />
+    <task id="LOCAL-00168" summary="trying auto calibrate">
+      <option name="closed" value="true" />
+      <created>1764032927938</created>
+      <option name="number" value="00168" />
+      <option name="presentableId" value="LOCAL-00168" />
+      <option name="project" value="LOCAL" />
+      <updated>1764032927938</updated>
+    </task>
+    <task id="LOCAL-00169" summary="trying auto calibrate">
+      <option name="closed" value="true" />
+      <created>1764032935483</created>
+      <option name="number" value="00169" />
+      <option name="presentableId" value="LOCAL-00169" />
+      <option name="project" value="LOCAL" />
+      <updated>1764032935483</updated>
+    </task>
+    <option name="localTasksCounter" value="170" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -643,7 +644,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="lessen the size of the black background" />
     <MESSAGE value="attempting ruler calibration" />
     <MESSAGE value="use of 3 inch measure to  calib" />
     <MESSAGE value="added space" />
@@ -668,7 +668,8 @@
     <MESSAGE value="improved runtime" />
     <MESSAGE value="returned ver" />
     <MESSAGE value="space" />
-    <option name="LAST_COMMIT_MESSAGE" value="space" />
+    <MESSAGE value="trying auto calibrate" />
+    <option name="LAST_COMMIT_MESSAGE" value="trying auto calibrate" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
