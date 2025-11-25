@@ -225,14 +225,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00127" summary="updated draw pellet">
-      <option name="closed" value="true" />
-      <created>1763453572959</created>
-      <option name="number" value="00127" />
-      <option name="presentableId" value="LOCAL-00127" />
-      <option name="project" value="LOCAL" />
-      <updated>1763453572959</updated>
-    </task>
     <task id="LOCAL-00128" summary="updated draw pellet">
       <option name="closed" value="true" />
       <created>1763453747475</created>
@@ -617,7 +609,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764050725341</updated>
     </task>
-    <option name="localTasksCounter" value="176" />
+    <task id="LOCAL-00176" summary="display actual camera reso">
+      <option name="closed" value="true" />
+      <created>1764051593999</created>
+      <option name="number" value="00176" />
+      <option name="presentableId" value="LOCAL-00176" />
+      <option name="project" value="LOCAL" />
+      <updated>1764051593999</updated>
+    </task>
+    <option name="localTasksCounter" value="177" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -644,7 +644,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="adjusted exclusion" />
     <MESSAGE value="thinner measure line for calibration" />
     <MESSAGE value="thinner measure line calib and used approxPolyDp" />
     <MESSAGE value="use of fit elipse" />
@@ -669,7 +668,8 @@
     <MESSAGE value="returned" />
     <MESSAGE value="use obs cam" />
     <MESSAGE value="force full hd" />
-    <option name="LAST_COMMIT_MESSAGE" value="force full hd" />
+    <MESSAGE value="display actual camera reso" />
+    <option name="LAST_COMMIT_MESSAGE" value="display actual camera reso" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
