@@ -35,6 +35,10 @@ update_ranges()
 MIN_CONTOUR_AREA = 100
 MAX_CONTOUR_AREA = 20000  # Increased slightly to prevent cutting off large close-ups
 
+# Common resolutions: 640x480, 1280x720, 1920x1080
+DESIRED_WIDTH = 1280
+DESIRED_HEIGHT = 720
+
 # ----------------------------------------------------------------------
 # Ruler Calibration State
 # ----------------------------------------------------------------------
@@ -386,14 +390,32 @@ def draw_overlay(frame, pellets):
 # ----------------------------------------------------------------------
 # Camera
 # ----------------------------------------------------------------------
+
 def get_camera():
-    # Try different indices if 0 doesn't work (0, 1, 2)
+    # Try index 0 first, then 1 if 0 fails
     # obs in index 1
-    cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+
+    # Request the desired resolution
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, DESIRED_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, DESIRED_HEIGHT)
+
+    # Request specific FPS (camera might ignore this if lighting is low)
     cap.set(cv2.CAP_PROP_FPS, 30)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Attempt to disable autofocus for stability
+    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+
+    # READ BACK what the camera actually accepted
+    actual_w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    actual_h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+
+    print(f"------------------------------------------------")
+    print(f"Camera Resolution Requested: {DESIRED_WIDTH}x{DESIRED_HEIGHT}")
+    print(f"Camera Resolution Actual:    {int(actual_w)}x{int(actual_h)}")
+    print(f"------------------------------------------------")
+
     return cap
 
 
