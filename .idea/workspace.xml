@@ -225,14 +225,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00123" summary="updated img">
-      <option name="closed" value="true" />
-      <created>1763452743194</created>
-      <option name="number" value="00123" />
-      <option name="presentableId" value="LOCAL-00123" />
-      <option name="project" value="LOCAL" />
-      <updated>1763452743194</updated>
-    </task>
     <task id="LOCAL-00124" summary="updated img">
       <option name="closed" value="true" />
       <created>1763452985375</created>
@@ -617,7 +609,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764042268468</updated>
     </task>
-    <option name="localTasksCounter" value="172" />
+    <task id="LOCAL-00172" summary="added camera reso">
+      <option name="closed" value="true" />
+      <created>1764047538165</created>
+      <option name="number" value="00172" />
+      <option name="presentableId" value="LOCAL-00172" />
+      <option name="project" value="LOCAL" />
+      <updated>1764047538165</updated>
+    </task>
+    <option name="localTasksCounter" value="173" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -644,7 +644,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="use of 3 inch measure to  calib" />
     <MESSAGE value="added space" />
     <MESSAGE value="included mm in the measure" />
     <MESSAGE value="adjusted exclusion" />
@@ -669,7 +668,8 @@
     <MESSAGE value="space" />
     <MESSAGE value="trying auto calibrate" />
     <MESSAGE value="try semi auto" />
-    <option name="LAST_COMMIT_MESSAGE" value="try semi auto" />
+    <MESSAGE value="added camera reso" />
+    <option name="LAST_COMMIT_MESSAGE" value="added camera reso" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
