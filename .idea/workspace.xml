@@ -225,14 +225,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00121" summary="updated trained model">
-      <option name="closed" value="true" />
-      <created>1763451432951</created>
-      <option name="number" value="00121" />
-      <option name="presentableId" value="LOCAL-00121" />
-      <option name="project" value="LOCAL" />
-      <updated>1763451432951</updated>
-    </task>
     <task id="LOCAL-00122" summary="replaced best">
       <option name="closed" value="true" />
       <created>1763452253380</created>
@@ -617,7 +609,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764032935483</updated>
     </task>
-    <option name="localTasksCounter" value="170" />
+    <task id="LOCAL-00170" summary="try semi auto">
+      <option name="closed" value="true" />
+      <created>1764033601802</created>
+      <option name="number" value="00170" />
+      <option name="presentableId" value="LOCAL-00170" />
+      <option name="project" value="LOCAL" />
+      <updated>1764033601802</updated>
+    </task>
+    <option name="localTasksCounter" value="171" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -644,7 +644,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="attempting ruler calibration" />
     <MESSAGE value="use of 3 inch measure to  calib" />
     <MESSAGE value="added space" />
     <MESSAGE value="included mm in the measure" />
@@ -669,7 +668,8 @@
     <MESSAGE value="returned ver" />
     <MESSAGE value="space" />
     <MESSAGE value="trying auto calibrate" />
-    <option name="LAST_COMMIT_MESSAGE" value="trying auto calibrate" />
+    <MESSAGE value="try semi auto" />
+    <option name="LAST_COMMIT_MESSAGE" value="try semi auto" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
