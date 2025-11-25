@@ -88,7 +88,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.try-auto">
+  <component name="RunManager" selected="Python.main">
     <configuration name="label" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -201,8 +201,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.try-auto" />
         <item itemvalue="Python.main" />
+        <item itemvalue="Python.try-auto" />
         <item itemvalue="Python.newOpencv" />
         <item itemvalue="Python.label" />
         <item itemvalue="Python.yolo_cv_scanner" />
@@ -224,14 +224,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00122" summary="replaced best">
-      <option name="closed" value="true" />
-      <created>1763452253380</created>
-      <option name="number" value="00122" />
-      <option name="presentableId" value="LOCAL-00122" />
-      <option name="project" value="LOCAL" />
-      <updated>1763452253380</updated>
     </task>
     <task id="LOCAL-00123" summary="updated img">
       <option name="closed" value="true" />
@@ -617,7 +609,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764033601802</updated>
     </task>
-    <option name="localTasksCounter" value="171" />
+    <task id="LOCAL-00171" summary="try semi auto">
+      <option name="closed" value="true" />
+      <created>1764042268468</created>
+      <option name="number" value="00171" />
+      <option name="presentableId" value="LOCAL-00171" />
+      <option name="project" value="LOCAL" />
+      <updated>1764042268468</updated>
+    </task>
+    <option name="localTasksCounter" value="172" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -631,7 +631,7 @@
                   <entry key="branch">
                     <value>
                       <list>
-                        <option value="try_notebook" />
+                        <option value="main" />
                       </list>
                     </value>
                   </entry>
