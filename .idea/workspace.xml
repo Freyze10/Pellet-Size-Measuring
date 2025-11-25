@@ -225,22 +225,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00124" summary="updated img">
-      <option name="closed" value="true" />
-      <created>1763452985375</created>
-      <option name="number" value="00124" />
-      <option name="presentableId" value="LOCAL-00124" />
-      <option name="project" value="LOCAL" />
-      <updated>1763452985375</updated>
-    </task>
-    <task id="LOCAL-00125" summary="updated img">
-      <option name="closed" value="true" />
-      <created>1763453029859</created>
-      <option name="number" value="00125" />
-      <option name="presentableId" value="LOCAL-00125" />
-      <option name="project" value="LOCAL" />
-      <updated>1763453029859</updated>
-    </task>
     <task id="LOCAL-00126" summary="revert">
       <option name="closed" value="true" />
       <created>1763453093760</created>
@@ -617,7 +601,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764047538165</updated>
     </task>
-    <option name="localTasksCounter" value="173" />
+    <task id="LOCAL-00173" summary="returned">
+      <option name="closed" value="true" />
+      <created>1764050419110</created>
+      <option name="number" value="00173" />
+      <option name="presentableId" value="LOCAL-00173" />
+      <option name="project" value="LOCAL" />
+      <updated>1764050419110</updated>
+    </task>
+    <task id="LOCAL-00174" summary="use obs cam">
+      <option name="closed" value="true" />
+      <created>1764050697705</created>
+      <option name="number" value="00174" />
+      <option name="presentableId" value="LOCAL-00174" />
+      <option name="project" value="LOCAL" />
+      <updated>1764050697705</updated>
+    </task>
+    <option name="localTasksCounter" value="175" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -644,7 +644,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added space" />
     <MESSAGE value="included mm in the measure" />
     <MESSAGE value="adjusted exclusion" />
     <MESSAGE value="thinner measure line for calibration" />
@@ -653,7 +652,6 @@
     <MESSAGE value="returned-1" />
     <MESSAGE value="added tresholding" />
     <MESSAGE value="fixed height error" />
-    <MESSAGE value="returned" />
     <MESSAGE value="thinner bbox" />
     <MESSAGE value="trying with debug" />
     <MESSAGE value="returned to thin" />
@@ -669,7 +667,9 @@
     <MESSAGE value="trying auto calibrate" />
     <MESSAGE value="try semi auto" />
     <MESSAGE value="added camera reso" />
-    <option name="LAST_COMMIT_MESSAGE" value="added camera reso" />
+    <MESSAGE value="returned" />
+    <MESSAGE value="use obs cam" />
+    <option name="LAST_COMMIT_MESSAGE" value="use obs cam" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
