@@ -225,14 +225,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00138" summary="use of 3 inch measure to  calib">
-      <option name="closed" value="true" />
-      <created>1763774504398</created>
-      <option name="number" value="00138" />
-      <option name="presentableId" value="LOCAL-00138" />
-      <option name="project" value="LOCAL" />
-      <updated>1763774504398</updated>
-    </task>
     <task id="LOCAL-00139" summary="added space">
       <option name="closed" value="true" />
       <created>1763777700771</created>
@@ -617,7 +609,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764128875515</updated>
     </task>
-    <option name="localTasksCounter" value="187" />
+    <task id="LOCAL-00187" summary="fixing ruler">
+      <option name="closed" value="true" />
+      <created>1764128956225</created>
+      <option name="number" value="00187" />
+      <option name="presentableId" value="LOCAL-00187" />
+      <option name="project" value="LOCAL" />
+      <updated>1764128956225</updated>
+    </task>
+    <option name="localTasksCounter" value="188" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

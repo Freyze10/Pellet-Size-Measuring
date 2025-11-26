@@ -333,9 +333,9 @@ def draw_ruler_calibration_mode(frame):
             for half_cm in [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5]:
                 draw_tick(half_cm * 10, tick_length=10, thickness=1, color=(200, 200, 200))
 
-            for mm in range(1, 77):
-                if mm % 10 == 5 != 0:  # skip the ones we already drew
-                    draw_tick(mm, tick_length=8, thickness=1, color=(150,150,150))
+            # for mm in range(1, 77):
+            #     if mm % 10 == 5 != 0:  # skip the ones we already drew
+            #         draw_tick(mm, tick_length=8, thickness=1, color=(150,150,150))
 
         mid_x = (reference_line_start[0] + reference_line_end[0]) // 2
         mid_y = (reference_line_start[1] + reference_line_end[1]) // 2
