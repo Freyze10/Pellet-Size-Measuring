@@ -225,14 +225,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00133" summary="added space">
-      <option name="closed" value="true" />
-      <created>1763696173084</created>
-      <option name="number" value="00133" />
-      <option name="presentableId" value="LOCAL-00133" />
-      <option name="project" value="LOCAL" />
-      <updated>1763696173084</updated>
-    </task>
     <task id="LOCAL-00134" summary="added space">
       <option name="closed" value="true" />
       <created>1763704810014</created>
@@ -617,7 +609,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764126483118</updated>
     </task>
-    <option name="localTasksCounter" value="182" />
+    <task id="LOCAL-00182" summary="calib">
+      <option name="closed" value="true" />
+      <created>1764127091661</created>
+      <option name="number" value="00182" />
+      <option name="presentableId" value="LOCAL-00182" />
+      <option name="project" value="LOCAL" />
+      <updated>1764127091661</updated>
+    </task>
+    <option name="localTasksCounter" value="183" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -644,7 +644,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="use of fit elipse" />
     <MESSAGE value="returned-1" />
     <MESSAGE value="added tresholding" />
     <MESSAGE value="fixed height error" />
@@ -669,7 +668,8 @@
     <MESSAGE value="display actual camera reso" />
     <MESSAGE value="fot testing" />
     <MESSAGE value="calib" />
-    <option name="LAST_COMMIT_MESSAGE" value="calib" />
+    <MESSAGE value="added exit on calib when clicked r" />
+    <option name="LAST_COMMIT_MESSAGE" value="added exit on calib when clicked r" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
