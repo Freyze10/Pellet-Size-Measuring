@@ -301,30 +301,37 @@ def draw_ruler_calibration_mode(frame):
         length = math.sqrt(dx ** 2 + dy ** 2)
         angle = math.atan2(dy, dx)
 
-        if length > 0:
-            # Draw markers
-            for i in range(int(REFERENCE_LENGTH_MM) + 1):
-                t = i / REFERENCE_LENGTH_MM
-                marker_x = int(reference_line_start[0] + dx * t)
-                marker_y = int(reference_line_start[1] + dy * t)
+        if length > 10:  # only draw if line is reasonably long
+            angle_rad = math.atan2(dy, dx)
 
-                is_cm = (i % 10 == 0)
-                tick_length = 10 if is_cm else 4
-                perp_dx = int(tick_length * math.sin(angle))
-                perp_dy = int(-tick_length * math.cos(angle))
+            # Helper to draw a tick perpendicular to the line
+            def draw_tick(distance_mm, tick_length, thickness=1, color=(180, 180, 180)):
+                t = distance_mm / REFERENCE_LENGTH_MM
+                x = reference_line_start[0] + dx * t
+                y = reference_line_start[1] + dy * t
 
-                tick_start = (marker_x - perp_dx, marker_y - perp_dy)
-                tick_end = (marker_x + perp_dx, marker_y + perp_dy)
-                tick_color = (255, 255, 255) if is_cm else (180, 180, 180)
-                cv2.line(frame, tick_start, tick_end, tick_color, 1)
+                px = int(tick_length * math.sin(angle_rad))
+                py = int(-tick_length * math.cos(angle_rad))
 
-                if is_cm:
-                    cm_num = i // 10
-                    text_offset_x = int(18 * math.sin(angle))
-                    text_offset_y = int(-18 * math.cos(angle))
-                    cv2.putText(frame, f"{cm_num}",
-                                (marker_x + text_offset_x - 5, marker_y + text_offset_y + 5),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
+                pt1 = (int(x - px), int(y - py))
+                pt2 = (int(x + px), int(y + py))
+                cv2.line(frame, pt1, pt2, color, thickness)
+
+            # 1 cm ticks (every 10 mm) — long + labeled
+            for cm in range(1, 8):  # 1 cm to 7 cm
+                draw_tick(cm * 10, tick_length=18, thickness=2, color=(255, 255, 255))
+                # label
+                t = (cm * 10) / REFERENCE_LENGTH_MM
+                x = reference_line_start[0] + dx * t
+                y = reference_line_start[1] + dy * t
+                label_x = int(x + 25 * math.sin(angle_rad))
+                label_y = int(y - 25 * math.cos(angle_rad))
+                cv2.putText(frame, str(cm), (label_x - 8, label_y + 8),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 2)
+
+            # 5 mm ticks (half cm) — medium length
+            for half_cm in [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5]:
+                draw_tick(half_cm * 10, tick_length=10, thickness=1, color=(200, 200, 200))
 
         mid_x = (reference_line_start[0] + reference_line_end[0]) // 2
         mid_y = (reference_line_start[1] + reference_line_end[1]) // 2
