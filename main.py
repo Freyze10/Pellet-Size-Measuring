@@ -275,9 +275,7 @@ def draw_ruler_calibration_mode(frame):
         dy = reference_line_end[1] - reference_line_start[1]
         pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
         new_px_per_mm = pixel_distance / REFERENCE_LENGTH_MM if pixel_distance > 0 else 0
-        cv2.putText(overlay, f"New: {new_px_per_mm:.2f} px/mm",
-                    (RULER_PANEL_X + 200, RULER_PANEL_Y + 250),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 255), 2)
+
 
     cv2.addWeighted(overlay, 0.9, frame, 0.1, 0, frame)
 
