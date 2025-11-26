@@ -492,11 +492,9 @@ def main():
                 reference_line_end = None
                 is_dragging = False
                 calibration_frozen_frame = None
-                print("Ruler calibration cancelled (via 'r' key)")
             else:
                 # Normal behaviour – enter calibration mode
                 in_ruler_calib_mode = True
-                print("Entered ruler calibration mode – drag a 3-inch line")
 
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
             break
