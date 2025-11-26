@@ -225,14 +225,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00137" summary="attempting ruler calibration">
-      <option name="closed" value="true" />
-      <created>1763773686494</created>
-      <option name="number" value="00137" />
-      <option name="presentableId" value="LOCAL-00137" />
-      <option name="project" value="LOCAL" />
-      <updated>1763773686494</updated>
-    </task>
     <task id="LOCAL-00138" summary="use of 3 inch measure to  calib">
       <option name="closed" value="true" />
       <created>1763774504398</created>
@@ -617,7 +609,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764128445863</updated>
     </task>
-    <option name="localTasksCounter" value="186" />
+    <task id="LOCAL-00186" summary="fixing ruler">
+      <option name="closed" value="true" />
+      <created>1764128875515</created>
+      <option name="number" value="00186" />
+      <option name="presentableId" value="LOCAL-00186" />
+      <option name="project" value="LOCAL" />
+      <updated>1764128875515</updated>
+    </task>
+    <option name="localTasksCounter" value="187" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -644,7 +644,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fixed height error" />
     <MESSAGE value="thinner bbox" />
     <MESSAGE value="trying with debug" />
     <MESSAGE value="returned to thin" />
@@ -669,7 +668,8 @@
     <MESSAGE value="added exit on calib when clicked r" />
     <MESSAGE value="removed unnecessary prints" />
     <MESSAGE value="rewrite ruler for calib" />
-    <option name="LAST_COMMIT_MESSAGE" value="rewrite ruler for calib" />
+    <MESSAGE value="fixing ruler" />
+    <option name="LAST_COMMIT_MESSAGE" value="fixing ruler" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

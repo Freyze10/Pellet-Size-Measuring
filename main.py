@@ -320,7 +320,7 @@ def draw_ruler_calibration_mode(frame):
             # 1 cm ticks (every 10 mm) — long + labeled
             for cm in range(1, 8):  # 1 cm to 7 cm
                 draw_tick(cm * 10, tick_length=12, thickness=2, color=(255, 255, 255))
-                # label
+                # labelr
                 t = (cm * 10) / REFERENCE_LENGTH_MM
                 x = reference_line_start[0] + dx * t
                 y = reference_line_start[1] + dy * t
@@ -330,8 +330,8 @@ def draw_ruler_calibration_mode(frame):
                             cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 2)
 
             # 5 mm ticks (half cm) — medium length
-            # for half_cm in [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5]:
-            #     draw_tick(half_cm * 10, tick_length=10, thickness=1, color=(200, 200, 200))
+            for half_cm in [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5]:
+                draw_tick(half_cm * 10, tick_length=10, thickness=1, color=(200, 200, 200))
 
             for mm in range(1, 77):
                 if mm % 10 == 5 != 0:  # skip the ones we already drew
