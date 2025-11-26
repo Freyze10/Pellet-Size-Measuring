@@ -225,22 +225,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00130" summary="updated pellet detection">
-      <option name="closed" value="true" />
-      <created>1763686368252</created>
-      <option name="number" value="00130" />
-      <option name="presentableId" value="LOCAL-00130" />
-      <option name="project" value="LOCAL" />
-      <updated>1763686368252</updated>
-    </task>
-    <task id="LOCAL-00131" summary="updated pellet detection">
-      <option name="closed" value="true" />
-      <created>1763687303953</created>
-      <option name="number" value="00131" />
-      <option name="presentableId" value="LOCAL-00131" />
-      <option name="project" value="LOCAL" />
-      <updated>1763687303953</updated>
-    </task>
     <task id="LOCAL-00132" summary="lessen the size of the black background">
       <option name="closed" value="true" />
       <created>1763687952972</created>
@@ -617,7 +601,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764060414115</updated>
     </task>
-    <option name="localTasksCounter" value="179" />
+    <task id="LOCAL-00179" summary="display actual camera reso">
+      <option name="closed" value="true" />
+      <created>1764061174555</created>
+      <option name="number" value="00179" />
+      <option name="presentableId" value="LOCAL-00179" />
+      <option name="project" value="LOCAL" />
+      <updated>1764061174555</updated>
+    </task>
+    <task id="LOCAL-00180" summary="fot testing">
+      <option name="closed" value="true" />
+      <created>1764061348667</created>
+      <option name="number" value="00180" />
+      <option name="presentableId" value="LOCAL-00180" />
+      <option name="project" value="LOCAL" />
+      <updated>1764061348669</updated>
+    </task>
+    <option name="localTasksCounter" value="181" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -644,7 +644,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="thinner measure line for calibration" />
     <MESSAGE value="thinner measure line calib and used approxPolyDp" />
     <MESSAGE value="use of fit elipse" />
     <MESSAGE value="returned-1" />
@@ -669,7 +668,8 @@
     <MESSAGE value="use obs cam" />
     <MESSAGE value="force full hd" />
     <MESSAGE value="display actual camera reso" />
-    <option name="LAST_COMMIT_MESSAGE" value="display actual camera reso" />
+    <MESSAGE value="fot testing" />
+    <option name="LAST_COMMIT_MESSAGE" value="fot testing" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
