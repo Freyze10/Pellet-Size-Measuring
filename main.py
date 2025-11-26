@@ -484,8 +484,19 @@ def main():
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
-        elif key == ord('r') and not in_ruler_calib_mode:
-            in_ruler_calib_mode = True
+        elif key == ord('r'):
+            if in_ruler_calib_mode:
+                # Pressing 'r' again while in calibration mode = Cancel
+                in_ruler_calib_mode = False
+                reference_line_start = None
+                reference_line_end = None
+                is_dragging = False
+                calibration_frozen_frame = None
+                print("Ruler calibration cancelled (via 'r' key)")
+            else:
+                # Normal behaviour – enter calibration mode
+                in_ruler_calib_mode = True
+                print("Entered ruler calibration mode – drag a 3-inch line")
 
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
             break
