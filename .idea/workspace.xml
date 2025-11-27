@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00154" summary="returned to thin">
-      <option name="closed" value="true" />
-      <created>1763946363508</created>
-      <option name="number" value="00154" />
-      <option name="presentableId" value="LOCAL-00154" />
-      <option name="project" value="LOCAL" />
-      <updated>1763946363508</updated>
-    </task>
     <task id="LOCAL-00155" summary="returned to thin">
       <option name="closed" value="true" />
       <created>1763954423263</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764228643038</updated>
     </task>
-    <option name="localTasksCounter" value="203" />
+    <task id="LOCAL-00203" summary="updated box ruler selection">
+      <option name="closed" value="true" />
+      <created>1764228948346</created>
+      <option name="number" value="00203" />
+      <option name="presentableId" value="LOCAL-00203" />
+      <option name="project" value="LOCAL" />
+      <updated>1764228948346</updated>
+    </task>
+    <option name="localTasksCounter" value="204" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="space" />
     <MESSAGE value="trying auto calibrate" />
     <MESSAGE value="try semi auto" />
     <MESSAGE value="added camera reso" />
@@ -671,7 +670,8 @@
     <MESSAGE value="not working" />
     <MESSAGE value="box detection" />
     <MESSAGE value="modified box ruler selection" />
-    <option name="LAST_COMMIT_MESSAGE" value="modified box ruler selection" />
+    <MESSAGE value="updated box ruler selection" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated box ruler selection" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
