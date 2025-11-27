@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00150" summary="thinner bbox">
-      <option name="closed" value="true" />
-      <created>1763945057377</created>
-      <option name="number" value="00150" />
-      <option name="presentableId" value="LOCAL-00150" />
-      <option name="project" value="LOCAL" />
-      <updated>1763945057377</updated>
-    </task>
     <task id="LOCAL-00151" summary="thinner bbox">
       <option name="closed" value="true" />
       <created>1763946207815</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764225879089</updated>
     </task>
-    <option name="localTasksCounter" value="199" />
+    <task id="LOCAL-00199" summary="returned">
+      <option name="closed" value="true" />
+      <created>1764226338014</created>
+      <option name="number" value="00199" />
+      <option name="presentableId" value="LOCAL-00199" />
+      <option name="project" value="LOCAL" />
+      <updated>1764226338014</updated>
+    </task>
+    <option name="localTasksCounter" value="200" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -653,7 +653,6 @@
     <MESSAGE value="trying auto calibrate" />
     <MESSAGE value="try semi auto" />
     <MESSAGE value="added camera reso" />
-    <MESSAGE value="returned" />
     <MESSAGE value="use obs cam" />
     <MESSAGE value="force full hd" />
     <MESSAGE value="display actual camera reso" />
@@ -671,7 +670,8 @@
     <MESSAGE value="deleted past best" />
     <MESSAGE value="replaced yolo model" />
     <MESSAGE value="updating auto" />
-    <option name="LAST_COMMIT_MESSAGE" value="updating auto" />
+    <MESSAGE value="returned" />
+    <option name="LAST_COMMIT_MESSAGE" value="returned" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
