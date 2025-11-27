@@ -3,78 +3,33 @@ import numpy as np
 import time
 import sys
 import math
-import json
-import os
+from ultralytics import YOLO
 
 # ----------------------------------------------------------------------
-# Global Calibration Storage (Resolution-Aware)
+# Global Calibration
 # ----------------------------------------------------------------------
-CALIBRATION_FILE = "pellet_calibration.json"
-calibrations = {}  # Key: "widthxheight", Value: pixels_per_mm
-
-# Current resolution tracking
-current_resolution = None
-PIXELS_PER_MM = 6.0  # Default fallback
-
+PIXELS_PER_MM = 6.0
 TARGET_DIAMETER = 3.0
 TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
 
+# Auto-calibration state
+AUTO_CALIBRATION_ENABLED = True
+CALIBRATION_CONFIDENCE_THRESHOLD = 0.6
+CALIBRATION_SAMPLES = []
+MAX_CALIBRATION_SAMPLES = 10
+STABLE_CALIBRATION_THRESHOLD = 0.1  # 10% variance allowed
 
-def load_calibrations():
-    """Load saved calibrations from file."""
-    global calibrations
-    if os.path.exists(CALIBRATION_FILE):
-        try:
-            with open(CALIBRATION_FILE, 'r') as f:
-                calibrations = json.load(f)
-            print(f"Loaded calibrations: {calibrations}")
-        except Exception as e:
-            print(f"Could not load calibrations: {e}")
-            calibrations = {}
-    else:
-        calibrations = {}
-
-
-def save_calibrations():
-    """Save calibrations to file."""
-    try:
-        with open(CALIBRATION_FILE, 'w') as f:
-            json.dump(calibrations, f, indent=2)
-        print(f"Calibrations saved: {calibrations}")
-    except Exception as e:
-        print(f"Could not save calibrations: {e}")
-
-
-def get_resolution_key(width, height):
-    """Create a unique key for resolution."""
-    return f"{int(width)}x{int(height)}"
-
-
-def set_calibration_for_resolution(width, height, pixels_per_mm):
-    """Store calibration for specific resolution."""
-    global calibrations, PIXELS_PER_MM
-    key = get_resolution_key(width, height)
-    calibrations[key] = pixels_per_mm
-    PIXELS_PER_MM = pixels_per_mm
-    save_calibrations()
-    update_ranges()
-    print(f"✓ Calibration set for {key}: {pixels_per_mm:.4f} px/mm")
-
-
-def get_calibration_for_resolution(width, height):
-    """Retrieve calibration for specific resolution."""
-    global PIXELS_PER_MM
-    key = get_resolution_key(width, height)
-    if key in calibrations:
-        PIXELS_PER_MM = calibrations[key]
-        print(f"✓ Using calibration for {key}: {PIXELS_PER_MM:.4f} px/mm")
-        return True
-    else:
-        print(f"⚠ No calibration found for {key}. Using default: {PIXELS_PER_MM:.4f} px/mm")
-        print(f"  Press 'r' to calibrate this resolution.")
-        return False
+# Load YOLO model for ruler detection
+try:
+    ruler_model = YOLO('best.pt')
+    print("✓ YOLO ruler detection model loaded successfully")
+except Exception as e:
+    print(f"⚠ Warning: Could not load YOLO model: {e}")
+    print("  Auto-calibration will be disabled. Place 'best.pt' in the same directory.")
+    AUTO_CALIBRATION_ENABLED = False
+    ruler_model = None
 
 
 def update_ranges():
@@ -98,27 +53,217 @@ update_ranges()
 MIN_CONTOUR_AREA = 100
 MAX_CONTOUR_AREA = 20000
 
-# Common resolutions: 640x480, 1280x720, 1920x1080
 DESIRED_WIDTH = 1280
 DESIRED_HEIGHT = 720
 
-# ----------------------------------------------------------------------
-# Ruler Calibration State
-# ----------------------------------------------------------------------
+# Manual calibration state (kept as fallback)
 in_ruler_calib_mode = False
-REFERENCE_LENGTH_MM = 76.2  # 3 inches = 76.2mm
+REFERENCE_LENGTH_MM = 76.2
 reference_line_start = None
 reference_line_end = None
 calibration_frozen_frame = None
 is_dragging = False
 
-# Button rectangles for ruler calibration
 RULER_PANEL_X, RULER_PANEL_Y = 10, 80
-RULER_PANEL_W, RULER_PANEL_H = 380, 310  # Increased height for resolution info
+RULER_PANEL_W, RULER_PANEL_H = 380, 280
+RESET_BTN = (RULER_PANEL_X + 20, RULER_PANEL_Y + 200, 100, 40)
+APPLY_BTN = (RULER_PANEL_X + 140, RULER_PANEL_Y + 200, 100, 40)
+CANCEL_BTN = (RULER_PANEL_X + 260, RULER_PANEL_Y + 200, 100, 40)
 
-RESET_BTN = (RULER_PANEL_X + 20, RULER_PANEL_Y + 230, 100, 40)
-APPLY_BTN = (RULER_PANEL_X + 140, RULER_PANEL_Y + 230, 100, 40)
-CANCEL_BTN = (RULER_PANEL_X + 260, RULER_PANEL_Y + 230, 100, 40)
+
+# ----------------------------------------------------------------------
+# Auto-Calibration Functions
+# ----------------------------------------------------------------------
+def detect_ruler_region(frame):
+    """Use YOLO to detect ruler in frame"""
+    if not AUTO_CALIBRATION_ENABLED or ruler_model is None:
+        return None
+
+    try:
+        results = ruler_model(frame, verbose=False)
+
+        if len(results) > 0 and len(results[0].boxes) > 0:
+            # Get the most confident detection
+            boxes = results[0].boxes
+            confidences = boxes.conf.cpu().numpy()
+
+            if len(confidences) > 0:
+                best_idx = np.argmax(confidences)
+                if confidences[best_idx] >= CALIBRATION_CONFIDENCE_THRESHOLD:
+                    box = boxes.xyxy[best_idx].cpu().numpy().astype(int)
+                    x1, y1, x2, y2 = box
+                    return {
+                        'bbox': (x1, y1, x2, y2),
+                        'confidence': float(confidences[best_idx]),
+                        'roi': frame[y1:y2, x1:x2]
+                    }
+    except Exception as e:
+        print(f"Error in ruler detection: {e}")
+
+    return None
+
+
+def detect_tick_marks(roi):
+    """Detect tick marks on ruler using edge detection and line finding"""
+    if roi is None or roi.size == 0:
+        return []
+
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+
+    # Enhance contrast
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+
+    # Edge detection
+    edges = cv2.Canny(enhanced, 50, 150, apertureSize=3)
+
+    # Detect lines using Hough Transform
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=30,
+                            minLineLength=10, maxLineGap=5)
+
+    if lines is None:
+        return []
+
+    # Filter for vertical or near-vertical lines (tick marks)
+    tick_marks = []
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+
+        # Calculate angle
+        angle = abs(math.atan2(y2 - y1, x2 - x1) * 180 / math.pi)
+
+        # Keep lines that are roughly vertical (70-110 degrees from horizontal)
+        if 70 <= angle <= 110 or angle <= 20 or angle >= 160:
+            length = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+            mid_x = (x1 + x2) // 2
+            tick_marks.append({
+                'x': mid_x,
+                'y1': min(y1, y2),
+                'y2': max(y1, y2),
+                'length': length,
+                'line': (x1, y1, x2, y2)
+            })
+
+    # Sort by x position
+    tick_marks.sort(key=lambda t: t['x'])
+
+    return tick_marks
+
+
+def calculate_pixel_per_mm_from_ticks(tick_marks, roi_width):
+    """Calculate pixels per mm from detected tick marks"""
+    if len(tick_marks) < 2:
+        return None
+
+    # Group ticks by similar lengths (major vs minor ticks)
+    lengths = [t['length'] for t in tick_marks]
+    avg_length = np.mean(lengths)
+
+    # Identify major ticks (longer than average)
+    major_ticks = [t for t in tick_marks if t['length'] > avg_length * 0.8]
+
+    if len(major_ticks) < 2:
+        major_ticks = tick_marks
+
+    # Calculate distances between consecutive major ticks
+    distances = []
+    for i in range(len(major_ticks) - 1):
+        dist = major_ticks[i + 1]['x'] - major_ticks[i]['x']
+        if 10 < dist < roi_width * 0.3:  # Reasonable distance
+            distances.append(dist)
+
+    if not distances:
+        return None
+
+    # Assume most common distance is 1 cm (10 mm)
+    # Use median to avoid outliers
+    median_tick_distance = np.median(distances)
+
+    # Calculate pixels per mm (assuming 10mm between major ticks)
+    pixels_per_mm = median_tick_distance / 10.0
+
+    # Sanity check: typical values are 3-15 px/mm
+    if 2.0 <= pixels_per_mm <= 20.0:
+        return pixels_per_mm
+
+    return None
+
+
+def update_calibration_with_sample(new_px_per_mm):
+    """Add calibration sample and update if stable"""
+    global PIXELS_PER_MM, CALIBRATION_SAMPLES
+
+    CALIBRATION_SAMPLES.append(new_px_per_mm)
+
+    # Keep only recent samples
+    if len(CALIBRATION_SAMPLES) > MAX_CALIBRATION_SAMPLES:
+        CALIBRATION_SAMPLES.pop(0)
+
+    # Need at least 5 samples for stability check
+    if len(CALIBRATION_SAMPLES) >= 5:
+        mean_val = np.mean(CALIBRATION_SAMPLES)
+        std_val = np.std(CALIBRATION_SAMPLES)
+
+        # Check if calibration is stable (low variance)
+        if std_val / mean_val < STABLE_CALIBRATION_THRESHOLD:
+            # Update calibration
+            old_val = PIXELS_PER_MM
+            PIXELS_PER_MM = mean_val
+            update_ranges()
+
+            if abs(old_val - mean_val) > 0.1:
+                print(f"✓ Auto-calibrated: {PIXELS_PER_MM:.4f} px/mm (±{std_val:.4f})")
+
+            return True
+
+    return False
+
+
+def auto_calibrate_from_frame(frame):
+    """Main auto-calibration function"""
+    ruler_data = detect_ruler_region(frame)
+
+    if ruler_data is None:
+        return None, None
+
+    roi = ruler_data['roi']
+    tick_marks = detect_tick_marks(roi)
+
+    if len(tick_marks) < 2:
+        return ruler_data, None
+
+    px_per_mm = calculate_pixel_per_mm_from_ticks(tick_marks, roi.shape[1])
+
+    if px_per_mm is not None:
+        update_calibration_with_sample(px_per_mm)
+
+    return ruler_data, tick_marks
+
+
+def draw_ruler_detection(frame, ruler_data, tick_marks):
+    """Draw detected ruler and tick marks on frame"""
+    if ruler_data is None:
+        return
+
+    x1, y1, x2, y2 = ruler_data['bbox']
+    conf = ruler_data['confidence']
+
+    # Draw bounding box
+    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 255), 2)
+
+    # Draw confidence label
+    label = f"Ruler {conf:.2f}"
+    (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+    cv2.rectangle(frame, (x1, y1 - h - 10), (x1 + w + 10, y1), (0, 255, 255), -1)
+    cv2.putText(frame, label, (x1 + 5, y1 - 5),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+
+    # Draw detected tick marks
+    if tick_marks:
+        for tick in tick_marks:
+            tx1, ty1, tx2, ty2 = tick['line']
+            cv2.line(frame, (x1 + tx1, y1 + ty1), (x1 + tx2, y1 + ty2),
+                     (255, 0, 255), 1)
 
 
 # ----------------------------------------------------------------------
@@ -139,11 +284,11 @@ def get_distance(p1, p2):
 
 
 # ----------------------------------------------------------------------
-# Mouse Callback for Ruler Calibration
+# Mouse Callback for Manual Calibration (Fallback)
 # ----------------------------------------------------------------------
 def mouse_callback(event, x, y, flags, param):
     global reference_line_start, reference_line_end, is_dragging
-    global in_ruler_calib_mode, current_resolution
+    global in_ruler_calib_mode, PIXELS_PER_MM
 
     if not in_ruler_calib_mode:
         return
@@ -152,7 +297,6 @@ def mouse_callback(event, x, y, flags, param):
         rx, ry, rw, rh = rect
         return rx <= px <= rx + rw and ry <= py <= ry + rh
 
-    # Handle button clicks
     if event == cv2.EVENT_LBUTTONDOWN:
         if in_rect(x, y, RESET_BTN):
             reference_line_start = None
@@ -160,15 +304,15 @@ def mouse_callback(event, x, y, flags, param):
             is_dragging = False
             return
         elif in_rect(x, y, APPLY_BTN):
-            if reference_line_start and reference_line_end and current_resolution:
+            if reference_line_start and reference_line_end:
                 dx = reference_line_end[0] - reference_line_start[0]
                 dy = reference_line_end[1] - reference_line_start[1]
                 pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
 
                 if pixel_distance > 10:
-                    new_px_per_mm = pixel_distance / REFERENCE_LENGTH_MM
-                    w, h = current_resolution
-                    set_calibration_for_resolution(w, h, new_px_per_mm)
+                    PIXELS_PER_MM = pixel_distance / REFERENCE_LENGTH_MM
+                    update_ranges()
+                    print(f"Manual calibration: {PIXELS_PER_MM:.4f} px/mm")
 
                 in_ruler_calib_mode = False
                 reference_line_start = None
@@ -255,7 +399,7 @@ def detect_pellets(frame):
 
 
 # ----------------------------------------------------------------------
-# Draw Ruler Calibration Mode
+# Draw Manual Calibration Mode
 # ----------------------------------------------------------------------
 def draw_ruler_calibration_mode(frame):
     overlay = frame.copy()
@@ -267,14 +411,8 @@ def draw_ruler_calibration_mode(frame):
                   (RULER_PANEL_X + RULER_PANEL_W, RULER_PANEL_Y + RULER_PANEL_H),
                   (100, 150, 255), 3)
 
-    cv2.putText(overlay, "RULER CALIBRATION", (RULER_PANEL_X + 80, RULER_PANEL_Y + 30),
+    cv2.putText(overlay, "MANUAL CALIBRATION", (RULER_PANEL_X + 70, RULER_PANEL_Y + 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-
-    # Show current resolution
-    if current_resolution:
-        res_text = f"Resolution: {get_resolution_key(*current_resolution)}"
-        cv2.putText(overlay, res_text, (RULER_PANEL_X + 90, RULER_PANEL_Y + 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 255, 255), 1)
 
     instructions = [
         "1. Place a ruler in camera view",
@@ -283,14 +421,14 @@ def draw_ruler_calibration_mode(frame):
         "3. Click APPLY when aligned"
     ]
 
-    y_offset = RULER_PANEL_Y + 75
+    y_offset = RULER_PANEL_Y + 60
     for instr in instructions:
         cv2.putText(overlay, instr, (RULER_PANEL_X + 20, y_offset),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
         y_offset += 20
 
     cv2.putText(overlay, "Reference: 3 inch (76.2 mm)",
-                (RULER_PANEL_X + 60, RULER_PANEL_Y + 180),
+                (RULER_PANEL_X + 60, RULER_PANEL_Y + 165),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 255), 2)
 
     # Buttons
@@ -315,77 +453,22 @@ def draw_ruler_calibration_mode(frame):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
     cv2.putText(overlay, f"Current: {PIXELS_PER_MM:.2f} px/mm",
-                (RULER_PANEL_X + 20, RULER_PANEL_Y + 280),
+                (RULER_PANEL_X + 20, RULER_PANEL_Y + 250),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 255, 150), 2)
-
-    if reference_line_start and reference_line_end:
-        dx = reference_line_end[0] - reference_line_start[0]
-        dy = reference_line_end[1] - reference_line_start[1]
-        pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
-        new_px_per_mm = pixel_distance / REFERENCE_LENGTH_MM if pixel_distance > 0 else 0
-        cv2.putText(overlay, f"New: {new_px_per_mm:.2f} px/mm",
-                    (RULER_PANEL_X + 200, RULER_PANEL_Y + 280),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 255), 2)
 
     cv2.addWeighted(overlay, 0.9, frame, 0.1, 0, frame)
 
-    # Draw reference line with markers
+    # Draw reference line
     if reference_line_start and reference_line_end:
-        cv2.line(frame, reference_line_start, reference_line_end, (0, 255, 255), 1)
-
-        cv2.line(frame, (reference_line_start[0] - 10, reference_line_start[1]),
-                 (reference_line_start[0] + 10, reference_line_start[1]), (0, 0, 255), 1)
-        cv2.line(frame, (reference_line_start[0], reference_line_start[1] - 10),
-                 (reference_line_start[0], reference_line_start[1] + 10), (0, 0, 255), 1)
-
-        cv2.line(frame, (reference_line_end[0] - 10, reference_line_end[1]),
-                 (reference_line_end[0] + 10, reference_line_end[1]), (0, 0, 255), 1)
-        cv2.line(frame, (reference_line_end[0], reference_line_end[1] - 10),
-                 (reference_line_end[0], reference_line_end[1] + 10), (0, 0, 255), 1)
-
-        dx = reference_line_end[0] - reference_line_start[0]
-        dy = reference_line_end[1] - reference_line_start[1]
-        length = math.sqrt(dx ** 2 + dy ** 2)
-        angle = math.atan2(dy, dx)
-
-        if length > 0:
-            for i in range(int(REFERENCE_LENGTH_MM) + 1):
-                t = i / REFERENCE_LENGTH_MM
-                marker_x = int(reference_line_start[0] + dx * t)
-                marker_y = int(reference_line_start[1] + dy * t)
-
-                is_cm = (i % 10 == 0)
-                tick_length = 10 if is_cm else 4
-                perp_dx = int(tick_length * math.sin(angle))
-                perp_dy = int(-tick_length * math.cos(angle))
-
-                tick_start = (marker_x - perp_dx, marker_y - perp_dy)
-                tick_end = (marker_x + perp_dx, marker_y + perp_dy)
-                tick_color = (255, 255, 255) if is_cm else (180, 180, 180)
-                cv2.line(frame, tick_start, tick_end, tick_color, 1)
-
-                if is_cm:
-                    cm_num = i // 10
-                    text_offset_x = int(18 * math.sin(angle))
-                    text_offset_y = int(-18 * math.cos(angle))
-                    cv2.putText(frame, f"{cm_num}",
-                                (marker_x + text_offset_x - 5, marker_y + text_offset_y + 5),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
-
-        mid_x = (reference_line_start[0] + reference_line_end[0]) // 2
-        mid_y = (reference_line_start[1] + reference_line_end[1]) // 2
-        text_offset_x = int(-20 * math.sin(angle))
-        text_offset_y = int(20 * math.cos(angle))
-
-        cv2.putText(frame, f"{length:.1f} px",
-                    (mid_x + text_offset_x, mid_y + text_offset_y),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+        cv2.line(frame, reference_line_start, reference_line_end, (0, 255, 255), 2)
+        cv2.circle(frame, reference_line_start, 5, (0, 0, 255), -1)
+        cv2.circle(frame, reference_line_end, 5, (0, 0, 255), -1)
 
 
 # ----------------------------------------------------------------------
 # Main Overlay
 # ----------------------------------------------------------------------
-def draw_overlay(frame, pellets):
+def draw_overlay(frame, pellets, ruler_data=None, tick_marks=None):
     total = len(pellets)
     within = sum(1 for p in pellets if p['within_tolerance'])
     out_of = total - within
@@ -397,19 +480,35 @@ def draw_overlay(frame, pellets):
     cv2.putText(frame, status_text, (20, 38),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.75, status_color, 2)
 
+    # Draw calibration status
+    calib_status = f"Cal: {PIXELS_PER_MM:.3f} px/mm"
+    if AUTO_CALIBRATION_ENABLED and ruler_data is not None:
+        calib_status += " [AUTO]"
+        calib_color = (0, 255, 255)
+    else:
+        calib_status += " [MANUAL]"
+        calib_color = (200, 200, 200)
+
+    cv2.putText(frame, calib_status, (470, 38),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, calib_color, 2)
+
+    # Draw ruler detection
+    if AUTO_CALIBRATION_ENABLED and ruler_data is not None:
+        draw_ruler_detection(frame, ruler_data, tick_marks)
+
     for p in pellets:
         box = p['box']
         center = p['center']
         color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)
 
-        cv2.drawContours(frame, [box], 0, color, 1)
-        cv2.circle(frame, (int(center[0]), int(center[1])), 2, color, -1)
+        cv2.drawContours(frame, [box], 0, color, 2)
+        cv2.circle(frame, (int(center[0]), int(center[1])), 3, color, -1)
 
         top_y = int(min(box[:, 1]))
         left_x = int(min(box[:, 0]))
         bg_y = max(top_y - 30, 0)
 
-        cv2.rectangle(frame, (left_x, bg_y), (left_x + 70, top_y - 5), (0, 0, 0), -1)
+        cv2.rectangle(frame, (left_x, bg_y), (left_x + 75, top_y - 5), (0, 0, 0), -1)
         cv2.putText(frame, f"D: {p['diameter']:.2f}mm", (left_x + 3, bg_y + 12),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
         cv2.putText(frame, f"L: {p['length']:.2f}mm", (left_x + 3, bg_y + 24),
@@ -421,21 +520,13 @@ def draw_overlay(frame, pellets):
             cv2.putText(frame, "!", (top_right[0] - 4, top_right[1] + 5),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-    # Show calibration status and resolution info
-    if current_resolution:
-        res_key = get_resolution_key(*current_resolution)
-        is_calibrated = res_key in calibrations
-        calib_status = "CALIBRATED" if is_calibrated else "NOT CALIBRATED"
-        calib_color = (0, 255, 0) if is_calibrated else (0, 165, 255)
-
-        info_text = f"{res_key} | {calib_status} | {PIXELS_PER_MM:.2f} px/mm"
-        cv2.putText(frame, info_text, (10, 70),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, calib_color, 2)
-
     if not in_ruler_calib_mode:
-        cv2.putText(frame, "Press 'r' for ruler calibration | 'q' to quit",
+        help_text = "Press 'r' for manual calibration | 'q' to quit"
+        if AUTO_CALIBRATION_ENABLED:
+            help_text = "Auto-calibration ON | Press 'r' for manual | 'q' to quit"
+        cv2.putText(frame, help_text,
                     (10, frame.shape[0] - 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 220, 255), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 220, 255), 1)
 
     if in_ruler_calib_mode:
         draw_ruler_calibration_mode(frame)
@@ -460,44 +551,40 @@ def get_camera():
     actual_h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
     print(f"------------------------------------------------")
-    print(f"Camera Resolution Requested: {DESIRED_WIDTH}x{DESIRED_HEIGHT}")
-    print(f"Camera Resolution Actual:    {int(actual_w)}x{int(actual_h)}")
+    print(f"Camera Resolution: {int(actual_w)}x{int(actual_h)}")
+    print(f"Auto-calibration: {'ENABLED' if AUTO_CALIBRATION_ENABLED else 'DISABLED'}")
     print(f"------------------------------------------------")
 
-    return cap, (actual_w, actual_h)
+    return cap
 
 
 # ----------------------------------------------------------------------
 # Main Loop
 # ----------------------------------------------------------------------
 def main():
-    global in_ruler_calib_mode, calibration_frozen_frame, current_resolution
+    global in_ruler_calib_mode, calibration_frozen_frame
 
     print("\n" + "=" * 60)
-    print("Pellet Inspector - Resolution-Independent Calibration")
+    print("  PELLET INSPECTOR WITH AUTO-CALIBRATION")
     print("=" * 60)
-
-    # Load saved calibrations
-    load_calibrations()
-
-    print("\nEach camera resolution needs separate calibration.")
-    print("Press 'r' -> Calibrate current resolution")
-    print("Press 'q' -> Quit")
+    print("Features:")
+    print("  • Automatic ruler detection & calibration (YOLOv11)")
+    print("  • Real-time tick mark analysis")
+    print("  • Manual calibration fallback (Press 'r')")
+    print("  • Press 'q' to quit")
     print("=" * 60 + "\n")
 
-    cap, resolution = get_camera()
+    cap = get_camera()
     if not cap.isOpened():
         print("Cannot open camera.")
         sys.exit(1)
 
-    current_resolution = resolution
-    get_calibration_for_resolution(*resolution)
-
     fps_counter = 0
     fps_start = time.time()
     fps_display = 0
+    frame_count = 0
 
-    window_name = "Pellet Inspector"
+    window_name = "Pellet Inspector - Auto Calibration"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     cv2.setMouseCallback(window_name, mouse_callback)
 
@@ -507,16 +594,9 @@ def main():
             print("Camera lost – reconnecting...")
             cap.release()
             time.sleep(1)
-            cap, new_resolution = get_camera()
+            cap = get_camera()
             if not cap.isOpened():
                 break
-
-            # Check if resolution changed
-            if new_resolution != current_resolution:
-                current_resolution = new_resolution
-                get_calibration_for_resolution(*new_resolution)
-                print(f"⚠ Resolution changed to {get_resolution_key(*new_resolution)}")
-
             continue
 
         if in_ruler_calib_mode and calibration_frozen_frame is None:
@@ -526,13 +606,22 @@ def main():
 
         display_frame = calibration_frozen_frame.copy() if in_ruler_calib_mode else frame.copy()
 
+        ruler_data = None
+        tick_marks = None
+
+        if not in_ruler_calib_mode and AUTO_CALIBRATION_ENABLED:
+            # Run auto-calibration every 5 frames to reduce overhead
+            if frame_count % 5 == 0:
+                ruler_data, tick_marks = auto_calibrate_from_frame(display_frame)
+
         if not in_ruler_calib_mode:
             pellets = detect_pellets(display_frame)
-            display_frame = draw_overlay(display_frame, pellets)
+            display_frame = draw_overlay(display_frame, pellets, ruler_data, tick_marks)
         else:
-            display_frame = draw_overlay(display_frame, [])
+            display_frame = draw_overlay(display_frame, [], ruler_data, tick_marks)
 
         fps_counter += 1
+        frame_count += 1
         elapsed = time.time() - fps_start
         if elapsed >= 1.0:
             fps_display = fps_counter // int(elapsed)
@@ -548,15 +637,22 @@ def main():
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
-        elif key == ord('r') and not in_ruler_calib_mode:
-            in_ruler_calib_mode = True
+        elif key == ord('r'):
+            if in_ruler_calib_mode:
+                in_ruler_calib_mode = False
+                reference_line_start = None
+                reference_line_end = None
+                is_dragging = False
+                calibration_frozen_frame = None
+            else:
+                in_ruler_calib_mode = True
 
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
             break
 
     cap.release()
     cv2.destroyAllWindows()
-    print("Shutdown complete.")
+    print("\n✓ Shutdown complete.")
 
 
 if __name__ == "__main__":
