@@ -84,7 +84,7 @@ def get_distance(p1, p2):
 # Ruler Tick Detection and Analysis
 # ----------------------------------------------------------------------
 def analyze_ruler_box(frame, box_start, box_end, unit):
-    """Analyze the selected ruler box and detect tick marks with equal spacing"""
+    """Analyze the selected ruler box and detect tick marks with equal spacing - works at ANY angle"""
     x1, y1 = min(box_start[0], box_end[0]), min(box_start[1], box_end[1])
     x2, y2 = max(box_start[0], box_end[0]), max(box_start[1], box_end[1])
 
@@ -104,69 +104,105 @@ def analyze_ruler_box(frame, box_start, box_end, unit):
     # Apply strong edge detection
     edges = cv2.Canny(gray, 30, 100, apertureSize=3)
 
-    # Detect lines using Hough Transform with adjusted parameters
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=30,
+    # Detect lines using Hough Transform - detect ALL angles
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=25,
                             minLineLength=15, maxLineGap=3)
 
-    if lines is None:
+    if lines is None or len(lines) < 3:
         return None
 
-    # Separate horizontal and vertical lines
-    h_lines = []
-    v_lines = []
-
+    # Group lines by angle to find dominant tick direction
+    line_data = []
     for line in lines:
         x1_l, y1_l, x2_l, y2_l = line[0]
         length = math.sqrt((x2_l - x1_l) ** 2 + (y2_l - y1_l) ** 2)
-        angle = abs(math.atan2(y2_l - y1_l, x2_l - x1_l) * 180 / np.pi)
+        angle = math.atan2(y2_l - y1_l, x2_l - x1_l) * 180 / np.pi
+        # Normalize angle to 0-180 range
+        if angle < 0:
+            angle += 180
+        line_data.append({
+            'line': line[0],
+            'length': length,
+            'angle': angle,
+            'midpoint': ((x1_l + x2_l) / 2, (y1_l + y2_l) / 2)
+        })
 
-        # Filter by angle and length
-        if angle < 15 or angle > 165:  # Horizontal
-            h_lines.append((line[0], length))
-        elif 75 < angle < 105:  # Vertical
-            v_lines.append((line[0], length))
+    # Find the dominant angle (most lines with similar angle)
+    from collections import defaultdict
+    angle_groups = defaultdict(list)
 
-    # Determine ruler orientation
-    is_horizontal = len(v_lines) > len(h_lines)
-    tick_lines = v_lines if is_horizontal else h_lines
+    for ld in line_data:
+        # Group angles in 5-degree bins
+        angle_bin = round(ld['angle'] / 5) * 5
+        angle_groups[angle_bin].append(ld)
+
+    # Get the angle bin with most lines (these are the tick marks)
+    if not angle_groups:
+        return None
+
+    dominant_angle_bin = max(angle_groups.keys(), key=lambda k: len(angle_groups[k]))
+    tick_lines = angle_groups[dominant_angle_bin]
 
     if len(tick_lines) < 3:
         return None
 
-    # Sort by line length (longer lines are likely major ticks)
-    tick_lines.sort(key=lambda x: x[1], reverse=True)
+    # Calculate the ruler's main axis (perpendicular to ticks)
+    avg_tick_angle = np.mean([ld['angle'] for ld in tick_lines])
+    ruler_angle = (avg_tick_angle + 90) % 180  # Perpendicular to ticks
 
-    # Extract tick positions
+    # Project all tick midpoints onto the ruler's main axis
+    # This gives us the position along the ruler regardless of orientation
+    ruler_angle_rad = math.radians(ruler_angle)
+
+    # Use the center of the ROI as origin
+    origin_x = roi.shape[1] / 2
+    origin_y = roi.shape[0] / 2
+
     tick_positions = []
-    for line, length in tick_lines:
-        x1_l, y1_l, x2_l, y2_l = line
-        if is_horizontal:
-            pos = (x1_l + x2_l) / 2  # X position for vertical ticks
+    for ld in tick_lines:
+        mx, my = ld['midpoint']
+        # Project onto ruler axis
+        dx = mx - origin_x
+        dy = my - origin_y
+        # Distance along ruler axis
+        projection = dx * math.cos(ruler_angle_rad) + dy * math.sin(ruler_angle_rad)
+        tick_positions.append({
+            'projection': projection,
+            'midpoint': ld['midpoint'],
+            'length': ld['length']
+        })
+
+    # Sort by position along ruler
+    tick_positions.sort(key=lambda x: x['projection'])
+
+    # Remove duplicates (ticks detected multiple times)
+    unique_ticks = []
+    for i, tick in enumerate(tick_positions):
+        if i == 0:
+            unique_ticks.append(tick)
         else:
-            pos = (y1_l + y2_l) / 2  # Y position for horizontal ticks
-        tick_positions.append(pos)
+            # Check if this tick is far enough from the previous one
+            if abs(tick['projection'] - unique_ticks[-1]['projection']) > 5:
+                unique_ticks.append(tick)
 
-    # Remove duplicate positions (ticks detected multiple times)
-    tick_positions = sorted(set([round(p, 1) for p in tick_positions]))
-
-    if len(tick_positions) < 3:
+    if len(unique_ticks) < 3:
         return None
 
-    # Calculate all intervals
+    # Calculate intervals between consecutive ticks
+    projections = [t['projection'] for t in unique_ticks]
     intervals = []
-    for i in range(len(tick_positions) - 1):
-        interval = tick_positions[i + 1] - tick_positions[i]
+    for i in range(len(projections) - 1):
+        interval = projections[i + 1] - projections[i]
         intervals.append(interval)
 
-    # Find the most common interval using clustering
-    # Round to nearest pixel to group similar intervals
-    intervals_rounded = [round(x) for x in intervals]
+    if not intervals:
+        return None
 
-    # Count frequency of each interval
+    # Find the most common interval using clustering
+    intervals_rounded = [round(x) for x in intervals]
     from collections import Counter
     interval_counts = Counter(intervals_rounded)
 
-    # Get the most common interval
     if not interval_counts:
         return None
 
@@ -181,14 +217,13 @@ def analyze_ruler_box(frame, box_start, box_end, unit):
     # Calculate average interval in pixels
     avg_interval_px = np.mean(filtered_intervals)
 
-    # Now filter tick positions to only keep evenly spaced ones
-    evenly_spaced_ticks = [tick_positions[0]]  # Start with first tick
+    # Filter to keep only evenly spaced ticks
+    evenly_spaced_ticks = [unique_ticks[0]]
 
-    for i in range(1, len(tick_positions)):
-        expected_pos = evenly_spaced_ticks[-1] + avg_interval_px
-        # Check if current tick is close to expected position
-        if abs(tick_positions[i] - expected_pos) < avg_interval_px * 0.3:
-            evenly_spaced_ticks.append(tick_positions[i])
+    for i in range(1, len(unique_ticks)):
+        expected_proj = evenly_spaced_ticks[-1]['projection'] + avg_interval_px
+        if abs(unique_ticks[i]['projection'] - expected_proj) < avg_interval_px * 0.3:
+            evenly_spaced_ticks.append(unique_ticks[i])
 
     if len(evenly_spaced_ticks) < 3:
         return None
@@ -203,8 +238,8 @@ def analyze_ruler_box(frame, box_start, box_end, unit):
     mm_per_tick = unit_to_mm[unit]
     pixels_per_mm = avg_interval_px / mm_per_tick
 
-    # Calculate total length for validation
-    total_length_px = evenly_spaced_ticks[-1] - evenly_spaced_ticks[0]
+    # Calculate total length
+    total_length_px = evenly_spaced_ticks[-1]['projection'] - evenly_spaced_ticks[0]['projection']
     total_length_mm = total_length_px / pixels_per_mm
     num_intervals = len(evenly_spaced_ticks) - 1
 
@@ -214,10 +249,12 @@ def analyze_ruler_box(frame, box_start, box_end, unit):
         "num_ticks": len(evenly_spaced_ticks),
         "num_intervals": num_intervals,
         "tick_positions": evenly_spaced_ticks,
-        "is_horizontal": is_horizontal,
+        "ruler_angle": ruler_angle,
+        "tick_angle": avg_tick_angle,
         "roi_offset": (x1, y1),
         "total_length_mm": total_length_mm,
-        "total_length_px": total_length_px
+        "total_length_px": total_length_px,
+        "origin": (origin_x, origin_y)
     }
 
 
@@ -295,6 +332,8 @@ def mouse_callback(event, x, y, flags, param):
                     print(f"AUTOMATIC TICK DETECTION COMPLETE")
                     print(f"{'=' * 60}")
                     print(f"✓ Detected {calibration_result['num_ticks']} evenly-spaced ticks")
+                    print(
+                        f"✓ Ruler angle: {calibration_result['ruler_angle']:.1f}° (tick angle: {calibration_result['tick_angle']:.1f}°)")
                     print(f"✓ Number of intervals: {calibration_result['num_intervals']}")
                     print(f"✓ Average interval: {calibration_result['avg_interval_px']:.2f} pixels per {selected_unit}")
                     print(
@@ -431,7 +470,7 @@ def draw_ruler_calibration_mode(frame):
     if calibration_result:
         result_y = RULER_PANEL_Y + RULER_PANEL_H + 20
         cv2.putText(overlay,
-                    f"DETECTED: {calibration_result['num_ticks']} evenly-spaced ticks ({calibration_result['num_intervals']} intervals)",
+                    f"DETECTED: {calibration_result['num_ticks']} ticks at {calibration_result['ruler_angle']:.0f}deg ({calibration_result['num_intervals']} intervals)",
                     (RULER_PANEL_X + 20, result_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
         cv2.putText(overlay, f"Spacing: {calibration_result['avg_interval_px']:.2f}px = 1 {selected_unit}",
@@ -454,16 +493,42 @@ def draw_ruler_calibration_mode(frame):
         # Draw detected ticks if available
         if calibration_result:
             x_offset, y_offset = calibration_result['roi_offset']
-            is_horiz = calibration_result['is_horizontal']
+            origin_x, origin_y = calibration_result['origin']
+            ruler_angle = calibration_result['ruler_angle']
+            ruler_angle_rad = math.radians(ruler_angle)
 
-            for pos in calibration_result['tick_positions']:
-                if is_horiz:
-                    pt1 = (int(pos + x_offset), ruler_box_start[1])
-                    pt2 = (int(pos + x_offset), ruler_box_end[1])
-                else:
-                    pt1 = (ruler_box_start[0], int(pos + y_offset))
-                    pt2 = (ruler_box_end[0], int(pos + y_offset))
-                cv2.line(frame, pt1, pt2, (0, 255, 0), 1)
+            # Draw the ruler axis line (main direction)
+            axis_length = 200
+            axis_dx = int(axis_length * math.cos(ruler_angle_rad))
+            axis_dy = int(axis_length * math.sin(ruler_angle_rad))
+            axis_center_x = int(origin_x + x_offset)
+            axis_center_y = int(origin_y + y_offset)
+
+            cv2.line(frame,
+                     (axis_center_x - axis_dx, axis_center_y - axis_dy),
+                     (axis_center_x + axis_dx, axis_center_y + axis_dy),
+                     (255, 0, 255), 1, cv2.LINE_AA)
+
+            # Draw each detected tick
+            tick_angle_rad = math.radians(calibration_result['tick_angle'])
+            tick_length = 25
+
+            for tick in calibration_result['tick_positions']:
+                mx, my = tick['midpoint']
+                # Convert to absolute frame coordinates
+                abs_x = int(mx + x_offset)
+                abs_y = int(my + y_offset)
+
+                # Draw tick line perpendicular to ruler
+                tick_dx = int(tick_length * math.cos(tick_angle_rad))
+                tick_dy = int(tick_length * math.sin(tick_angle_rad))
+
+                pt1 = (abs_x - tick_dx, abs_y - tick_dy)
+                pt2 = (abs_x + tick_dx, abs_y + tick_dy)
+                cv2.line(frame, pt1, pt2, (0, 255, 0), 2, cv2.LINE_AA)
+
+                # Draw a small circle at the midpoint
+                cv2.circle(frame, (abs_x, abs_y), 3, (0, 255, 255), -1)
 
 
 # ----------------------------------------------------------------------

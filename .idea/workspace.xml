@@ -227,22 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00152" summary="thinner bbox">
-      <option name="closed" value="true" />
-      <created>1763946252543</created>
-      <option name="number" value="00152" />
-      <option name="presentableId" value="LOCAL-00152" />
-      <option name="project" value="LOCAL" />
-      <updated>1763946252543</updated>
-    </task>
-    <task id="LOCAL-00153" summary="trying with debug">
-      <option name="closed" value="true" />
-      <created>1763946302262</created>
-      <option name="number" value="00153" />
-      <option name="presentableId" value="LOCAL-00153" />
-      <option name="project" value="LOCAL" />
-      <updated>1763946302262</updated>
-    </task>
     <task id="LOCAL-00154" summary="returned to thin">
       <option name="closed" value="true" />
       <created>1763946363508</created>
@@ -619,7 +603,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764227296204</updated>
     </task>
-    <option name="localTasksCounter" value="201" />
+    <task id="LOCAL-00201" summary="box detection">
+      <option name="closed" value="true" />
+      <created>1764228206978</created>
+      <option name="number" value="00201" />
+      <option name="presentableId" value="LOCAL-00201" />
+      <option name="project" value="LOCAL" />
+      <updated>1764228206978</updated>
+    </task>
+    <task id="LOCAL-00202" summary="modified box ruler selection">
+      <option name="closed" value="true" />
+      <created>1764228643038</created>
+      <option name="number" value="00202" />
+      <option name="presentableId" value="LOCAL-00202" />
+      <option name="project" value="LOCAL" />
+      <updated>1764228643038</updated>
+    </task>
+    <option name="localTasksCounter" value="203" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,8 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="improved runtime" />
-    <MESSAGE value="returned ver" />
     <MESSAGE value="space" />
     <MESSAGE value="trying auto calibrate" />
     <MESSAGE value="try semi auto" />
@@ -671,7 +669,9 @@
     <MESSAGE value="updating auto" />
     <MESSAGE value="returned" />
     <MESSAGE value="not working" />
-    <option name="LAST_COMMIT_MESSAGE" value="not working" />
+    <MESSAGE value="box detection" />
+    <MESSAGE value="modified box ruler selection" />
+    <option name="LAST_COMMIT_MESSAGE" value="modified box ruler selection" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
