@@ -83,6 +83,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\pellet_label_yolo" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\yolo" />
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\v1\trained_model" />
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\pellet_label_yolo\labels\train" />
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\pellet_label_yolo" />
@@ -225,30 +226,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00147" summary="fixed height error">
-      <option name="closed" value="true" />
-      <created>1763795133448</created>
-      <option name="number" value="00147" />
-      <option name="presentableId" value="LOCAL-00147" />
-      <option name="project" value="LOCAL" />
-      <updated>1763795133448</updated>
-    </task>
-    <task id="LOCAL-00148" summary="returned">
-      <option name="closed" value="true" />
-      <created>1763796247179</created>
-      <option name="number" value="00148" />
-      <option name="presentableId" value="LOCAL-00148" />
-      <option name="project" value="LOCAL" />
-      <updated>1763796247179</updated>
-    </task>
-    <task id="LOCAL-00149" summary="thinner bbox">
-      <option name="closed" value="true" />
-      <created>1763798305108</created>
-      <option name="number" value="00149" />
-      <option name="presentableId" value="LOCAL-00149" />
-      <option name="project" value="LOCAL" />
-      <updated>1763798305108</updated>
     </task>
     <task id="LOCAL-00150" summary="thinner bbox">
       <option name="closed" value="true" />
@@ -618,7 +595,31 @@
       <option name="project" value="LOCAL" />
       <updated>1764225266051</updated>
     </task>
-    <option name="localTasksCounter" value="196" />
+    <task id="LOCAL-00196" summary="deleted past best">
+      <option name="closed" value="true" />
+      <created>1764225315173</created>
+      <option name="number" value="00196" />
+      <option name="presentableId" value="LOCAL-00196" />
+      <option name="project" value="LOCAL" />
+      <updated>1764225315173</updated>
+    </task>
+    <task id="LOCAL-00197" summary="replaced yolo model">
+      <option name="closed" value="true" />
+      <created>1764225864344</created>
+      <option name="number" value="00197" />
+      <option name="presentableId" value="LOCAL-00197" />
+      <option name="project" value="LOCAL" />
+      <updated>1764225864345</updated>
+    </task>
+    <task id="LOCAL-00198" summary="updating auto">
+      <option name="closed" value="true" />
+      <created>1764225879088</created>
+      <option name="number" value="00198" />
+      <option name="presentableId" value="LOCAL-00198" />
+      <option name="project" value="LOCAL" />
+      <updated>1764225879089</updated>
+    </task>
+    <option name="localTasksCounter" value="199" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -645,9 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="testing longest run" />
-    <MESSAGE value="return" />
-    <MESSAGE value="fixed longtime runtime" />
     <MESSAGE value="returned to working" />
     <MESSAGE value="improved runtime" />
     <MESSAGE value="returned ver" />
@@ -670,7 +668,10 @@
     <MESSAGE value="added trained yolo ruler model" />
     <MESSAGE value="updated auto" />
     <MESSAGE value="added yolo model" />
-    <option name="LAST_COMMIT_MESSAGE" value="added yolo model" />
+    <MESSAGE value="deleted past best" />
+    <MESSAGE value="replaced yolo model" />
+    <MESSAGE value="updating auto" />
+    <option name="LAST_COMMIT_MESSAGE" value="updating auto" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
