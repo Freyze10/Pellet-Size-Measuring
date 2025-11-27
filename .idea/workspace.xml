@@ -225,22 +225,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00142" summary="thinner measure line for calibration">
-      <option name="closed" value="true" />
-      <created>1763783095160</created>
-      <option name="number" value="00142" />
-      <option name="presentableId" value="LOCAL-00142" />
-      <option name="project" value="LOCAL" />
-      <updated>1763783095160</updated>
-    </task>
-    <task id="LOCAL-00143" summary="thinner measure line calib and used approxPolyDp">
-      <option name="closed" value="true" />
-      <created>1763792285286</created>
-      <option name="number" value="00143" />
-      <option name="presentableId" value="LOCAL-00143" />
-      <option name="project" value="LOCAL" />
-      <updated>1763792285286</updated>
-    </task>
     <task id="LOCAL-00144" summary="use of fit elipse">
       <option name="closed" value="true" />
       <created>1763792919957</created>
@@ -617,7 +601,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764129209517</updated>
     </task>
-    <option name="localTasksCounter" value="191" />
+    <task id="LOCAL-00191" summary="removed overlay text">
+      <option name="closed" value="true" />
+      <created>1764147729845</created>
+      <option name="number" value="00191" />
+      <option name="presentableId" value="LOCAL-00191" />
+      <option name="project" value="LOCAL" />
+      <updated>1764147729845</updated>
+    </task>
+    <task id="LOCAL-00192" summary="added from auto">
+      <option name="closed" value="true" />
+      <created>1764204568630</created>
+      <option name="number" value="00192" />
+      <option name="presentableId" value="LOCAL-00192" />
+      <option name="project" value="LOCAL" />
+      <updated>1764204568630</updated>
+    </task>
+    <option name="localTasksCounter" value="193" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -644,7 +644,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="trying with debug" />
     <MESSAGE value="returned to thin" />
     <MESSAGE value="adjusted background color overlay" />
     <MESSAGE value="adjusted background colouur overlay" />
@@ -669,7 +668,8 @@
     <MESSAGE value="rewrite ruler for calib" />
     <MESSAGE value="fixing ruler" />
     <MESSAGE value="removed overlay text" />
-    <option name="LAST_COMMIT_MESSAGE" value="removed overlay text" />
+    <MESSAGE value="added from auto" />
+    <option name="LAST_COMMIT_MESSAGE" value="added from auto" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
