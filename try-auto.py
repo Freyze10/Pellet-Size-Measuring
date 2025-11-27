@@ -23,7 +23,7 @@ STABLE_CALIBRATION_THRESHOLD = 0.1  # 10% variance allowed
 
 # Load YOLO model for ruler detection
 try:
-    ruler_model = YOLO('best.pt')
+    ruler_model = YOLO('yolo/best.pt')
     print("✓ YOLO ruler detection model loaded successfully")
 except Exception as e:
     print(f"⚠ Warning: Could not load YOLO model: {e}")
