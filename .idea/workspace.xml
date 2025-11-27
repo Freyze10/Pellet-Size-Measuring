@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00151" summary="thinner bbox">
-      <option name="closed" value="true" />
-      <created>1763946207815</created>
-      <option name="number" value="00151" />
-      <option name="presentableId" value="LOCAL-00151" />
-      <option name="project" value="LOCAL" />
-      <updated>1763946207815</updated>
-    </task>
     <task id="LOCAL-00152" summary="thinner bbox">
       <option name="closed" value="true" />
       <created>1763946252543</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764226338014</updated>
     </task>
-    <option name="localTasksCounter" value="200" />
+    <task id="LOCAL-00200" summary="not working">
+      <option name="closed" value="true" />
+      <created>1764227296204</created>
+      <option name="number" value="00200" />
+      <option name="presentableId" value="LOCAL-00200" />
+      <option name="project" value="LOCAL" />
+      <updated>1764227296204</updated>
+    </task>
+    <option name="localTasksCounter" value="201" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="returned to working" />
     <MESSAGE value="improved runtime" />
     <MESSAGE value="returned ver" />
     <MESSAGE value="space" />
@@ -671,7 +670,8 @@
     <MESSAGE value="replaced yolo model" />
     <MESSAGE value="updating auto" />
     <MESSAGE value="returned" />
-    <option name="LAST_COMMIT_MESSAGE" value="returned" />
+    <MESSAGE value="not working" />
+    <option name="LAST_COMMIT_MESSAGE" value="not working" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
