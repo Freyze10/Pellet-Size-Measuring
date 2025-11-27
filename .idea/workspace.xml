@@ -79,6 +79,7 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\yolo" />
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\pellet_label_yolo" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
@@ -224,22 +225,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00145" summary="returned-1">
-      <option name="closed" value="true" />
-      <created>1763794112912</created>
-      <option name="number" value="00145" />
-      <option name="presentableId" value="LOCAL-00145" />
-      <option name="project" value="LOCAL" />
-      <updated>1763794112912</updated>
-    </task>
-    <task id="LOCAL-00146" summary="added tresholding">
-      <option name="closed" value="true" />
-      <created>1763794793716</created>
-      <option name="number" value="00146" />
-      <option name="presentableId" value="LOCAL-00146" />
-      <option name="project" value="LOCAL" />
-      <updated>1763794793716</updated>
     </task>
     <task id="LOCAL-00147" summary="fixed height error">
       <option name="closed" value="true" />
@@ -617,7 +602,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764222968888</updated>
     </task>
-    <option name="localTasksCounter" value="194" />
+    <task id="LOCAL-00194" summary="updated auto">
+      <option name="closed" value="true" />
+      <created>1764222993154</created>
+      <option name="number" value="00194" />
+      <option name="presentableId" value="LOCAL-00194" />
+      <option name="project" value="LOCAL" />
+      <updated>1764222993154</updated>
+    </task>
+    <task id="LOCAL-00195" summary="added yolo model">
+      <option name="closed" value="true" />
+      <created>1764225266051</created>
+      <option name="number" value="00195" />
+      <option name="presentableId" value="LOCAL-00195" />
+      <option name="project" value="LOCAL" />
+      <updated>1764225266051</updated>
+    </task>
+    <option name="localTasksCounter" value="196" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -644,8 +645,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="adjusted background color overlay" />
-    <MESSAGE value="adjusted background colouur overlay" />
     <MESSAGE value="testing longest run" />
     <MESSAGE value="return" />
     <MESSAGE value="fixed longtime runtime" />
@@ -669,7 +668,9 @@
     <MESSAGE value="removed overlay text" />
     <MESSAGE value="added from auto" />
     <MESSAGE value="added trained yolo ruler model" />
-    <option name="LAST_COMMIT_MESSAGE" value="added trained yolo ruler model" />
+    <MESSAGE value="updated auto" />
+    <MESSAGE value="added yolo model" />
+    <option name="LAST_COMMIT_MESSAGE" value="added yolo model" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
