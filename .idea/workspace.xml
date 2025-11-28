@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00181" summary="calib">
-      <option name="closed" value="true" />
-      <created>1764126483117</created>
-      <option name="number" value="00181" />
-      <option name="presentableId" value="LOCAL-00181" />
-      <option name="project" value="LOCAL" />
-      <updated>1764126483118</updated>
-    </task>
     <task id="LOCAL-00182" summary="calib">
       <option name="closed" value="true" />
       <created>1764127091661</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764317905252</updated>
     </task>
-    <option name="localTasksCounter" value="230" />
+    <task id="LOCAL-00230" summary="updated model path">
+      <option name="closed" value="true" />
+      <created>1764317926143</created>
+      <option name="number" value="00230" />
+      <option name="presentableId" value="LOCAL-00230" />
+      <option name="project" value="LOCAL" />
+      <updated>1764317926143</updated>
+    </task>
+    <option name="localTasksCounter" value="231" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="replaced yolo model" />
     <MESSAGE value="updating auto" />
     <MESSAGE value="returned" />
     <MESSAGE value="not working" />
@@ -671,7 +670,8 @@
     <MESSAGE value="returned main and ruler for auto" />
     <MESSAGE value="updated auto calibrate" />
     <MESSAGE value="more detailed mm calib" />
-    <option name="LAST_COMMIT_MESSAGE" value="more detailed mm calib" />
+    <MESSAGE value="updated model path" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated model path" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

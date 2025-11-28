@@ -9,31 +9,29 @@ from ultralytics import YOLO
 # ----------------------------------------------------------------------
 YOLO_MODEL_PATH = "yolo/best.pt"
 
-# Global Calibration Settings
-PIXELS_PER_MM = 10.0  # Default before auto-calib
+# Initial Calibration
+PIXELS_PER_MM = 10.0
 TARGET_DIAMETER = 3.0
 TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
 
-# State Variables
+# System State
 yolo_model = None
 is_calibrated = False
 last_calibration_time = 0
-CALIBRATION_INTERVAL = 0.5  # Recalibrate every 0.5 seconds
-current_tick_overlay = None  # Stores data for drawing ticks
+CALIBRATION_INTERVAL = 0.5
+current_tick_overlay = None
 
-# Camera Settings
+# Camera & Filter
 DESIRED_WIDTH = 1280
 DESIRED_HEIGHT = 720
-
-# Pellet Filter Settings
 MIN_CONTOUR_AREA = 100
 MAX_CONTOUR_AREA = 20000
 
 
 # ----------------------------------------------------------------------
-# Range Management
+# Range Logic
 # ----------------------------------------------------------------------
 def update_ranges():
     global DIAMETER_MIN, DIAMETER_MAX, LENGTH_MIN, LENGTH_MAX
@@ -86,14 +84,9 @@ def should_process_pellet(d, l):
 # 1. Intelligent YOLO Detection
 # ----------------------------------------------------------------------
 def run_yolo_detection(frame):
-    """
-    Returns:
-    1. all_detections: List of dicts for UI drawing
-    2. calibration_zone: The specific box (x1,y1,x2,y2) to use for math
-    """
     if yolo_model is None: return [], None
 
-    results = yolo_model(frame, conf=0.4, verbose=False)
+    results = yolo_model(frame, conf=0.35, verbose=False)
 
     all_detections = []
     calibration_zone = None
@@ -106,15 +99,13 @@ def run_yolo_detection(frame):
             cls_id = int(box.cls[0])
             name = yolo_model.names[cls_id]
 
-            # Store for display
             all_detections.append({
                 'box': (x1, y1, x2, y2),
                 'name': name,
                 'conf': conf
             })
 
-            # LOGIC: Find the best zone for calibration
-            # We prioritize classes named "mm", "zone", or "scale"
+            # Priority: "mm" or "zone" > "ruler"
             is_preferred = "mm" in name.lower() or "zone" in name.lower()
 
             if is_preferred:
@@ -128,92 +119,120 @@ def run_yolo_detection(frame):
 
 
 # ----------------------------------------------------------------------
-# 2. Mathematical Calibration (Inside the Zone)
+# 2. HIGH PRECISION LINE ANALYSIS
 # ----------------------------------------------------------------------
-def analyze_calibration_zone(frame, bbox):
-    """
-    Runs image processing ONLY inside the detected bbox.
-    Returns dictionary with px_per_mm AND tick positions for drawing.
-    """
+def analyze_structure(frame, bbox):
     x1, y1, x2, y2 = bbox
+    h_img, w_img = frame.shape[:2]
 
-    # Clip to frame
-    h, w = frame.shape[:2]
-    x1, y1 = max(0, x1), max(0, y1)
-    x2, y2 = min(w, x2), min(h, y2)
+    # 1. Safe Crop
+    pad = 2
+    cx1, cy1 = max(0, x1 + pad), max(0, y1 + pad)
+    cx2, cy2 = min(w_img, x2 - pad), min(h_img, y2 - pad)
 
-    # Crop
-    roi = frame[y1:y2, x1:x2]
-    if roi.size == 0 or roi.shape[0] < 10 or roi.shape[1] < 10: return None
+    roi = frame[cy1:cy2, cx1:cx2]
+    if roi.size == 0 or roi.shape[0] < 20 or roi.shape[1] < 20: return None
 
-    # Pre-process
+    # Determine Orientation based on Aspect Ratio of the YOLO Box
+    # If Width > Height, ruler is Horizontal, so Ticks are VERTICAL lines.
+    is_horizontal_ruler = (cx2 - cx1) > (cy2 - cy1)
+
+    # 2. Pre-processing to Isolate Lines
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+
+    # Adaptive threshold to handle glare
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 15, 6)
+                                   cv2.THRESH_BINARY_INV, 15, 4)
 
-    # Find contours (ticks)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # 3. Morphological Line Filter (The "Secret Sauce")
+    # This destroys numbers and noise, keeping only lines in the correct direction
+    if is_horizontal_ruler:
+        # Kernel: Very thin (1px) and tall. Keeps vertical lines.
+        kernel_len = max(5, roi.shape[0] // 8)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, kernel_len))
+    else:
+        # Kernel: Very wide and short (1px). Keeps horizontal lines.
+        kernel_len = max(5, roi.shape[1] // 8)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_len, 1))
 
-    roi_h, roi_w = roi.shape[:2]
-    is_vertical_ruler = roi_h > roi_w
+    # Apply Open operation (Erosion then Dilation) to remove non-line noise
+    clean_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
 
-    ticks = []
+    # Dilate slightly to make lines robust for contour finding
+    clean_lines = cv2.dilate(clean_lines, None, iterations=1)
+
+    # 4. Find Contours of these clean lines
+    contours, _ = cv2.findContours(clean_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    valid_ticks = []
 
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if area < 5 or area > 500: continue
+        if area < 5: continue  # Ignore specks
 
         tx, ty, tw, th = cv2.boundingRect(cnt)
-        aspect = float(tw) / th
 
-        if is_vertical_ruler:
-            # Ticks are horizontal lines
-            if aspect > 1.2:
-                ticks.append(ty + th / 2)  # Store Y position relative to ROI
+        # Determine position and "length" (how long the line is physically)
+        if is_horizontal_ruler:
+            # Position is X, Length is Height
+            pos = tx + tw / 2
+            length = th
+            # Verify aspect ratio (must be tall)
+            if th > tw * 2:
+                valid_ticks.append({'pos': pos, 'len': length, 'rect': (tx, ty, tw, th)})
         else:
-            # Ticks are vertical lines
-            if aspect < 0.8:
-                ticks.append(tx + tw / 2)  # Store X position relative to ROI
+            # Position is Y, Length is Width
+            pos = ty + th / 2
+            length = tw
+            # Verify aspect ratio (must be wide)
+            if tw > th * 2:
+                valid_ticks.append({'pos': pos, 'len': length, 'rect': (tx, ty, tw, th)})
 
-    if len(ticks) < 5: return None
+    if len(valid_ticks) < 5: return None
 
-    # Calculate Median Interval
-    ticks.sort()
-    intervals = []
-    for i in range(len(ticks) - 1):
-        gap = ticks[i + 1] - ticks[i]
-        if 2 < gap < (max(roi_w, roi_h) / 5):
-            intervals.append(gap)
+    # 5. Sort by position
+    valid_ticks.sort(key=lambda x: x['pos'])
 
-    if len(intervals) < 3: return None
+    # 6. Analyze Line Lengths to differentiate MM vs CM
+    all_lengths = [t['len'] for t in valid_ticks]
+    max_len = np.max(all_lengths)
 
-    median_gap = np.median(intervals)
+    # Label each tick as 'major' (long) or 'minor' (short)
+    # Threshold: If length is > 75% of the longest line found, it's a major line
+    for t in valid_ticks:
+        t['type'] = 'major' if t['len'] > (max_len * 0.75) else 'minor'
 
-    # Filter ticks that fit the pattern (Clean Ticks)
-    # We reconstruct a list of only the "good" ticks for display
-    clean_intervals = []
-    good_ticks = []
+    # 7. Calculate Intervals (Pixel Gap between adjacent lines)
+    gaps = []
+    positions = [t['pos'] for t in valid_ticks]
 
-    # Naive matching to keep ticks that form the sequence
-    # (Simplified for visualization: just keep intervals that match median)
-    clean_intervals = [i for i in intervals if abs(i - median_gap) < (median_gap * 0.2)]
+    for i in range(len(positions) - 1):
+        dist = positions[i + 1] - positions[i]
+        # Robust filter: Gap must be reasonable relative to ROI size
+        roi_major_dim = roi.shape[1] if is_horizontal_ruler else roi.shape[0]
 
-    if len(clean_intervals) < 3: return None
+        # A 1mm gap shouldn't be tiny (<3px) or huge (>10% of image)
+        if 3 < dist < (roi_major_dim / 5):
+            gaps.append(dist)
 
-    px_per_mm = np.mean(clean_intervals)
-    if px_per_mm < 2 or px_per_mm > 100: return None
+    if len(gaps) < 3: return None
+
+    # Use Median to ignore outliers (like gaps where a tick wasn't detected)
+    px_per_mm = np.median(gaps)
+
+    # Sanity check
+    if px_per_mm < 3 or px_per_mm > 150: return None
 
     return {
         "px_per_mm": px_per_mm,
-        "ticks": ticks,  # All detected candidate ticks
-        "orientation": "vertical" if is_vertical_ruler else "horizontal",
-        "roi_offset": (x1, y1),
-        "roi_dim": (roi_w, roi_h)
+        "ticks": valid_ticks,
+        "orientation": "horizontal" if is_horizontal_ruler else "vertical",
+        "roi_offset": (cx1, cy1)
     }
 
 
 # ----------------------------------------------------------------------
-# 3. Precise Pellet Detection
+# 3. Pellet Detection
 # ----------------------------------------------------------------------
 def detect_pellets(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -254,52 +273,44 @@ def detect_pellets(frame):
 
 
 # ----------------------------------------------------------------------
-# 4. Visualization (UI)
+# 4. Visualization
 # ----------------------------------------------------------------------
 def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
-    overlay = frame.copy()
-
-    # --- A. Draw YOLO Objects ---
+    # A. Draw YOLO Objects
     for obj in yolo_objects:
         bx1, by1, bx2, by2 = obj['box']
-        name = obj['name']
 
         if active_zone_box and obj['box'] == active_zone_box:
             color = (0, 255, 0)  # Green for Active Zone
-            label = f"{name} [ACTIVE]"
-            thick = 2
+            label = f"{obj['name']} [ACTIVE]"
+            cv2.rectangle(frame, (bx1, by1), (bx2, by2), color, 2)
         else:
-            color = (255, 100, 0)  # Blue/Orange for others
-            label = name
-            thick = 1
+            color = (100, 100, 100)  # Gray for passive objects
+            label = obj['name']
+            cv2.rectangle(frame, (bx1, by1), (bx2, by2), color, 1)
 
-        cv2.rectangle(frame, (bx1, by1), (bx2, by2), color, thick)
-        cv2.putText(frame, label, (bx1, by1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+        cv2.putText(frame, label, (bx1, by1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
-    # --- B. Draw Detected Ticks (Overlay) ---
-    # This shows exactly what the math is seeing
+    # B. Draw Analysed Ticks (The accurate lines)
     if tick_data:
-        x_off, y_off = tick_data['roi_offset']
-        w, h = tick_data['roi_dim']
-
-        # Color for ticks: Magenta/Pink to stand out against Green box
-        tick_color = (255, 0, 255)
+        off_x, off_y = tick_data['roi_offset']
 
         for t in tick_data['ticks']:
-            if tick_data['orientation'] == 'horizontal':
-                # Ruler lies flat, ticks are vertical lines.
-                # 't' is the X position relative to ROI
-                pt1 = (int(x_off + t), int(y_off))
-                pt2 = (int(x_off + t), int(y_off + h))
-                cv2.line(frame, pt1, pt2, tick_color, 1)
-            else:
-                # Ruler stands up, ticks are horizontal lines.
-                # 't' is the Y position relative to ROI
-                pt1 = (int(x_off), int(y_off + t))
-                pt2 = (int(x_off + w), int(y_off + t))
-                cv2.line(frame, pt1, pt2, tick_color, 1)
+            # Get relative rect
+            rx, ry, rw, rh = t['rect']
 
-    # --- C. Draw Pellets ---
+            # Convert to absolute coordinates
+            ax, ay = int(off_x + rx), int(off_y + ry)
+            aw, ah = int(rw), int(rh)
+
+            # Color Coding based on Length Analysis
+            # RED = Major (CM/Half-CM), CYAN = Minor (MM)
+            color = (0, 0, 255) if t['type'] == 'major' else (255, 255, 0)
+
+            # Draw the actual line/rect detected
+            cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), color, -1)
+
+    # C. Draw Pellets
     for p in pellets:
         box = p['box']
         color = (0, 255, 0) if p['is_good'] else (0, 0, 255)
@@ -309,87 +320,84 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
         top_pt = min(box, key=lambda x: x[1])
         tx, ty = int(top_pt[0]), int(top_pt[1])
 
-        txt = f"{p['diameter']:.2f} x {p['length']:.2f}"
+        txt = f"{p['diameter']:.2f}x{p['length']:.2f}"
         cv2.putText(frame, txt, (tx - 10, ty - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3)
         cv2.putText(frame, txt, (tx - 10, ty - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
         if not p['is_good']:
             cv2.putText(frame, "!", (tx - 25, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-    # --- D. Status Bar ---
-    cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 50), (30, 30, 30), -1)
+    # D. Status Overlay
+    cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 45), (20, 20, 20), -1)
 
     if is_calibrated:
-        cal_color = (0, 255, 0)
-        cal_txt = f"CALIBRATED: {PIXELS_PER_MM:.2f} px/mm"
+        msg = f"CALIBRATED: {PIXELS_PER_MM:.2f} px/mm"
+        col = (0, 255, 0)
     else:
-        cal_color = (0, 0, 255)
-        cal_txt = "NO CALIBRATION - SHOW MM ZONE"
+        msg = "UNCALIBRATED"
+        col = (0, 0, 255)
 
-    cv2.putText(frame, cal_txt, (20, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.7, cal_color, 2)
+    cv2.putText(frame, msg, (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, col, 2)
 
-    total = len(pellets)
-    good = sum(1 for p in pellets if p['is_good'])
-    stats = f"Count: {total} | OK: {good} | NG: {total - good}"
-    cv2.putText(frame, stats, (DESIRED_WIDTH - 400, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
+    # Legend for lines
+    if is_calibrated:
+        cv2.putText(frame, "Long Line (CM)", (350, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+        cv2.putText(frame, "Short Line (MM)", (500, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
 
     return frame
 
 
 # ----------------------------------------------------------------------
-# Main Execution
+# Main
 # ----------------------------------------------------------------------
 def main():
     global PIXELS_PER_MM, is_calibrated, last_calibration_time, current_tick_overlay
-
-    print("--- Pellet Inspector with Visible Calibration Ticks ---")
 
     if not load_yolo_model(): return
 
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     if not cap.isOpened(): cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, DESIRED_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, DESIRED_HEIGHT)
+
+    print("Running...")
 
     while True:
         ret, frame = cap.read()
         if not ret: break
 
-        # 1. Run YOLO
+        # 1. Detection
         yolo_objects, active_zone = run_yolo_detection(frame)
 
-        # 2. Calibration Logic
+        # 2. Calibration (Line Analysis)
         current_time = time.time()
 
-        # If we lost the active zone, clear the tick overlay so lines don't get stuck
+        # Only update visual overlay if we have an active zone
         if not active_zone:
             current_tick_overlay = None
 
         if active_zone and (current_time - last_calibration_time > CALIBRATION_INTERVAL):
-            # Analyze returns Dict with 'px_per_mm' AND 'ticks'
-            result = analyze_calibration_zone(frame, active_zone)
+            # Analyze line structure
+            result = analyze_structure(frame, active_zone)
 
             if result:
-                px_val = result['px_per_mm']
+                new_px = result['px_per_mm']
 
-                # Update Globals
+                # Smooth update
                 if is_calibrated:
-                    PIXELS_PER_MM = (PIXELS_PER_MM * 0.8) + (px_val * 0.2)
+                    PIXELS_PER_MM = (PIXELS_PER_MM * 0.9) + (new_px * 0.1)
                 else:
-                    PIXELS_PER_MM = px_val
+                    PIXELS_PER_MM = new_px
                     is_calibrated = True
 
                 last_calibration_time = current_time
                 update_ranges()
-
-                # Store the tick data for the UI to draw
                 current_tick_overlay = result
 
-        # 3. Detect Pellets
+        # 3. Measure Pellets
         pellets = detect_pellets(frame)
 
-        # 4. Draw UI (Pass tick_data)
+        # 4. Draw
         frame = draw_ui(frame, yolo_objects, active_zone, pellets, current_tick_overlay)
 
         cv2.imshow("Inspector", frame)
