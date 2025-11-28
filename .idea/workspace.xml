@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00172" summary="added camera reso">
-      <option name="closed" value="true" />
-      <created>1764047538165</created>
-      <option name="number" value="00172" />
-      <option name="presentableId" value="LOCAL-00172" />
-      <option name="project" value="LOCAL" />
-      <updated>1764047538165</updated>
-    </task>
     <task id="LOCAL-00173" summary="returned">
       <option name="closed" value="true" />
       <created>1764050419110</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764313710251</updated>
     </task>
-    <option name="localTasksCounter" value="221" />
+    <task id="LOCAL-00221" summary="tring">
+      <option name="closed" value="true" />
+      <created>1764314652541</created>
+      <option name="number" value="00221" />
+      <option name="presentableId" value="LOCAL-00221" />
+      <option name="project" value="LOCAL" />
+      <updated>1764314652541</updated>
+    </task>
+    <option name="localTasksCounter" value="222" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added from auto" />
     <MESSAGE value="added trained yolo ruler model" />
     <MESSAGE value="updated auto" />
     <MESSAGE value="added yolo model" />
@@ -671,7 +670,8 @@
     <MESSAGE value="updated the mm zone measure" />
     <MESSAGE value="eliminate lower confidence" />
     <MESSAGE value="display calibr" />
-    <option name="LAST_COMMIT_MESSAGE" value="display calibr" />
+    <MESSAGE value="tring" />
+    <option name="LAST_COMMIT_MESSAGE" value="tring" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
