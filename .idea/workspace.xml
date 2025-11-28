@@ -227,22 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00179" summary="display actual camera reso">
-      <option name="closed" value="true" />
-      <created>1764061174555</created>
-      <option name="number" value="00179" />
-      <option name="presentableId" value="LOCAL-00179" />
-      <option name="project" value="LOCAL" />
-      <updated>1764061174555</updated>
-    </task>
-    <task id="LOCAL-00180" summary="fot testing">
-      <option name="closed" value="true" />
-      <created>1764061348667</created>
-      <option name="number" value="00180" />
-      <option name="presentableId" value="LOCAL-00180" />
-      <option name="project" value="LOCAL" />
-      <updated>1764061348669</updated>
-    </task>
     <task id="LOCAL-00181" summary="calib">
       <option name="closed" value="true" />
       <created>1764126483117</created>
@@ -619,7 +603,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764317696261</updated>
     </task>
-    <option name="localTasksCounter" value="228" />
+    <task id="LOCAL-00228" summary="updated auto calibrate">
+      <option name="closed" value="true" />
+      <created>1764317702225</created>
+      <option name="number" value="00228" />
+      <option name="presentableId" value="LOCAL-00228" />
+      <option name="project" value="LOCAL" />
+      <updated>1764317702225</updated>
+    </task>
+    <task id="LOCAL-00229" summary="more detailed mm calib">
+      <option name="closed" value="true" />
+      <created>1764317905252</created>
+      <option name="number" value="00229" />
+      <option name="presentableId" value="LOCAL-00229" />
+      <option name="project" value="LOCAL" />
+      <updated>1764317905252</updated>
+    </task>
+    <option name="localTasksCounter" value="230" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="deleted past best" />
     <MESSAGE value="replaced yolo model" />
     <MESSAGE value="updating auto" />
     <MESSAGE value="returned" />
@@ -671,7 +670,8 @@
     <MESSAGE value="trying" />
     <MESSAGE value="returned main and ruler for auto" />
     <MESSAGE value="updated auto calibrate" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated auto calibrate" />
+    <MESSAGE value="more detailed mm calib" />
+    <option name="LAST_COMMIT_MESSAGE" value="more detailed mm calib" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

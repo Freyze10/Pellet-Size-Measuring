@@ -7,7 +7,7 @@ from ultralytics import YOLO
 # ----------------------------------------------------------------------
 # Configuration
 # ----------------------------------------------------------------------
-YOLO_MODEL_PATH = "best.pt"
+YOLO_MODEL_PATH = "yolo/best.pt"
 
 # Global Calibration Settings
 PIXELS_PER_MM = 10.0  # Default before auto-calib
