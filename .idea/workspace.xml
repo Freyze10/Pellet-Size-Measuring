@@ -227,30 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00156" summary="returned to thin">
-      <option name="closed" value="true" />
-      <created>1763955672600</created>
-      <option name="number" value="00156" />
-      <option name="presentableId" value="LOCAL-00156" />
-      <option name="project" value="LOCAL" />
-      <updated>1763955672600</updated>
-    </task>
-    <task id="LOCAL-00157" summary="adjusted background color overlay">
-      <option name="closed" value="true" />
-      <created>1763963427282</created>
-      <option name="number" value="00157" />
-      <option name="presentableId" value="LOCAL-00157" />
-      <option name="project" value="LOCAL" />
-      <updated>1763963427282</updated>
-    </task>
-    <task id="LOCAL-00158" summary="adjusted background color overlay">
-      <option name="closed" value="true" />
-      <created>1763964210420</created>
-      <option name="number" value="00158" />
-      <option name="presentableId" value="LOCAL-00158" />
-      <option name="project" value="LOCAL" />
-      <updated>1763964210420</updated>
-    </task>
     <task id="LOCAL-00159" summary="adjusted background colouur overlay">
       <option name="closed" value="true" />
       <created>1763967227954</created>
@@ -619,7 +595,31 @@
       <option name="project" value="LOCAL" />
       <updated>1764234259245</updated>
     </task>
-    <option name="localTasksCounter" value="205" />
+    <task id="LOCAL-00205" summary="updated box ruler selection">
+      <option name="closed" value="true" />
+      <created>1764298679611</created>
+      <option name="number" value="00205" />
+      <option name="presentableId" value="LOCAL-00205" />
+      <option name="project" value="LOCAL" />
+      <updated>1764298679611</updated>
+    </task>
+    <task id="LOCAL-00206" summary="deleted best.pt">
+      <option name="closed" value="true" />
+      <created>1764298751910</created>
+      <option name="number" value="00206" />
+      <option name="presentableId" value="LOCAL-00206" />
+      <option name="project" value="LOCAL" />
+      <updated>1764298751910</updated>
+    </task>
+    <task id="LOCAL-00207" summary="uploaded new best.pt">
+      <option name="closed" value="true" />
+      <created>1764298799687</created>
+      <option name="number" value="00207" />
+      <option name="presentableId" value="LOCAL-00207" />
+      <option name="project" value="LOCAL" />
+      <updated>1764298799687</updated>
+    </task>
+    <option name="localTasksCounter" value="208" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,8 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="trying auto calibrate" />
-    <MESSAGE value="try semi auto" />
     <MESSAGE value="added camera reso" />
     <MESSAGE value="use obs cam" />
     <MESSAGE value="force full hd" />
@@ -671,7 +669,9 @@
     <MESSAGE value="box detection" />
     <MESSAGE value="modified box ruler selection" />
     <MESSAGE value="updated box ruler selection" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated box ruler selection" />
+    <MESSAGE value="deleted best.pt" />
+    <MESSAGE value="uploaded new best.pt" />
+    <option name="LAST_COMMIT_MESSAGE" value="uploaded new best.pt" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
