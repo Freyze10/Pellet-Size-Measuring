@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00183" summary="added exit on calib when clicked r">
-      <option name="closed" value="true" />
-      <created>1764127819995</created>
-      <option name="number" value="00183" />
-      <option name="presentableId" value="LOCAL-00183" />
-      <option name="project" value="LOCAL" />
-      <updated>1764127819995</updated>
-    </task>
     <task id="LOCAL-00184" summary="removed unnecessary prints">
       <option name="closed" value="true" />
       <created>1764127846368</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764318540301</updated>
     </task>
-    <option name="localTasksCounter" value="232" />
+    <task id="LOCAL-00232" summary="fixint results">
+      <option name="closed" value="true" />
+      <created>1764318855387</created>
+      <option name="number" value="00232" />
+      <option name="presentableId" value="LOCAL-00232" />
+      <option name="project" value="LOCAL" />
+      <updated>1764318855387</updated>
+    </task>
+    <option name="localTasksCounter" value="233" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="returned" />
     <MESSAGE value="not working" />
     <MESSAGE value="box detection" />
     <MESSAGE value="modified box ruler selection" />
@@ -671,7 +670,8 @@
     <MESSAGE value="more detailed mm calib" />
     <MESSAGE value="updated model path" />
     <MESSAGE value="new calibration long and short" />
-    <option name="LAST_COMMIT_MESSAGE" value="new calibration long and short" />
+    <MESSAGE value="fixint results" />
+    <option name="LAST_COMMIT_MESSAGE" value="fixint results" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
