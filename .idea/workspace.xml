@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00160" summary="testing longest run">
-      <option name="closed" value="true" />
-      <created>1763967614383</created>
-      <option name="number" value="00160" />
-      <option name="presentableId" value="LOCAL-00160" />
-      <option name="project" value="LOCAL" />
-      <updated>1763967614383</updated>
-    </task>
     <task id="LOCAL-00161" summary="return">
       <option name="closed" value="true" />
       <created>1763967729650</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764299761439</updated>
     </task>
-    <option name="localTasksCounter" value="209" />
+    <task id="LOCAL-00209" summary="usage wiht yolo">
+      <option name="closed" value="true" />
+      <created>1764300186358</created>
+      <option name="number" value="00209" />
+      <option name="presentableId" value="LOCAL-00209" />
+      <option name="project" value="LOCAL" />
+      <updated>1764300186358</updated>
+    </task>
+    <option name="localTasksCounter" value="210" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="use obs cam" />
     <MESSAGE value="force full hd" />
     <MESSAGE value="display actual camera reso" />
     <MESSAGE value="fot testing" />
@@ -671,7 +670,8 @@
     <MESSAGE value="deleted best.pt" />
     <MESSAGE value="uploaded new best.pt" />
     <MESSAGE value="UPDATED AUTO" />
-    <option name="LAST_COMMIT_MESSAGE" value="UPDATED AUTO" />
+    <MESSAGE value="usage wiht yolo" />
+    <option name="LAST_COMMIT_MESSAGE" value="usage wiht yolo" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
