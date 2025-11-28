@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00162" summary="fixed longtime runtime">
-      <option name="closed" value="true" />
-      <created>1763968123748</created>
-      <option name="number" value="00162" />
-      <option name="presentableId" value="LOCAL-00162" />
-      <option name="project" value="LOCAL" />
-      <updated>1763968123748</updated>
-    </task>
     <task id="LOCAL-00163" summary="fixed longtime runtime">
       <option name="closed" value="true" />
       <created>1763969574434</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764300930083</updated>
     </task>
-    <option name="localTasksCounter" value="211" />
+    <task id="LOCAL-00211" summary="try gai stud">
+      <option name="closed" value="true" />
+      <created>1764306818083</created>
+      <option name="number" value="00211" />
+      <option name="presentableId" value="LOCAL-00211" />
+      <option name="project" value="LOCAL" />
+      <updated>1764306818083</updated>
+    </task>
+    <option name="localTasksCounter" value="212" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="display actual camera reso" />
     <MESSAGE value="fot testing" />
     <MESSAGE value="calib" />
     <MESSAGE value="added exit on calib when clicked r" />
@@ -671,7 +670,8 @@
     <MESSAGE value="UPDATED AUTO" />
     <MESSAGE value="usage wiht yolo" />
     <MESSAGE value="testing diff measures" />
-    <option name="LAST_COMMIT_MESSAGE" value="testing diff measures" />
+    <MESSAGE value="try gai stud" />
+    <option name="LAST_COMMIT_MESSAGE" value="try gai stud" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
