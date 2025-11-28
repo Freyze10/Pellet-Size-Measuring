@@ -227,30 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00168" summary="trying auto calibrate">
-      <option name="closed" value="true" />
-      <created>1764032927938</created>
-      <option name="number" value="00168" />
-      <option name="presentableId" value="LOCAL-00168" />
-      <option name="project" value="LOCAL" />
-      <updated>1764032927938</updated>
-    </task>
-    <task id="LOCAL-00169" summary="trying auto calibrate">
-      <option name="closed" value="true" />
-      <created>1764032935483</created>
-      <option name="number" value="00169" />
-      <option name="presentableId" value="LOCAL-00169" />
-      <option name="project" value="LOCAL" />
-      <updated>1764032935483</updated>
-    </task>
-    <task id="LOCAL-00170" summary="try semi auto">
-      <option name="closed" value="true" />
-      <created>1764033601802</created>
-      <option name="number" value="00170" />
-      <option name="presentableId" value="LOCAL-00170" />
-      <option name="project" value="LOCAL" />
-      <updated>1764033601802</updated>
-    </task>
     <task id="LOCAL-00171" summary="try semi auto">
       <option name="closed" value="true" />
       <created>1764042268468</created>
@@ -619,7 +595,31 @@
       <option name="project" value="LOCAL" />
       <updated>1764310737176</updated>
     </task>
-    <option name="localTasksCounter" value="217" />
+    <task id="LOCAL-00217" summary="updated the mm zone measure">
+      <option name="closed" value="true" />
+      <created>1764312999450</created>
+      <option name="number" value="00217" />
+      <option name="presentableId" value="LOCAL-00217" />
+      <option name="project" value="LOCAL" />
+      <updated>1764312999450</updated>
+    </task>
+    <task id="LOCAL-00218" summary="updated the mm zone measure">
+      <option name="closed" value="true" />
+      <created>1764313006770</created>
+      <option name="number" value="00218" />
+      <option name="presentableId" value="LOCAL-00218" />
+      <option name="project" value="LOCAL" />
+      <updated>1764313006770</updated>
+    </task>
+    <task id="LOCAL-00219" summary="eliminate lower confidence">
+      <option name="closed" value="true" />
+      <created>1764313486105</created>
+      <option name="number" value="00219" />
+      <option name="presentableId" value="LOCAL-00219" />
+      <option name="project" value="LOCAL" />
+      <updated>1764313486105</updated>
+    </task>
+    <option name="localTasksCounter" value="220" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,8 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="rewrite ruler for calib" />
-    <MESSAGE value="fixing ruler" />
     <MESSAGE value="removed overlay text" />
     <MESSAGE value="added from auto" />
     <MESSAGE value="added trained yolo ruler model" />
@@ -671,7 +669,9 @@
     <MESSAGE value="replaced best.pt" />
     <MESSAGE value="yolo with mm zone" />
     <MESSAGE value="yolo DETECTS ALL" />
-    <option name="LAST_COMMIT_MESSAGE" value="yolo DETECTS ALL" />
+    <MESSAGE value="updated the mm zone measure" />
+    <MESSAGE value="eliminate lower confidence" />
+    <option name="LAST_COMMIT_MESSAGE" value="eliminate lower confidence" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
