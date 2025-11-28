@@ -3,6 +3,7 @@ import numpy as np
 import time
 import sys
 import math
+from ultralytics import YOLO
 
 # ----------------------------------------------------------------------
 # Global Calibration
@@ -12,6 +13,24 @@ TARGET_DIAMETER = 3.0
 TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
+
+# YOLO Model
+yolo_model = None
+ruler_detected = False
+ruler_bbox = None
+last_calibration_time = 0
+CALIBRATION_INTERVAL = 2.0  # Recalibrate every 2 seconds
+
+
+def load_yolo_model():
+    global yolo_model
+    try:
+        yolo_model = YOLO("yolo/best.pt")
+        print("✓ YOLO model loaded successfully")
+        return True
+    except Exception as e:
+        print(f"✗ Failed to load YOLO model: {e}")
+        return False
 
 
 def update_ranges():
@@ -38,25 +57,8 @@ MAX_CONTOUR_AREA = 20000
 DESIRED_WIDTH = 1280
 DESIRED_HEIGHT = 720
 
-# ----------------------------------------------------------------------
-# Ruler Calibration State (Box-Based)
-# ----------------------------------------------------------------------
-in_ruler_calib_mode = False
-calibration_frozen_frame = None
-ruler_box_start = None
-ruler_box_end = None
-is_drawing_box = False
-detected_ticks = []
-calibration_result = None
-
-# Button rectangles
-RULER_PANEL_X, RULER_PANEL_Y = 10, 80
-RULER_PANEL_W, RULER_PANEL_H = 400, 280
-
-APPLY_BTN = (RULER_PANEL_X + 20, RULER_PANEL_Y + 220, 160, 40)
-CANCEL_BTN = (RULER_PANEL_X + 200, RULER_PANEL_Y + 220, 160, 40)
-
-detected_unit = None  # Will be auto-detected
+detected_unit = None
+auto_calibration_active = True
 
 
 # ----------------------------------------------------------------------
@@ -77,16 +79,52 @@ def get_distance(p1, p2):
 
 
 # ----------------------------------------------------------------------
-# Ruler Tick Detection and Analysis
+# YOLO Ruler Detection
 # ----------------------------------------------------------------------
-def analyze_ruler_box(frame, box_start, box_end):
-    """Analyze the selected ruler box and AUTO-DETECT tick marks and unit - works at ANY angle"""
-    x1, y1 = min(box_start[0], box_end[0]), min(box_start[1], box_end[1])
-    x2, y2 = max(box_start[0], box_end[0]), max(box_start[1], box_end[1])
+def detect_ruler_yolo(frame):
+    """Detect ruler using YOLO model"""
+    global yolo_model
 
-    # Ensure box is within frame bounds
-    x1, y1 = max(0, x1), max(0, y1)
-    x2, y2 = min(frame.shape[1], x2), min(frame.shape[0], y2)
+    if yolo_model is None:
+        return None
+
+    try:
+        results = yolo_model(frame, conf=0.5, verbose=False)
+
+        if len(results) > 0 and len(results[0].boxes) > 0:
+            # Get the first detected ruler (highest confidence)
+            boxes = results[0].boxes
+            for box in boxes:
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                conf = box.conf[0].cpu().numpy()
+
+                # Return bounding box
+                return {
+                    'bbox': (int(x1), int(y1), int(x2), int(y2)),
+                    'confidence': float(conf)
+                }
+    except Exception as e:
+        print(f"Error in YOLO detection: {e}")
+
+    return None
+
+
+# ----------------------------------------------------------------------
+# Ruler Tick Detection and Auto-Calibration
+# ----------------------------------------------------------------------
+def analyze_ruler_region(frame, bbox):
+    """
+    Analyze the ruler region and AUTO-DETECT tick marks and unit
+    Focus on INCH marks (largest/most prominent) for easier detection
+    """
+    x1, y1, x2, y2 = bbox
+
+    # Add padding to ensure we capture the ruler edges
+    padding = 10
+    x1 = max(0, x1 - padding)
+    y1 = max(0, y1 - padding)
+    x2 = min(frame.shape[1], x2 + padding)
+    y2 = min(frame.shape[0], y2 + padding)
 
     if x2 - x1 < 50 or y2 - y1 < 50:
         return None
@@ -97,25 +135,28 @@ def analyze_ruler_box(frame, box_start, box_end):
     # Enhance contrast for better tick detection
     gray = cv2.equalizeHist(gray)
 
-    # Apply strong edge detection
-    edges = cv2.Canny(gray, 30, 100, apertureSize=3)
+    # Apply edge detection with optimized parameters for ruler ticks
+    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
 
-    # Detect lines using Hough Transform - detect ALL angles
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=25,
-                            minLineLength=15, maxLineGap=3)
+    # Detect lines using Hough Transform
+    # Adjusted parameters to focus on LONGER lines (inch marks are longest)
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=30,
+                            minLineLength=20, maxLineGap=5)
 
-    if lines is None or len(lines) < 3:
+    if lines is None or len(lines) < 2:
         return None
 
-    # Group lines by angle to find dominant tick direction
+    # Group lines by angle and length to find dominant tick direction
     line_data = []
     for line in lines:
         x1_l, y1_l, x2_l, y2_l = line[0]
         length = math.sqrt((x2_l - x1_l) ** 2 + (y2_l - y1_l) ** 2)
         angle = math.atan2(y2_l - y1_l, x2_l - x1_l) * 180 / np.pi
+
         # Normalize angle to 0-180 range
         if angle < 0:
             angle += 180
+
         line_data.append({
             'line': line[0],
             'length': length,
@@ -123,44 +164,44 @@ def analyze_ruler_box(frame, box_start, box_end):
             'midpoint': ((x1_l + x2_l) / 2, (y1_l + y2_l) / 2)
         })
 
-    # Find the dominant angle (most lines with similar angle)
+    # Filter for LONGEST lines (these are likely inch marks)
+    # Sort by length and take top 50%
+    line_data.sort(key=lambda x: x['length'], reverse=True)
+    longest_lines = line_data[:max(len(line_data) // 2, 3)]
+
+    # Group the longest lines by angle
     from collections import defaultdict
     angle_groups = defaultdict(list)
 
-    for ld in line_data:
+    for ld in longest_lines:
         # Group angles in 5-degree bins
         angle_bin = round(ld['angle'] / 5) * 5
         angle_groups[angle_bin].append(ld)
 
-    # Get the angle bin with most lines (these are the tick marks)
     if not angle_groups:
         return None
 
+    # Get the angle bin with most lines (major tick marks)
     dominant_angle_bin = max(angle_groups.keys(), key=lambda k: len(angle_groups[k]))
-    tick_lines = angle_groups[dominant_angle_bin]
+    major_tick_lines = angle_groups[dominant_angle_bin]
 
-    if len(tick_lines) < 3:
+    if len(major_tick_lines) < 2:
         return None
 
     # Calculate the ruler's main axis (perpendicular to ticks)
-    avg_tick_angle = np.mean([ld['angle'] for ld in tick_lines])
-    ruler_angle = (avg_tick_angle + 90) % 180  # Perpendicular to ticks
+    avg_tick_angle = np.mean([ld['angle'] for ld in major_tick_lines])
+    ruler_angle = (avg_tick_angle + 90) % 180
 
-    # Project all tick midpoints onto the ruler's main axis
-    # This gives us the position along the ruler regardless of orientation
+    # Project all major tick midpoints onto the ruler's main axis
     ruler_angle_rad = math.radians(ruler_angle)
-
-    # Use the center of the ROI as origin
     origin_x = roi.shape[1] / 2
     origin_y = roi.shape[0] / 2
 
     tick_positions = []
-    for ld in tick_lines:
+    for ld in major_tick_lines:
         mx, my = ld['midpoint']
-        # Project onto ruler axis
         dx = mx - origin_x
         dy = my - origin_y
-        # Distance along ruler axis
         projection = dx * math.cos(ruler_angle_rad) + dy * math.sin(ruler_angle_rad)
         tick_positions.append({
             'projection': projection,
@@ -177,14 +218,13 @@ def analyze_ruler_box(frame, box_start, box_end):
         if i == 0:
             unique_ticks.append(tick)
         else:
-            # Check if this tick is far enough from the previous one
-            if abs(tick['projection'] - unique_ticks[-1]['projection']) > 5:
+            if abs(tick['projection'] - unique_ticks[-1]['projection']) > 10:
                 unique_ticks.append(tick)
 
-    if len(unique_ticks) < 3:
+    if len(unique_ticks) < 2:
         return None
 
-    # Calculate intervals between consecutive ticks
+    # Calculate intervals between consecutive major ticks
     projections = [t['projection'] for t in unique_ticks]
     intervals = []
     for i in range(len(projections) - 1):
@@ -194,9 +234,9 @@ def analyze_ruler_box(frame, box_start, box_end):
     if not intervals:
         return None
 
-    # Find the most common interval using clustering
-    intervals_rounded = [round(x) for x in intervals]
+    # Find the most consistent interval
     from collections import Counter
+    intervals_rounded = [round(x) for x in intervals]
     interval_counts = Counter(intervals_rounded)
 
     if not interval_counts:
@@ -204,109 +244,76 @@ def analyze_ruler_box(frame, box_start, box_end):
 
     most_common_interval = interval_counts.most_common(1)[0][0]
 
-    # Filter intervals that are close to the most common (within 20% tolerance)
-    filtered_intervals = [x for x in intervals if abs(x - most_common_interval) < most_common_interval * 0.2]
+    # Filter intervals close to the most common
+    filtered_intervals = [x for x in intervals if abs(x - most_common_interval) < most_common_interval * 0.25]
 
     if not filtered_intervals:
         return None
 
-    # Calculate average interval in pixels
+    # Average interval in pixels (this is likely 1 inch or 1 cm)
     avg_interval_px = np.mean(filtered_intervals)
 
-    # Filter to keep only evenly spaced ticks
+    # Filter evenly spaced ticks
     evenly_spaced_ticks = [unique_ticks[0]]
-
     for i in range(1, len(unique_ticks)):
         expected_proj = evenly_spaced_ticks[-1]['projection'] + avg_interval_px
-        if abs(unique_ticks[i]['projection'] - expected_proj) < avg_interval_px * 0.3:
+        if abs(unique_ticks[i]['projection'] - expected_proj) < avg_interval_px * 0.35:
             evenly_spaced_ticks.append(unique_ticks[i])
 
-    if len(evenly_spaced_ticks) < 3:
+    if len(evenly_spaced_ticks) < 2:
         return None
 
-    # AUTO-DETECT UNIT based on tick spacing patterns
-    # Calculate average interval in pixels
-    avg_interval_px = np.mean([evenly_spaced_ticks[i + 1]['projection'] - evenly_spaced_ticks[i]['projection']
-                               for i in range(len(evenly_spaced_ticks) - 1)])
+    # SMART UNIT DETECTION
+    # Since we focused on the LONGEST lines, these are most likely INCH marks
+    # But we still validate by checking reasonable pixel ranges
 
-    # Analyze tick spacing to determine unit
-    # We'll look at the ratio between consecutive intervals to identify major/minor divisions
-    all_intervals = []
-    for i in range(len(projections) - 1):
-        interval = projections[i + 1] - projections[i]
-        all_intervals.append(interval)
-
-    # Sort intervals to find patterns
-    sorted_intervals = sorted(all_intervals)
-
-    # Check for multiple interval sizes (indicates major/minor divisions)
-    interval_variance = np.std(all_intervals) if len(all_intervals) > 1 else 0
-    has_subdivisions = interval_variance > avg_interval_px * 0.15
-
-    # Determine unit based on spacing patterns and number of ticks
     total_length_px = evenly_spaced_ticks[-1]['projection'] - evenly_spaced_ticks[0]['projection']
     num_intervals = len(evenly_spaced_ticks) - 1
 
-    # Method 1: Check if spacing suggests imperial (inches) or metric
-    # Inches typically have 1/16" or 1/8" subdivisions
-    # Metric has 1mm or 0.5mm subdivisions
-
-    # Assume a reasonable pixel density (typical webcam viewing a ruler at ~20-30cm distance)
-    # Rough estimates: 1 inch ≈ 60-120 pixels, 1 cm ≈ 25-50 pixels, 1 mm ≈ 2.5-5 pixels
-
-    detected_unit = None
-    pixels_per_mm = None
-    confidence_score = 0
-
-    # Strategy: Try each unit and see which makes most sense
+    # Test each possible unit
     test_results = []
 
     for test_unit, mm_per_unit in [("inch", 25.4), ("cm", 10.0), ("mm", 1.0)]:
-        # Calculate what pixels_per_mm would be if this is the correct unit
         test_px_per_mm = avg_interval_px / mm_per_unit
-
-        # Calculate total length in mm
         test_total_mm = total_length_px / test_px_per_mm
-
-        # Reasonable expectations:
-        # - pixels_per_mm typically 2-8 for standard webcam viewing
-        # - total ruler length typically 50-300mm in view
-        # - number of intervals should make sense for the unit
 
         confidence = 100
 
-        # Check if pixels_per_mm is in reasonable range (2-10 px/mm)
+        # Pixel density check (2-10 px/mm is reasonable for webcam)
         if test_px_per_mm < 2 or test_px_per_mm > 10:
-            confidence -= 40
+            confidence -= 50
         elif test_px_per_mm < 3 or test_px_per_mm > 8:
+            confidence -= 25
+
+        # Total length check
+        if test_total_mm < 30 or test_total_mm > 400:
+            confidence -= 40
+        elif test_total_mm < 50 or test_total_mm > 300:
             confidence -= 20
 
-        # Check if total length is reasonable (30-400mm)
-        if test_total_mm < 30 or test_total_mm > 400:
-            confidence -= 30
-        elif test_total_mm < 50 or test_total_mm > 300:
-            confidence -= 15
-
-        # Check if number of intervals makes sense for the unit
+        # Number of intervals check
         if test_unit == "inch":
-            # Expect 2-12 inch marks in view
-            if num_intervals < 2 or num_intervals > 12:
-                confidence -= 25
+            # Expect 2-12 inch marks (we filtered for longest lines, so this should be inches)
+            if 2 <= num_intervals <= 12:
+                confidence += 30  # BONUS: This is likely inches since we filtered longest lines
+            else:
+                confidence -= 20
         elif test_unit == "cm":
-            # Expect 5-30 cm marks in view
-            if num_intervals < 5 or num_intervals > 30:
+            if 5 <= num_intervals <= 30:
+                confidence += 10
+            else:
                 confidence -= 25
         elif test_unit == "mm":
-            # Expect 30-300 mm marks in view (but usually see every 5mm or 10mm)
-            # If we're seeing individual mm marks, there should be many
+            # Individual mm marks would require many ticks
             if num_intervals < 20:
-                confidence -= 30  # Probably not individual mm marks
+                confidence -= 40
 
-        # Bonus: If spacing suggests common ruler patterns
-        if test_unit == "cm" and 20 <= num_intervals <= 25:
-            confidence += 15  # Common ruler length
-        if test_unit == "inch" and 4 <= num_intervals <= 6:
-            confidence += 15  # Common 6-inch ruler
+        # Line length bonus (longer lines suggest larger units like inches)
+        avg_line_length = np.mean([t['length'] for t in evenly_spaced_ticks])
+        if test_unit == "inch" and avg_line_length > 30:
+            confidence += 20
+        elif test_unit == "cm" and 20 < avg_line_length < 35:
+            confidence += 10
 
         test_results.append({
             'unit': test_unit,
@@ -315,30 +322,21 @@ def analyze_ruler_box(frame, box_start, box_end):
             'confidence': max(0, confidence)
         })
 
-    # Select the unit with highest confidence
+    # Select best result
     best_result = max(test_results, key=lambda x: x['confidence'])
 
     if best_result['confidence'] < 40:
-        # Not confident enough - try alternative analysis
-        # Look at interval clustering patterns
-        print("⚠ Low confidence in unit detection, using fallback method...")
-
-        # Fallback: Use most common ruler assumption (cm with 1cm intervals)
-        detected_unit = "cm"
-        pixels_per_mm = avg_interval_px / 10.0
+        print("⚠ Low confidence in unit detection")
+        # Default to inch (most likely with longest line filtering)
+        detected_unit = "inch"
+        pixels_per_mm = avg_interval_px / 25.4
         confidence_score = 50
     else:
         detected_unit = best_result['unit']
         pixels_per_mm = best_result['pixels_per_mm']
         confidence_score = best_result['confidence']
 
-    # Convert unit info
-    unit_to_mm = {
-        "inch": 25.4,
-        "cm": 10.0,
-        "mm": 1.0
-    }
-
+    unit_to_mm = {"inch": 25.4, "cm": 10.0, "mm": 1.0}
     mm_per_tick = unit_to_mm[detected_unit]
     total_length_mm = total_length_px / pixels_per_mm
 
@@ -356,91 +354,13 @@ def analyze_ruler_box(frame, box_start, box_end):
         "origin": (origin_x, origin_y),
         "detected_unit": detected_unit,
         "unit_confidence": confidence_score,
-        "mm_per_tick": mm_per_tick
+        "mm_per_tick": mm_per_tick,
+        "bbox": bbox
     }
 
 
 # ----------------------------------------------------------------------
-# Mouse Callback for Box Selection
-# ----------------------------------------------------------------------
-def mouse_callback(event, x, y, flags, param):
-    global ruler_box_start, ruler_box_end, is_drawing_box
-    global in_ruler_calib_mode, PIXELS_PER_MM, detected_unit
-    global calibration_result, detected_ticks
-
-    if not in_ruler_calib_mode:
-        return
-
-    def in_rect(px, py, rect):
-        rx, ry, rw, rh = rect
-        return rx <= px <= rx + rw and ry <= py <= ry + rh
-
-    if event == cv2.EVENT_LBUTTONDOWN:
-        # Check action buttons
-        if in_rect(x, y, APPLY_BTN):
-            if calibration_result:
-                PIXELS_PER_MM = calibration_result['pixels_per_mm']
-                detected_unit = calibration_result['detected_unit']
-                update_ranges()
-                print(f"✓ Calibration applied: {PIXELS_PER_MM:.4f} px/mm ({detected_unit})")
-                in_ruler_calib_mode = False
-                ruler_box_start = None
-                ruler_box_end = None
-                calibration_result = None
-            return
-
-        elif in_rect(x, y, CANCEL_BTN):
-            in_ruler_calib_mode = False
-            ruler_box_start = None
-            ruler_box_end = None
-            calibration_result = None
-            return
-
-        # Start drawing box
-        if not in_rect(x, y, (RULER_PANEL_X, RULER_PANEL_Y, RULER_PANEL_W, RULER_PANEL_H)):
-            ruler_box_start = (x, y)
-            ruler_box_end = (x, y)
-            is_drawing_box = True
-            calibration_result = None
-
-    elif event == cv2.EVENT_MOUSEMOVE and is_drawing_box:
-        ruler_box_end = (x, y)
-
-    elif event == cv2.EVENT_LBUTTONUP:
-        if is_drawing_box:
-            ruler_box_end = (x, y)
-            is_drawing_box = False
-
-            # AUTOMATIC ANALYSIS: Analyze as soon as box is drawn
-            if ruler_box_start and ruler_box_end and calibration_frozen_frame is not None:
-                calibration_result = analyze_ruler_box(
-                    calibration_frozen_frame, ruler_box_start, ruler_box_end
-                )
-                if calibration_result:
-                    print(f"\n{'=' * 60}")
-                    print(f"AUTOMATIC RULER DETECTION COMPLETE")
-                    print(f"{'=' * 60}")
-                    print(f"✓ Detected {calibration_result['num_ticks']} evenly-spaced ticks")
-                    print(
-                        f"✓ Auto-detected unit: {calibration_result['detected_unit'].upper()} (confidence: {calibration_result['unit_confidence']}%)")
-                    print(
-                        f"✓ Ruler angle: {calibration_result['ruler_angle']:.1f}° (tick angle: {calibration_result['tick_angle']:.1f}°)")
-                    print(f"✓ Number of intervals: {calibration_result['num_intervals']}")
-                    print(
-                        f"✓ Average interval: {calibration_result['avg_interval_px']:.2f} pixels = {calibration_result['mm_per_tick']:.1f}mm")
-                    print(
-                        f"✓ Total ruler length: {calibration_result['total_length_mm']:.2f} mm ({calibration_result['total_length_px']:.2f} px)")
-                    print(f"✓ Calculated calibration: {calibration_result['pixels_per_mm']:.4f} px/mm")
-                    print(f"{'=' * 60}\n")
-                else:
-                    print("✗ Could not detect evenly-spaced ticks. Try:")
-                    print("  - Drawing box around a clearer section of the ruler")
-                    print("  - Ensuring ruler has visible tick marks")
-                    print("  - Including at least 3-5 tick marks in the box")
-
-
-# ----------------------------------------------------------------------
-# Detection (same as before)
+# Detection
 # ----------------------------------------------------------------------
 def detect_pellets(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -498,140 +418,9 @@ def detect_pellets(frame):
 
 
 # ----------------------------------------------------------------------
-# Draw Calibration UI
+# Draw Overlay
 # ----------------------------------------------------------------------
-def draw_ruler_calibration_mode(frame):
-    overlay = frame.copy()
-
-    # Main panel
-    cv2.rectangle(overlay, (RULER_PANEL_X, RULER_PANEL_Y),
-                  (RULER_PANEL_X + RULER_PANEL_W, RULER_PANEL_Y + RULER_PANEL_H),
-                  (30, 30, 50), -1)
-    cv2.rectangle(overlay, (RULER_PANEL_X, RULER_PANEL_Y),
-                  (RULER_PANEL_X + RULER_PANEL_W, RULER_PANEL_Y + RULER_PANEL_H),
-                  (100, 150, 255), 3)
-
-    cv2.putText(overlay, "AUTO RULER CALIBRATION", (RULER_PANEL_X + 60, RULER_PANEL_Y + 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-
-    instructions = [
-        "1. Draw a box around the ruler",
-        "2. System auto-detects:",
-        "   - Tick marks and spacing",
-        "   - Unit (inch/cm/mm)",
-        "   - Calibration factor",
-        "3. Click APPLY to use calibration"
-    ]
-
-    y_offset = RULER_PANEL_Y + 60
-    for instr in instructions:
-        cv2.putText(overlay, instr, (RULER_PANEL_X + 20, y_offset),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
-        y_offset += 22
-
-    # Action buttons
-    apply_enabled = calibration_result is not None
-    apply_color = (0, 200, 0) if apply_enabled else (80, 80, 80)
-    cv2.rectangle(overlay, (APPLY_BTN[0], APPLY_BTN[1]),
-                  (APPLY_BTN[0] + APPLY_BTN[2], APPLY_BTN[1] + APPLY_BTN[3]),
-                  apply_color, -1)
-    cv2.putText(overlay, "APPLY", (APPLY_BTN[0] + 35, APPLY_BTN[1] + 27),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-
-    cv2.rectangle(overlay, (CANCEL_BTN[0], CANCEL_BTN[1]),
-                  (CANCEL_BTN[0] + CANCEL_BTN[2], CANCEL_BTN[1] + CANCEL_BTN[3]),
-                  (100, 100, 100), -1)
-    cv2.putText(overlay, "CANCEL", (CANCEL_BTN[0] + 30, CANCEL_BTN[1] + 27),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-
-    # Display current calibration
-    unit_display = f" ({detected_unit})" if detected_unit else ""
-    cv2.putText(overlay, f"Current: {PIXELS_PER_MM:.3f} px/mm{unit_display}",
-                (RULER_PANEL_X + 20, RULER_PANEL_Y + 195),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 255, 150), 2)
-
-    # Display analysis results
-    if calibration_result:
-        result_y = RULER_PANEL_Y + RULER_PANEL_H + 20
-
-        # Show detected unit with confidence
-        unit_color = (0, 255, 0) if calibration_result['unit_confidence'] >= 70 else (0, 255, 255) if \
-        calibration_result['unit_confidence'] >= 50 else (0, 165, 255)
-        cv2.putText(overlay,
-                    f"AUTO-DETECTED: {calibration_result['detected_unit'].upper()} (confidence: {calibration_result['unit_confidence']}%)",
-                    (RULER_PANEL_X + 20, result_y),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, unit_color, 2)
-
-        cv2.putText(overlay,
-                    f"{calibration_result['num_ticks']} ticks at {calibration_result['ruler_angle']:.0f}deg | {calibration_result['num_intervals']} intervals",
-                    (RULER_PANEL_X + 20, result_y + 24),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1)
-
-        cv2.putText(overlay,
-                    f"Spacing: {calibration_result['avg_interval_px']:.2f}px = {calibration_result['mm_per_tick']:.1f}mm",
-                    (RULER_PANEL_X + 20, result_y + 44),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1)
-
-        cv2.putText(overlay,
-                    f"Length: {calibration_result['total_length_mm']:.1f}mm ({calibration_result['total_length_px']:.1f}px)",
-                    (RULER_PANEL_X + 20, result_y + 64),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1)
-
-        cv2.putText(overlay, f"NEW CALIBRATION: {calibration_result['pixels_per_mm']:.4f} px/mm",
-                    (RULER_PANEL_X + 20, result_y + 89),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-
-    cv2.addWeighted(overlay, 0.85, frame, 0.15, 0, frame)
-
-    # Draw selection box
-    if ruler_box_start and ruler_box_end:
-        cv2.rectangle(frame, ruler_box_start, ruler_box_end, (0, 255, 255), 2)
-
-        # Draw detected ticks if available
-        if calibration_result:
-            x_offset, y_offset = calibration_result['roi_offset']
-            origin_x, origin_y = calibration_result['origin']
-            ruler_angle = calibration_result['ruler_angle']
-            ruler_angle_rad = math.radians(ruler_angle)
-
-            # Draw the ruler axis line (main direction)
-            axis_length = 200
-            axis_dx = int(axis_length * math.cos(ruler_angle_rad))
-            axis_dy = int(axis_length * math.sin(ruler_angle_rad))
-            axis_center_x = int(origin_x + x_offset)
-            axis_center_y = int(origin_y + y_offset)
-
-            cv2.line(frame,
-                     (axis_center_x - axis_dx, axis_center_y - axis_dy),
-                     (axis_center_x + axis_dx, axis_center_y + axis_dy),
-                     (255, 0, 255), 1, cv2.LINE_AA)
-
-            # Draw each detected tick
-            tick_angle_rad = math.radians(calibration_result['tick_angle'])
-            tick_length = 25
-
-            for tick in calibration_result['tick_positions']:
-                mx, my = tick['midpoint']
-                # Convert to absolute frame coordinates
-                abs_x = int(mx + x_offset)
-                abs_y = int(my + y_offset)
-
-                # Draw tick line perpendicular to ruler
-                tick_dx = int(tick_length * math.cos(tick_angle_rad))
-                tick_dy = int(tick_length * math.sin(tick_angle_rad))
-
-                pt1 = (abs_x - tick_dx, abs_y - tick_dy)
-                pt2 = (abs_x + tick_dx, abs_y + tick_dy)
-                cv2.line(frame, pt1, pt2, (0, 255, 0), 2, cv2.LINE_AA)
-
-                # Draw a small circle at the midpoint
-                cv2.circle(frame, (abs_x, abs_y), 3, (0, 255, 255), -1)
-
-
-# ----------------------------------------------------------------------
-# Main Overlay
-# ----------------------------------------------------------------------
-def draw_overlay(frame, pellets):
+def draw_overlay(frame, pellets, ruler_info=None):
     total = len(pellets)
     within = sum(1 for p in pellets if p['within_tolerance'])
     out_of = total - within
@@ -643,6 +432,7 @@ def draw_overlay(frame, pellets):
     cv2.putText(frame, status_text, (20, 38),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.75, status_color, 2)
 
+    # Draw pellets
     for p in pellets:
         box = p['box']
         center = p['center']
@@ -667,13 +457,72 @@ def draw_overlay(frame, pellets):
             cv2.putText(frame, "!", (top_right[0] - 4, top_right[1] + 5),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-    if not in_ruler_calib_mode:
-        cv2.putText(frame, "Press 'r' for ruler calibration | 'q' to quit",
-                    (10, frame.shape[0] - 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 220, 255), 2)
+    # Draw ruler detection info
+    if ruler_info:
+        bbox = ruler_info['bbox']
+        conf = ruler_info.get('confidence', 0)
 
-    if in_ruler_calib_mode:
-        draw_ruler_calibration_mode(frame)
+        # Draw bounding box around detected ruler
+        cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (255, 255, 0), 2)
+
+        # Draw calibration info panel
+        if 'detected_unit' in ruler_info:
+            panel_x, panel_y = 10, 60
+            panel_w, panel_h = 380, 110
+
+            overlay = frame.copy()
+            cv2.rectangle(overlay, (panel_x, panel_y), (panel_x + panel_w, panel_y + panel_h),
+                          (30, 30, 50), -1)
+            cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
+
+            cv2.rectangle(frame, (panel_x, panel_y), (panel_x + panel_w, panel_y + panel_h),
+                          (255, 255, 0), 2)
+
+            cv2.putText(frame, "AUTO-CALIBRATION ACTIVE", (panel_x + 10, panel_y + 25),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+
+            unit_color = (0, 255, 0) if ruler_info['unit_confidence'] >= 70 else (0, 255, 255)
+            cv2.putText(frame, f"Unit: {ruler_info['detected_unit'].upper()} ({ruler_info['unit_confidence']}%)",
+                        (panel_x + 10, panel_y + 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, unit_color, 1)
+
+            cv2.putText(frame, f"Calibration: {ruler_info['pixels_per_mm']:.3f} px/mm",
+                        (panel_x + 10, panel_y + 72),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 255, 150), 1)
+
+            cv2.putText(frame, f"Ticks: {ruler_info['num_ticks']} | Intervals: {ruler_info['num_intervals']}",
+                        (panel_x + 10, panel_y + 94),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
+
+            # Draw detected ticks on ruler
+            x_offset, y_offset = ruler_info['roi_offset']
+            tick_angle_rad = math.radians(ruler_info['tick_angle'])
+            tick_length = 20
+
+            for tick in ruler_info['tick_positions']:
+                mx, my = tick['midpoint']
+                abs_x = int(mx + x_offset)
+                abs_y = int(my + y_offset)
+
+                tick_dx = int(tick_length * math.cos(tick_angle_rad))
+                tick_dy = int(tick_length * math.sin(tick_angle_rad))
+
+                pt1 = (abs_x - tick_dx, abs_y - tick_dy)
+                pt2 = (abs_x + tick_dx, abs_y + tick_dy)
+                cv2.line(frame, pt1, pt2, (0, 255, 0), 2, cv2.LINE_AA)
+                cv2.circle(frame, (abs_x, abs_y), 3, (0, 255, 255), -1)
+        else:
+            # Just show ruler detected
+            cv2.putText(frame, f"RULER DETECTED ({conf:.0%})", (bbox[0], bbox[1] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+    else:
+        # Show searching message
+        cv2.putText(frame, "Searching for ruler...", (10, 70),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+
+    cv2.putText(frame, "Press 'q' to quit | Auto-calibration: ON",
+                (10, frame.shape[0] - 20),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 220, 255), 2)
 
     return frame
 
@@ -706,14 +555,24 @@ def get_camera():
 # Main Loop
 # ----------------------------------------------------------------------
 def main():
-    global in_ruler_calib_mode, calibration_frozen_frame
-    global ruler_box_start, ruler_box_end, calibration_result
+    global PIXELS_PER_MM, detected_unit, last_calibration_time
 
-    print("\nPellet Inspector with Intelligent Auto-Calibration")
+    print("\n" + "=" * 60)
+    print("Pellet Inspector with YOLO Auto-Calibration")
     print("=" * 60)
-    print("Press 'r' -> Draw box around ruler (auto-detects unit & spacing)")
-    print("Press 'q' -> Quit")
+    print("Features:")
+    print("  • Automatic ruler detection using YOLOv11")
+    print("  • Auto-calibration from detected ruler ticks")
+    print("  • Intelligent unit detection (inch/cm/mm)")
+    print("  • Real-time pellet measurement")
     print("=" * 60)
+    print("Press 'q' to quit")
+    print("=" * 60 + "\n")
+
+    # Load YOLO model
+    if not load_yolo_model():
+        print("Cannot proceed without YOLO model. Please check 'yolo/best.pt'")
+        sys.exit(1)
 
     cap = get_camera()
     if not cap.isOpened():
@@ -724,9 +583,10 @@ def main():
     fps_start = time.time()
     fps_display = 0
 
-    window_name = "Pellet Inspector"
+    window_name = "Pellet Inspector - YOLO Auto-Calibration"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-    cv2.setMouseCallback(window_name, mouse_callback)
+
+    ruler_info = None
 
     while True:
         ret, frame = cap.read()
@@ -739,19 +599,49 @@ def main():
                 break
             continue
 
-        if in_ruler_calib_mode and calibration_frozen_frame is None:
-            calibration_frozen_frame = frame.copy()
-        elif not in_ruler_calib_mode:
-            calibration_frozen_frame = None
+        current_time = time.time()
 
-        display_frame = calibration_frozen_frame.copy() if in_ruler_calib_mode else frame.copy()
+        # Detect ruler with YOLO
+        ruler_detection = detect_ruler_yolo(frame)
 
-        if not in_ruler_calib_mode:
-            pellets = detect_pellets(display_frame)
-            display_frame = draw_overlay(display_frame, pellets)
-        else:
-            display_frame = draw_overlay(display_frame, [])
+        # Auto-calibrate if ruler detected and enough time has passed
+        if ruler_detection and (current_time - last_calibration_time) > CALIBRATION_INTERVAL:
+            calibration_result = analyze_ruler_region(frame, ruler_detection['bbox'])
 
+            if calibration_result:
+                PIXELS_PER_MM = calibration_result['pixels_per_mm']
+                detected_unit = calibration_result['detected_unit']
+                update_ranges()
+                last_calibration_time = current_time
+
+                ruler_info = calibration_result.copy()
+                ruler_info['confidence'] = ruler_detection['confidence']
+
+                print(f"\n{'=' * 60}")
+                print(f"AUTO-CALIBRATION SUCCESSFUL")
+                print(f"{'=' * 60}")
+                print(
+                    f"✓ Unit detected: {detected_unit.upper()} (confidence: {calibration_result['unit_confidence']}%)")
+                print(f"✓ Calibration: {PIXELS_PER_MM:.4f} px/mm")
+                print(
+                    f"✓ Ticks detected: {calibration_result['num_ticks']} ({calibration_result['num_intervals']} intervals)")
+                print(f"✓ Ruler length: {calibration_result['total_length_mm']:.1f}mm")
+                print(f"{'=' * 60}\n")
+            elif ruler_info is None:
+                # Show basic ruler detection without calibration
+                ruler_info = {'bbox': ruler_detection['bbox'], 'confidence': ruler_detection['confidence']}
+        elif not ruler_detection:
+            # Ruler lost - keep using last calibration but clear display
+            if ruler_info and 'detected_unit' not in ruler_info:
+                ruler_info = None
+
+        # Detect and measure pellets
+        pellets = detect_pellets(frame)
+
+        # Draw overlay
+        frame = draw_overlay(frame, pellets, ruler_info)
+
+        # FPS counter
         fps_counter += 1
         elapsed = time.time() - fps_start
         if elapsed >= 1.0:
@@ -759,31 +649,22 @@ def main():
             fps_counter = 0
             fps_start = time.time()
 
-        cv2.putText(display_frame, f"FPS: {fps_display}",
-                    (display_frame.shape[1] - 130, 30),
+        cv2.putText(frame, f"FPS: {fps_display}",
+                    (frame.shape[1] - 130, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-        cv2.imshow(window_name, display_frame)
+        cv2.imshow(window_name, frame)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
-        elif key == ord('r'):
-            if in_ruler_calib_mode:
-                in_ruler_calib_mode = False
-                ruler_box_start = None
-                ruler_box_end = None
-                calibration_result = None
-                calibration_frozen_frame = None
-            else:
-                in_ruler_calib_mode = True
 
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
             break
 
     cap.release()
     cv2.destroyAllWindows()
-    print("Shutdown complete.")
+    print("\nShutdown complete.")
 
 
 if __name__ == "__main__":
