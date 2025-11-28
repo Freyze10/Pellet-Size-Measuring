@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00171" summary="try semi auto">
-      <option name="closed" value="true" />
-      <created>1764042268468</created>
-      <option name="number" value="00171" />
-      <option name="presentableId" value="LOCAL-00171" />
-      <option name="project" value="LOCAL" />
-      <updated>1764042268468</updated>
-    </task>
     <task id="LOCAL-00172" summary="added camera reso">
       <option name="closed" value="true" />
       <created>1764047538165</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764313486105</updated>
     </task>
-    <option name="localTasksCounter" value="220" />
+    <task id="LOCAL-00220" summary="display calibr">
+      <option name="closed" value="true" />
+      <created>1764313710251</created>
+      <option name="number" value="00220" />
+      <option name="presentableId" value="LOCAL-00220" />
+      <option name="project" value="LOCAL" />
+      <updated>1764313710251</updated>
+    </task>
+    <option name="localTasksCounter" value="221" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -633,7 +633,7 @@
                   <entry key="branch">
                     <value>
                       <list>
-                        <option value="main" />
+                        <option value="cam-ai-ruler" />
                       </list>
                     </value>
                   </entry>
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="removed overlay text" />
     <MESSAGE value="added from auto" />
     <MESSAGE value="added trained yolo ruler model" />
     <MESSAGE value="updated auto" />
@@ -671,7 +670,8 @@
     <MESSAGE value="yolo DETECTS ALL" />
     <MESSAGE value="updated the mm zone measure" />
     <MESSAGE value="eliminate lower confidence" />
-    <option name="LAST_COMMIT_MESSAGE" value="eliminate lower confidence" />
+    <MESSAGE value="display calibr" />
+    <option name="LAST_COMMIT_MESSAGE" value="display calibr" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

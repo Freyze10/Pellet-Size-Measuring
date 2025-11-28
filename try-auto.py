@@ -4,48 +4,35 @@ import time
 import sys
 import math
 from ultralytics import YOLO
+from collections import defaultdict
 
 # ----------------------------------------------------------------------
-# Configuration
+# Global Calibration
 # ----------------------------------------------------------------------
-# EXACT NAME of the class in your YOLO model that represents the ticks/mm
-CALIBRATION_CLASS_NAME = "mm_zone"
-
-# Initial Fallback
-PIXELS_PER_MM = 6.0
-
-# Pellet Tolerances
+PIXELS_PER_MM = 6.0  # Default fallback
 TARGET_DIAMETER = 3.0
 TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
 
-# Detection Settings
-DESIRED_WIDTH = 1280
-DESIRED_HEIGHT = 720
-MIN_CONTOUR_AREA = 100
-MAX_CONTOUR_AREA = 25000
-
-# Global State
+# YOLO Model
 yolo_model = None
-model_names = {}
 last_calibration_time = 0
-CALIBRATION_INTERVAL = 0.2  # Very fast updates for visual feedback
+CALIBRATION_INTERVAL = 1.0  # Faster updates
+
+# Calibration State
 is_calibrated = False
 
 
-# ----------------------------------------------------------------------
-# Setup
-# ----------------------------------------------------------------------
 def load_yolo_model():
-    global yolo_model, model_names
+    global yolo_model
     try:
+        # Ensure you have the correct path to your weights
         yolo_model = YOLO("yolo/best.pt")
-        model_names = yolo_model.names
-        print(f"✓ Model Loaded. Classes: {model_names}")
+        print("✓ YOLO model loaded successfully")
         return True
     except Exception as e:
-        print(f"✗ Failed to load YOLO: {e}")
+        print(f"✗ Failed to load YOLO model: {e}")
         return False
 
 
@@ -67,304 +54,323 @@ def update_ranges():
 
 update_ranges()
 
+MIN_CONTOUR_AREA = 50
+MAX_CONTOUR_AREA = 25000
 
-# ----------------------------------------------------------------------
-# 1. Custom NMS (Filter Overlapping Boxes)
-# ----------------------------------------------------------------------
-def calculate_iou(boxA, boxB):
-    xA = max(boxA[0], boxB[0])
-    yA = max(boxA[1], boxB[1])
-    xB = min(boxA[2], boxB[2])
-    yB = min(boxA[3], boxB[3])
-    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
-    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
-    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
-    return interArea / float(boxAArea + boxBArea - interArea)
-
-
-def filter_detections(detections, iou_threshold=0.3):
-    if not detections: return []
-    detections.sort(key=lambda x: x['confidence'], reverse=True)
-    final_detections = []
-    while len(detections) > 0:
-        current = detections.pop(0)
-        final_detections.append(current)
-        remaining = []
-        for other in detections:
-            overlap = calculate_iou(current['bbox'], other['bbox'])
-            if current['class_name'] == other['class_name'] and overlap > iou_threshold:
-                continue
-            remaining.append(other)
-        detections = remaining
-    return final_detections
+DESIRED_WIDTH = 1280
+DESIRED_HEIGHT = 720
 
 
 # ----------------------------------------------------------------------
-# 2. YOLO Detection
+# Helper Functions
 # ----------------------------------------------------------------------
-def detect_objects(frame):
-    if yolo_model is None: return []
-    raw_detections = []
-    results = yolo_model(frame, conf=0.4, verbose=False)
-    for r in results:
-        for box in r.boxes:
-            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-            cls_id = int(box.cls[0])
-            name = model_names.get(cls_id, str(cls_id))
-            conf = float(box.conf[0])
-            raw_detections.append({
+def is_within_tolerance(diameter: float, length: float) -> bool:
+    return (DIAMETER_MIN <= diameter <= DIAMETER_MAX and
+            LENGTH_MIN <= length <= LENGTH_MAX)
+
+
+def should_process_pellet(diameter: float, length: float) -> bool:
+    # Filter out tiny noise or huge blobs
+    if diameter < 0.5 or length < 0.5: return False
+    return (DIAMETER_EXCLUDE_MIN <= diameter <= DIAMETER_EXCLUDE_MAX and
+            LENGTH_EXCLUDE_MIN <= length <= LENGTH_EXCLUDE_MAX)
+
+
+def get_distance(p1, p2):
+    return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
+
+
+# ----------------------------------------------------------------------
+# YOLO Ruler Detection
+# ----------------------------------------------------------------------
+def detect_ruler_yolo(frame):
+    global yolo_model
+    if yolo_model is None:
+        return None
+    try:
+        results = yolo_model(frame, conf=0.4, verbose=False)
+        if len(results) > 0 and len(results[0].boxes) > 0:
+            # Find the box with highest confidence
+            best_box = max(results[0].boxes, key=lambda x: x.conf[0])
+            x1, y1, x2, y2 = best_box.xyxy[0].cpu().numpy()
+            conf = best_box.conf[0].cpu().numpy()
+            return {
                 'bbox': (int(x1), int(y1), int(x2), int(y2)),
-                'class_name': name,
-                'confidence': conf
-            })
-    return filter_detections(raw_detections)
+                'confidence': float(conf)
+            }
+    except Exception as e:
+        print(f"Error in YOLO detection: {e}")
+    return None
 
 
 # ----------------------------------------------------------------------
-# 3. OpenCV Calibration (Returns Visual Debug Data)
+# FIXED: Ruler Analysis using Interval Statistics
 # ----------------------------------------------------------------------
-def analyze_mm_zone(frame, bbox):
+def analyze_ruler_region(frame, bbox):
     x1, y1, x2, y2 = bbox
-    h, w = frame.shape[:2]
 
-    # 1. Validation & Crop
-    if x1 < 0 or y1 < 0 or x2 > w or y2 > h: return None
-    roi = frame[y1:y2, x1:x2]
+    # 1. Crop with slight padding (be careful not to go out of bounds)
+    h, w = frame.shape[:2]
+    pad = 5
+    cx1, cy1 = max(0, x1 + pad), max(0, y1 + pad)
+    cx2, cy2 = min(w, x2 - pad), min(h, y2 - pad)
+
+    roi = frame[cy1:cy2, cx1:cx2]
     if roi.size == 0: return None
 
-    # 2. Image Processing
+    # 2. Preprocessing to highlight dark markings
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-    thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 11, 5)
 
+    # Adaptive thresholding handles uneven lighting better than global threshold
+    thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                   cv2.THRESH_BINARY_INV, 15, 8)
+
+    # 3. Find Contours (Potential Ticks)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # 3. Filter Contours (Find Ticks)
-    tick_candidates = []  # Stores {'pos': float, 'point': (x,y)}
+    valid_ticks = []
 
-    is_horizontal = (x2 - x1) > (y2 - y1)
+    # Determine orientation of the ruler based on bounding box aspect ratio
+    bbox_w = x2 - x1
+    bbox_h = y2 - y1
+    is_vertical = bbox_h > bbox_w
 
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if area < 5: continue
+        if area < 5 or area > 1000: continue  # Filter noise and huge blobs
 
-        tx, ty, tw, th = cv2.boundingRect(cnt)
-        ratio = float(tw) / th
+        rect = cv2.boundingRect(cnt)
+        rx, ry, rw, rh = rect
 
-        # Calculate global center point for drawing
-        global_center = (x1 + tx + tw // 2, y1 + ty + th // 2)
+        # 4. Aspect Ratio Filtering
+        # Ticks are either thin lines (horiz or vert)
+        aspect_ratio = float(rw) / rh
 
-        if is_horizontal:
-            if ratio < 0.8:  # Tall/Thin
-                tick_candidates.append({'val': tx + tw / 2, 'point': global_center})
+        is_tick = False
+        if is_vertical:
+            # If ruler is vertical, ticks are horizontal lines (width > height)
+            if aspect_ratio > 1.5:
+                valid_ticks.append({'pos': ry + rh / 2, 'center': (rx + rw / 2, ry + rh / 2)})
         else:
-            if ratio > 1.2:  # Wide/Short
-                tick_candidates.append({'val': ty + th / 2, 'point': global_center})
+            # If ruler is horizontal, ticks are vertical lines (height > width)
+            if aspect_ratio < 0.6:
+                valid_ticks.append({'pos': rx + rw / 2, 'center': (rx + rw / 2, ry + rh / 2)})
 
-    if len(tick_candidates) < 5: return None
-
-    # 4. Sort by position
-    tick_candidates.sort(key=lambda x: x['val'])
-
-    # Extract just the scalar values for math
-    scalar_vals = [t['val'] for t in tick_candidates]
+    if len(valid_ticks) < 5:
+        return None
 
     # 5. Calculate Intervals
+    # Sort ticks by position
+    valid_ticks.sort(key=lambda x: x['pos'])
+
+    positions = [t['pos'] for t in valid_ticks]
     intervals = []
-    for i in range(len(scalar_vals) - 1):
-        gap = scalar_vals[i + 1] - scalar_vals[i]
+
+    for i in range(len(positions) - 1):
+        gap = positions[i + 1] - positions[i]
+        # Filter logic: Ignore extremely small gaps (double detections) or huge gaps
         if 2 < gap < 100:
             intervals.append(gap)
 
-    if len(intervals) < 3: return None
+    if len(intervals) < 3:
+        return None
 
-    # 6. Statistics (Median Filter)
+    # 6. Statistical Analysis (The Key Fix)
+    # We look for the most common small interval.
+    # Standard rulers have 1mm marks.
+
     median_gap = np.median(intervals)
-    valid_gaps = [g for g in intervals if abs(g - median_gap) < 2.0]
 
-    if len(valid_gaps) < 3: return None
+    # If the variance is high, the data is noisy. Remove outliers.
+    clean_intervals = [i for i in intervals if abs(i - median_gap) < 2.0]
 
-    px_per_mm = np.mean(valid_gaps)
+    if len(clean_intervals) < 3:
+        return None
 
-    if px_per_mm < 2 or px_per_mm > 100: return None
+    final_px_per_mm = np.mean(clean_intervals)
 
-    # Return both the math result AND the visual points
+    # Sanity Check:
+    # If pixels per mm is too small (< 2), it's likely noise.
+    # If it's too big (> 50), the camera is too close or it detected cm marks as mm.
+    if final_px_per_mm < 2.0 or final_px_per_mm > 50.0:
+        return None
+
     return {
-        'px_per_mm': px_per_mm,
-        'tick_points': [t['point'] for t in tick_candidates]
+        "pixels_per_mm": final_px_per_mm,
+        "bbox": bbox,
+        "tick_count": len(valid_ticks),
+        "roi_offset": (cx1, cy1),
+        "tick_centers": [t['center'] for t in valid_ticks]
     }
 
 
 # ----------------------------------------------------------------------
-# 4. Pellet Measurement
+# Pellet Detection
 # ----------------------------------------------------------------------
 def detect_pellets(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blur = cv2.bilateralFilter(gray, 9, 75, 75)
-    thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+
+    # Use simple thresholding or adaptive depending on background
+    # Setup for light pellets on dark background or vice versa?
+    # Assuming dark pellets on light background (Adaptive usually works best)
+    thresh = cv2.adaptiveThreshold(blur, 255,
+                                   cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 11, 2)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+
+    # Morphological cleanup
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
 
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    pellets = []
 
+    pellets = []
     for cnt in contours:
-        if not (MIN_CONTOUR_AREA <= cv2.contourArea(cnt) <= MAX_CONTOUR_AREA): continue
+        area = cv2.contourArea(cnt)
+        if not (MIN_CONTOUR_AREA <= area <= MAX_CONTOUR_AREA):
+            continue
 
         rect = cv2.minAreaRect(cnt)
-        box = np.intp(cv2.boxPoints(rect))
+        (center_x, center_y), (w, h), angle = rect
+        box = cv2.boxPoints(rect)
+        box = np.intp(box)
 
-        d1 = math.sqrt((box[0][0] - box[1][0]) ** 2 + (box[0][1] - box[1][1]) ** 2)
-        d2 = math.sqrt((box[1][0] - box[2][0]) ** 2 + (box[1][1] - box[2][1]) ** 2)
+        # MinAreaRect returns width/height in arbitrary order based on angle
+        dim1 = w
+        dim2 = h
 
-        w_px = min(d1, d2)
-        h_px = max(d1, d2)
+        width_px = min(dim1, dim2)  # Diameter is usually the smaller dimension
+        height_px = max(dim1, dim2)  # Length is the longer dimension
 
-        dia = w_px / PIXELS_PER_MM
-        length = h_px / PIXELS_PER_MM
+        diameter = width_px / PIXELS_PER_MM
+        length = height_px / PIXELS_PER_MM
 
-        if should_process_pellet(dia, length):
+        if should_process_pellet(diameter, length):
             pellets.append({
                 'box': box,
-                'diameter': dia,
+                'center': (center_x, center_y),
+                'diameter': diameter,
                 'length': length,
-                'ok': (DIAMETER_MIN <= dia <= DIAMETER_MAX and LENGTH_MIN <= length <= LENGTH_MAX)
+                'within_tolerance': is_within_tolerance(diameter, length)
             })
     return pellets
 
 
-def should_process_pellet(d, l):
-    if d < 0.5 or l < 0.5: return False
-    return (DIAMETER_EXCLUDE_MIN <= d <= DIAMETER_EXCLUDE_MAX and
-            LENGTH_EXCLUDE_MIN <= l <= LENGTH_EXCLUDE_MAX)
-
-
 # ----------------------------------------------------------------------
-# 5. Drawing (With Debug Visualization)
+# Draw Overlay
 # ----------------------------------------------------------------------
-def draw_results(frame, pellets, detections, debug_info):
-    # Top Bar
-    cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 40), (20, 20, 20), -1)
-    status_col = (0, 255, 0) if is_calibrated else (0, 0, 255)
-    msg = f"CALIBRATED: {PIXELS_PER_MM:.2f} px/mm" if is_calibrated else "WAITING FOR RULER..."
-    cv2.putText(frame, msg, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_col, 2)
+def draw_overlay(frame, pellets, ruler_data):
+    # Draw Calibration Info
+    cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 40), (30, 30, 30), -1)
 
-    # 1. Draw Detections
-    for det in detections:
-        x1, y1, x2, y2 = det['bbox']
-        label = det['class_name']
+    if is_calibrated:
+        status_color = (0, 255, 0)
+        msg = f"CALIBRATED: {PIXELS_PER_MM:.2f} px/mm"
+    else:
+        status_color = (0, 0, 255)
+        msg = "UNCALIBRATED - Using Default"
 
-        if label == CALIBRATION_CLASS_NAME:
-            color = (255, 255, 0)  # Cyan for calibration zone
-            thick = 2
+    cv2.putText(frame, msg, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2)
 
-            # Draw the box
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, thick)
-            cv2.putText(frame, f"CALIBRATION ZONE", (x1, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+    # Draw Ruler Detection Debug
+    if ruler_data:
+        bbox = ruler_data['bbox']
+        cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (255, 255, 0), 2)
+        cv2.putText(frame, "Ruler Found", (bbox[0], bbox[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
 
-            # --- VISUALIZE TICKS ---
-            # If we have debug info for this zone, draw the dots
-            if debug_info and 'tick_points' in debug_info:
-                ticks = debug_info['tick_points']
+        # Visualize the detected ticks (Green dots)
+        offset_x, offset_y = ruler_data.get('roi_offset', (0, 0))
+        if 'tick_centers' in ruler_data:
+            for tx, ty in ruler_data['tick_centers']:
+                # Draw only every 5th tick to save clutter
+                cv2.circle(frame, (int(tx + offset_x), int(ty + offset_y)), 2, (0, 255, 255), -1)
 
-                # Draw lines connecting ticks (to show the 'ruler' line)
-                if len(ticks) > 1:
-                    for i in range(len(ticks) - 1):
-                        cv2.line(frame, ticks[i], ticks[i + 1], (0, 255, 255), 1)
+    # Draw Pellets
+    total = len(pellets)
+    good = sum(1 for p in pellets if p['within_tolerance'])
 
-                # Draw dots on exact tick centers
-                for pt in ticks:
-                    cv2.circle(frame, pt, 2, (0, 0, 255), -1)  # Red center
-                    cv2.circle(frame, pt, 4, (0, 255, 255), 1)  # Yellow ring
-        else:
-            # Other objects (dimmed)
-            color = (100, 100, 100)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
-            cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+    stats = f"Total: {total} | Good: {good} | Bad: {total - good}"
+    cv2.putText(frame, stats, (DESIRED_WIDTH - 400, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-    # 2. Draw Pellets
     for p in pellets:
         box = p['box']
-        color = (0, 255, 0) if p['ok'] else (0, 0, 255)
+        color = (0, 255, 0) if p['within_tolerance'] else (0, 0, 255)
 
         cv2.drawContours(frame, [box], 0, color, 2)
 
-        lx = int(min(box[:, 0]))
-        ly = int(min(box[:, 1]))
+        lbl_x = int(box[0][0])
+        lbl_y = int(box[0][1])
 
-        lines = [f"D:{p['diameter']:.2f}", f"L:{p['length']:.2f}"]
-        for i, txt in enumerate(lines):
-            y = max(ly - 20 + (i * 15), 15)
-            cv2.putText(frame, txt, (lx, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3)
-            cv2.putText(frame, txt, (lx, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-
-        if not p['ok']:
-            cv2.putText(frame, "!", (lx - 15, ly), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+        # Label Background
+        cv2.putText(frame, f"{p['diameter']:.1f}x{p['length']:.1f}", (lbl_x, lbl_y - 5),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
     return frame
 
 
 # ----------------------------------------------------------------------
-# Main
+# Main Loop
 # ----------------------------------------------------------------------
 def main():
-    global PIXELS_PER_MM, is_calibrated, last_calibration_time
+    global PIXELS_PER_MM, last_calibration_time, is_calibrated
 
-    print("--- Precision Pellet Inspector ---")
+    print("Initializing Camera...")
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    if not cap.isOpened(): cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-    cap.set(3, DESIRED_WIDTH)
-    cap.set(4, DESIRED_HEIGHT)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+    if not cap.isOpened():
+        cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)  # Try index 1
 
-    if not load_yolo_model(): return
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, DESIRED_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, DESIRED_HEIGHT)
+    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Turn off autofocus for consistent measurement
 
-    debug_info = None
+    if not load_yolo_model():
+        return
+
+    print("Starting Loop. Present ruler to camera.")
 
     while True:
         ret, frame = cap.read()
         if not ret: break
 
-        # 1. Detect Objects
-        detections = detect_objects(frame)
+        current_time = time.time()
 
-        # 2. Find Calibration Zone
-        mm_zone = next((d for d in detections if d['class_name'] == CALIBRATION_CLASS_NAME), None)
+        # 1. Detect Ruler
+        ruler_bbox = detect_ruler_yolo(frame)
+        ruler_data = None
 
-        if mm_zone and (time.time() - last_calibration_time) > CALIBRATION_INTERVAL:
-            result = analyze_mm_zone(frame, mm_zone['bbox'])
+        # 2. Analyze Ruler for Calibration
+        if ruler_bbox:
+            # Draw bbox immediately for feedback
+            ruler_data = {'bbox': ruler_bbox['bbox']}
 
-            if result:
-                new_px_mm = result['px_per_mm']
-                debug_info = result  # Save points for drawing
+            # Only recalibrate periodically to prevent jitter
+            if (current_time - last_calibration_time) > CALIBRATION_INTERVAL:
+                analysis = analyze_ruler_region(frame, ruler_bbox['bbox'])
 
-                # Smooth average
-                if is_calibrated:
-                    PIXELS_PER_MM = (PIXELS_PER_MM * 0.9) + (new_px_mm * 0.1)
-                else:
-                    PIXELS_PER_MM = new_px_mm
-                    is_calibrated = True
+                if analysis:
+                    # Apply Smooth Averaging to prevent jumping values
+                    new_px_mm = analysis['pixels_per_mm']
+                    if is_calibrated:
+                        PIXELS_PER_MM = (PIXELS_PER_MM * 0.8) + (new_px_mm * 0.2)
+                    else:
+                        PIXELS_PER_MM = new_px_mm
+                        is_calibrated = True
 
-                update_ranges()
-                last_calibration_time = time.time()
-            else:
-                # If analysis failed this frame (e.g. blurry), keep old debug info or clear it?
-                # Keeping it makes it look "stuck", clearing it shows "loss of tracking".
-                # Let's clear it to show we lost the ticks.
-                debug_info = None
-        elif not mm_zone:
-            debug_info = None
+                    update_ranges()
+                    last_calibration_time = current_time
+                    ruler_data = analysis  # Update data for overlay
+                    print(f"Calibration Updated: {PIXELS_PER_MM:.2f} px/mm")
 
-        # 3. Detect Pellets
+        # 3. Detect and Measure Pellets
         pellets = detect_pellets(frame)
 
         # 4. Draw
-        frame = draw_results(frame, pellets, detections, debug_info)
-        cv2.imshow("Inspector", frame)
+        frame = draw_overlay(frame, pellets, ruler_data)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'): break
+        cv2.imshow("Smart Calibration Inspector", frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
     cap.release()
     cv2.destroyAllWindows()
