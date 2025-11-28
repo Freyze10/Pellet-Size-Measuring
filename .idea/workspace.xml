@@ -90,7 +90,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.main">
+  <component name="RunManager" selected="Python.try-auto">
     <configuration name="label" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -203,8 +203,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.main" />
         <item itemvalue="Python.try-auto" />
+        <item itemvalue="Python.main" />
         <item itemvalue="Python.yolo_cv_scanner" />
         <item itemvalue="Python.newOpencv" />
         <item itemvalue="Python.label" />
@@ -226,22 +226,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00177" summary="display actual camera reso">
-      <option name="closed" value="true" />
-      <created>1764058315013</created>
-      <option name="number" value="00177" />
-      <option name="presentableId" value="LOCAL-00177" />
-      <option name="project" value="LOCAL" />
-      <updated>1764058315013</updated>
-    </task>
-    <task id="LOCAL-00178" summary="display actual camera reso">
-      <option name="closed" value="true" />
-      <created>1764060414114</created>
-      <option name="number" value="00178" />
-      <option name="presentableId" value="LOCAL-00178" />
-      <option name="project" value="LOCAL" />
-      <updated>1764060414115</updated>
     </task>
     <task id="LOCAL-00179" summary="display actual camera reso">
       <option name="closed" value="true" />
@@ -619,7 +603,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764315257880</updated>
     </task>
-    <option name="localTasksCounter" value="226" />
+    <task id="LOCAL-00226" summary="returned main and ruler for auto">
+      <option name="closed" value="true" />
+      <created>1764317453855</created>
+      <option name="number" value="00226" />
+      <option name="presentableId" value="LOCAL-00226" />
+      <option name="project" value="LOCAL" />
+      <updated>1764317453855</updated>
+    </task>
+    <task id="LOCAL-00227" summary="updated auto calibrate">
+      <option name="closed" value="true" />
+      <created>1764317696261</created>
+      <option name="number" value="00227" />
+      <option name="presentableId" value="LOCAL-00227" />
+      <option name="project" value="LOCAL" />
+      <updated>1764317696261</updated>
+    </task>
+    <option name="localTasksCounter" value="228" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,8 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updated auto" />
-    <MESSAGE value="added yolo model" />
     <MESSAGE value="deleted past best" />
     <MESSAGE value="replaced yolo model" />
     <MESSAGE value="updating auto" />
@@ -671,7 +669,9 @@
     <MESSAGE value="display calibr" />
     <MESSAGE value="tring" />
     <MESSAGE value="trying" />
-    <option name="LAST_COMMIT_MESSAGE" value="trying" />
+    <MESSAGE value="returned main and ruler for auto" />
+    <MESSAGE value="updated auto calibrate" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated auto calibrate" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
