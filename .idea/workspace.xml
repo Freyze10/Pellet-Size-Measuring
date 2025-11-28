@@ -227,38 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00164" summary="returned to working">
-      <option name="closed" value="true" />
-      <created>1763973928744</created>
-      <option name="number" value="00164" />
-      <option name="presentableId" value="LOCAL-00164" />
-      <option name="project" value="LOCAL" />
-      <updated>1763973928744</updated>
-    </task>
-    <task id="LOCAL-00165" summary="improved runtime">
-      <option name="closed" value="true" />
-      <created>1763974592021</created>
-      <option name="number" value="00165" />
-      <option name="presentableId" value="LOCAL-00165" />
-      <option name="project" value="LOCAL" />
-      <updated>1763974592021</updated>
-    </task>
-    <task id="LOCAL-00166" summary="returned ver">
-      <option name="closed" value="true" />
-      <created>1763974600170</created>
-      <option name="number" value="00166" />
-      <option name="presentableId" value="LOCAL-00166" />
-      <option name="project" value="LOCAL" />
-      <updated>1763974600170</updated>
-    </task>
-    <task id="LOCAL-00167" summary="space">
-      <option name="closed" value="true" />
-      <created>1764030478435</created>
-      <option name="number" value="00167" />
-      <option name="presentableId" value="LOCAL-00167" />
-      <option name="project" value="LOCAL" />
-      <updated>1764030478435</updated>
-    </task>
     <task id="LOCAL-00168" summary="trying auto calibrate">
       <option name="closed" value="true" />
       <created>1764032927938</created>
@@ -619,7 +587,39 @@
       <option name="project" value="LOCAL" />
       <updated>1764307086006</updated>
     </task>
-    <option name="localTasksCounter" value="213" />
+    <task id="LOCAL-00213" summary="replaced best.pt">
+      <option name="closed" value="true" />
+      <created>1764310342873</created>
+      <option name="number" value="00213" />
+      <option name="presentableId" value="LOCAL-00213" />
+      <option name="project" value="LOCAL" />
+      <updated>1764310342873</updated>
+    </task>
+    <task id="LOCAL-00214" summary="yolo with mm zone">
+      <option name="closed" value="true" />
+      <created>1764310405767</created>
+      <option name="number" value="00214" />
+      <option name="presentableId" value="LOCAL-00214" />
+      <option name="project" value="LOCAL" />
+      <updated>1764310405767</updated>
+    </task>
+    <task id="LOCAL-00215" summary="yolo with mm zone">
+      <option name="closed" value="true" />
+      <created>1764310728436</created>
+      <option name="number" value="00215" />
+      <option name="presentableId" value="LOCAL-00215" />
+      <option name="project" value="LOCAL" />
+      <updated>1764310728436</updated>
+    </task>
+    <task id="LOCAL-00216" summary="yolo DETECTS ALL">
+      <option name="closed" value="true" />
+      <created>1764310737176</created>
+      <option name="number" value="00216" />
+      <option name="presentableId" value="LOCAL-00216" />
+      <option name="project" value="LOCAL" />
+      <updated>1764310737176</updated>
+    </task>
+    <option name="localTasksCounter" value="217" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,9 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="calib" />
-    <MESSAGE value="added exit on calib when clicked r" />
-    <MESSAGE value="removed unnecessary prints" />
     <MESSAGE value="rewrite ruler for calib" />
     <MESSAGE value="fixing ruler" />
     <MESSAGE value="removed overlay text" />
@@ -671,7 +668,10 @@
     <MESSAGE value="testing diff measures" />
     <MESSAGE value="try gai stud" />
     <MESSAGE value="fix the pellet detection" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix the pellet detection" />
+    <MESSAGE value="replaced best.pt" />
+    <MESSAGE value="yolo with mm zone" />
+    <MESSAGE value="yolo DETECTS ALL" />
+    <option name="LAST_COMMIT_MESSAGE" value="yolo DETECTS ALL" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
