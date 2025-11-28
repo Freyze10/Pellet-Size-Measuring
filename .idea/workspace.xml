@@ -90,7 +90,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.try-auto">
+  <component name="RunManager" selected="Python.main">
     <configuration name="label" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -203,8 +203,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.try-auto" />
         <item itemvalue="Python.main" />
+        <item itemvalue="Python.try-auto" />
         <item itemvalue="Python.yolo_cv_scanner" />
         <item itemvalue="Python.newOpencv" />
         <item itemvalue="Python.label" />
@@ -226,22 +226,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00175" summary="force full hd">
-      <option name="closed" value="true" />
-      <created>1764050725341</created>
-      <option name="number" value="00175" />
-      <option name="presentableId" value="LOCAL-00175" />
-      <option name="project" value="LOCAL" />
-      <updated>1764050725341</updated>
-    </task>
-    <task id="LOCAL-00176" summary="display actual camera reso">
-      <option name="closed" value="true" />
-      <created>1764051593999</created>
-      <option name="number" value="00176" />
-      <option name="presentableId" value="LOCAL-00176" />
-      <option name="project" value="LOCAL" />
-      <updated>1764051593999</updated>
     </task>
     <task id="LOCAL-00177" summary="display actual camera reso">
       <option name="closed" value="true" />
@@ -619,7 +603,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764314777204</updated>
     </task>
-    <option name="localTasksCounter" value="224" />
+    <task id="LOCAL-00224" summary="trying">
+      <option name="closed" value="true" />
+      <created>1764315248589</created>
+      <option name="number" value="00224" />
+      <option name="presentableId" value="LOCAL-00224" />
+      <option name="project" value="LOCAL" />
+      <updated>1764315248589</updated>
+    </task>
+    <task id="LOCAL-00225" summary="trying">
+      <option name="closed" value="true" />
+      <created>1764315257880</created>
+      <option name="number" value="00225" />
+      <option name="presentableId" value="LOCAL-00225" />
+      <option name="project" value="LOCAL" />
+      <updated>1764315257880</updated>
+    </task>
+    <option name="localTasksCounter" value="226" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
