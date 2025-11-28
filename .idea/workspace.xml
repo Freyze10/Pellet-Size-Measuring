@@ -227,22 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00173" summary="returned">
-      <option name="closed" value="true" />
-      <created>1764050419110</created>
-      <option name="number" value="00173" />
-      <option name="presentableId" value="LOCAL-00173" />
-      <option name="project" value="LOCAL" />
-      <updated>1764050419110</updated>
-    </task>
-    <task id="LOCAL-00174" summary="use obs cam">
-      <option name="closed" value="true" />
-      <created>1764050697705</created>
-      <option name="number" value="00174" />
-      <option name="presentableId" value="LOCAL-00174" />
-      <option name="project" value="LOCAL" />
-      <updated>1764050697705</updated>
-    </task>
     <task id="LOCAL-00175" summary="force full hd">
       <option name="closed" value="true" />
       <created>1764050725341</created>
@@ -619,7 +603,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764314652541</updated>
     </task>
-    <option name="localTasksCounter" value="222" />
+    <task id="LOCAL-00222" summary="tring">
+      <option name="closed" value="true" />
+      <created>1764314696949</created>
+      <option name="number" value="00222" />
+      <option name="presentableId" value="LOCAL-00222" />
+      <option name="project" value="LOCAL" />
+      <updated>1764314696949</updated>
+    </task>
+    <task id="LOCAL-00223" summary="trying">
+      <option name="closed" value="true" />
+      <created>1764314777204</created>
+      <option name="number" value="00223" />
+      <option name="presentableId" value="LOCAL-00223" />
+      <option name="project" value="LOCAL" />
+      <updated>1764314777204</updated>
+    </task>
+    <option name="localTasksCounter" value="224" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added trained yolo ruler model" />
     <MESSAGE value="updated auto" />
     <MESSAGE value="added yolo model" />
     <MESSAGE value="deleted past best" />
@@ -671,7 +670,8 @@
     <MESSAGE value="eliminate lower confidence" />
     <MESSAGE value="display calibr" />
     <MESSAGE value="tring" />
-    <option name="LAST_COMMIT_MESSAGE" value="tring" />
+    <MESSAGE value="trying" />
+    <option name="LAST_COMMIT_MESSAGE" value="trying" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
