@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00161" summary="return">
-      <option name="closed" value="true" />
-      <created>1763967729650</created>
-      <option name="number" value="00161" />
-      <option name="presentableId" value="LOCAL-00161" />
-      <option name="project" value="LOCAL" />
-      <updated>1763967729650</updated>
-    </task>
     <task id="LOCAL-00162" summary="fixed longtime runtime">
       <option name="closed" value="true" />
       <created>1763968123748</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764300186358</updated>
     </task>
-    <option name="localTasksCounter" value="210" />
+    <task id="LOCAL-00210" summary="testing diff measures">
+      <option name="closed" value="true" />
+      <created>1764300930082</created>
+      <option name="number" value="00210" />
+      <option name="presentableId" value="LOCAL-00210" />
+      <option name="project" value="LOCAL" />
+      <updated>1764300930083</updated>
+    </task>
+    <option name="localTasksCounter" value="211" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="force full hd" />
     <MESSAGE value="display actual camera reso" />
     <MESSAGE value="fot testing" />
     <MESSAGE value="calib" />
@@ -671,7 +670,8 @@
     <MESSAGE value="uploaded new best.pt" />
     <MESSAGE value="UPDATED AUTO" />
     <MESSAGE value="usage wiht yolo" />
-    <option name="LAST_COMMIT_MESSAGE" value="usage wiht yolo" />
+    <MESSAGE value="testing diff measures" />
+    <option name="LAST_COMMIT_MESSAGE" value="testing diff measures" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
