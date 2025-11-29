@@ -17,26 +17,22 @@ TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
 
-# --- TIMING & STABILITY SETTINGS ---
-REQUIRED_HOLD_TIME = 5.0  # Seconds to hold still before locking
-MAX_JITTER_PER_FRAME = 0.5  # If px/mm changes > 0.5 instantly, reset timer
-RESET_THRESHOLD = 3.0  # If locked and value changes > 3.0, unlock
+# --- STABILITY SETTINGS (5 SECONDS) ---
+# Webcam is approx 30 FPS. 30 * 5 seconds = 150 frames.
+CALIBRATION_BUFFER_SIZE = 150
+STABILITY_THRESHOLD = 0.5
+RESET_THRESHOLD = 3.0
 
-# --- STRICT DETECTION RULES ---
-MIN_CONSECUTIVE_LINES = 5  # Must see at least 5 lines in a row
-CM_STRICT_HEIGHT_RATIO = 0.90  # Line must be 90% of max height
-MAX_GAP_VARIANCE = 0.05  # Spacing must be within 5% tolerance
+# --- DETECTION STRICTNESS ---
+ASPECT_RATIO_MIN = 2.0
+CM_STRICT_HEIGHT_RATIO = 0.90  # Line must be 90% of max height (Filters out 0.5cm marks)
+MAX_GAP_VARIANCE = 0.05  # Max 5% difference in spacing allowed
 
 # System State
 yolo_model = None
 is_calibrated = False
 calibration_locked = False
-
-# Timing State
-stabilization_start_time = None
-last_valid_px = None
-calibration_buffer = deque(maxlen=60)  # Used only for averaging the final value
-
+calibration_buffer = deque(maxlen=CALIBRATION_BUFFER_SIZE)
 current_tick_data = None
 calibration_error_msg = ""
 
@@ -143,7 +139,7 @@ def run_yolo_detection(frame):
 
 
 # ----------------------------------------------------------------------
-# 2. Strict Structure Analysis (5 Consecutive Lines)
+# 2. STRUCTURE ANALYSIS (Strict 5-Line Spacing Check)
 # ----------------------------------------------------------------------
 def analyze_structure(frame, bbox):
     global calibration_error_msg
@@ -160,7 +156,6 @@ def analyze_structure(frame, bbox):
 
     is_horizontal_ruler = (cx2 - cx1) > (cy2 - cy1)
 
-    # Pre-process
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 19, 5)
@@ -186,17 +181,18 @@ def analyze_structure(frame, bbox):
 
         if is_horizontal_ruler:
             aspect_ratio = th / float(tw)
-            if aspect_ratio > 2.0:
+            if aspect_ratio > ASPECT_RATIO_MIN:
                 pos = tx + tw / 2.0
                 all_ticks.append({'pos': pos, 'len': th, 'rect': (tx, ty, tw, th)})
         else:
             aspect_ratio = tw / float(th)
-            if aspect_ratio > 2.0:
+            if aspect_ratio > ASPECT_RATIO_MIN:
                 pos = ty + th / 2.0
                 all_ticks.append({'pos': pos, 'len': tw, 'rect': (tx, ty, tw, th)})
 
-    if len(all_ticks) < MIN_CONSECUTIVE_LINES:
-        calibration_error_msg = "Not enough lines"
+    # Must find at least 5 raw lines to even start
+    if len(all_ticks) < 5:
+        calibration_error_msg = "Need 5+ lines"
         return None
 
     # --- LENGTH FILTERING ---
@@ -205,6 +201,7 @@ def analyze_structure(frame, bbox):
     reference_cm_height = np.median([t['len'] for t in sorted_by_len[:top_n]])
 
     cm_ticks = []
+
     for t in all_ticks:
         if t['len'] > (reference_cm_height * CM_STRICT_HEIGHT_RATIO):
             t['type'] = 'CM'
@@ -214,48 +211,44 @@ def analyze_structure(frame, bbox):
         else:
             t['type'] = 'MM'
 
-    if len(cm_ticks) < MIN_CONSECUTIVE_LINES:
-        calibration_error_msg = "Need 5+ CM lines"
+    # REQUIRE 5 CONSECUTIVE CM LINES
+    if len(cm_ticks) < 5:
+        calibration_error_msg = f"Found {len(cm_ticks)}/5 CM lines"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    # --- CONSECUTIVE CHAIN ANALYSIS ---
+    # --- SPACING ANALYSIS ---
     cm_ticks.sort(key=lambda x: x['pos'])
 
-    # Find the longest sequence of equally spaced lines
-    longest_chain = []
-    current_chain = [cm_ticks[0]]
-
-    # Calculate median gap of ALL lines first to get a baseline estimate
-    all_gaps = [cm_ticks[i + 1]['pos'] - cm_ticks[i]['pos'] for i in range(len(cm_ticks) - 1)]
-    if not all_gaps: return None
-    baseline_gap = np.median(all_gaps)
-
+    gaps = []
     for i in range(len(cm_ticks) - 1):
-        gap = cm_ticks[i + 1]['pos'] - cm_ticks[i]['pos']
+        gaps.append(cm_ticks[i + 1]['pos'] - cm_ticks[i]['pos'])
 
-        # Check if this gap matches the baseline
-        if abs(gap - baseline_gap) < (baseline_gap * MAX_GAP_VARIANCE):
-            current_chain.append(cm_ticks[i + 1])
-        else:
-            if len(current_chain) > len(longest_chain):
-                longest_chain = current_chain
-            current_chain = [cm_ticks[i + 1]]
-
-    if len(current_chain) > len(longest_chain):
-        longest_chain = current_chain
-
-    # --- FINAL VALIDATION ---
-    if len(longest_chain) < MIN_CONSECUTIVE_LINES:
-        calibration_error_msg = "Lines not consecutive/equal"
+    if not gaps:
+        calibration_error_msg = "Error calc gaps"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    # Calculate precise average from the valid chain
-    chain_gaps = []
-    for i in range(len(longest_chain) - 1):
-        chain_gaps.append(longest_chain[i + 1]['pos'] - longest_chain[i]['pos'])
+    median_gap = np.median(gaps)
 
-    avg_gap_px = np.mean(chain_gaps)
-    px_per_mm = avg_gap_px / 10.0
+    # Filter outliers (missed lines)
+    valid_gaps = [g for g in gaps if abs(g - median_gap) < (median_gap * 0.2)]
+
+    # If we had 5 lines, we should have 4 gaps.
+    if len(valid_gaps) < 4:
+        calibration_error_msg = "Gaps inconsistent"
+        return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
+
+    # Strict Equality Check
+    gap_mean = np.mean(valid_gaps)
+    gap_std = np.std(valid_gaps)
+
+    spacing_variance = gap_std / gap_mean
+
+    if spacing_variance > MAX_GAP_VARIANCE:
+        calibration_error_msg = f"Uneven Spacing ({spacing_variance * 100:.1f}%)"
+        return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
+
+    # Success
+    px_per_mm = gap_mean / 10.0
 
     if px_per_mm < 2 or px_per_mm > 150:
         calibration_error_msg = "Scale Error"
@@ -264,7 +257,7 @@ def analyze_structure(frame, bbox):
     calibration_error_msg = ""
     return {
         "px_per_mm": px_per_mm,
-        "ticks": longest_chain,  # Only return the valid chain for red coloring
+        "ticks": all_ticks,
         "roi_offset": (cx1, cy1)
     }
 
@@ -355,19 +348,22 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
     if tick_data:
         off_x, off_y = tick_data['roi_offset']
         for t in tick_data['ticks']:
-            # All ticks returned here are part of the valid chain (CM lines)
             rx, ry, rw, rh = t['rect']
             ax, ay = int(off_x + rx), int(off_y + ry)
             aw, ah = int(rw), int(rh)
 
-            # Red Line (Used for Calibration)
-            cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), (0, 0, 255), 1)
+            if t['type'] == 'CM':
+                cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), (0, 0, 255), -1)
+            elif t['type'] == 'HALF':
+                cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), (0, 255, 255), 1)
+            else:
+                cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), (255, 255, 0), 1)
 
-    # Draw Pellets (Thinner Border = 1)
+    # Draw Pellets (Thin Border)
     for p in pellets:
         box = p['box']
         color = (0, 255, 0) if p['is_good'] else (0, 0, 255)
-        cv2.drawContours(frame, [box], 0, color, 1)
+        cv2.drawContours(frame, [box], 0, color, 1)  # Thickness 1
 
         M = cv2.moments(box)
         if M["m00"] != 0:
@@ -390,12 +386,8 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
             msg = f"LOCKED: {PIXELS_PER_MM:.2f} px/mm"
             col = (0, 255, 0)
         else:
-            # Calculate time progress
-            if stabilization_start_time is not None:
-                elapsed = time.time() - stabilization_start_time
-                msg = f"Hold Still... {elapsed:.1f}s / {REQUIRED_HOLD_TIME:.1f}s"
-            else:
-                msg = "Stabilizing..."
+            pct = int((len(calibration_buffer) / CALIBRATION_BUFFER_SIZE) * 100)
+            msg = f"Stabilizing (5s)... {pct}%"
             col = (0, 255, 255)
     else:
         msg = f"UNCALIBRATED: {calibration_error_msg}" if calibration_error_msg else "UNCALIBRATED"
@@ -403,10 +395,9 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
 
     cv2.putText(frame, msg, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, col, 2)
 
-    # Time Progress Bar
-    if is_calibrated and not calibration_locked and stabilization_start_time:
-        elapsed = time.time() - stabilization_start_time
-        progress = min(elapsed / REQUIRED_HOLD_TIME, 1.0)
+    # Progress Bar
+    if is_calibrated and not calibration_locked:
+        progress = len(calibration_buffer) / CALIBRATION_BUFFER_SIZE
         cv2.rectangle(frame, (500, 20), (500 + int(200 * progress), 40), (0, 255, 255), -1)
         cv2.rectangle(frame, (500, 20), (700, 40), (255, 255, 255), 1)
 
@@ -414,62 +405,45 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
 
 
 # ----------------------------------------------------------------------
-# Main Logic (Time-Based)
+# Main Logic
 # ----------------------------------------------------------------------
 def reset_stabilization():
-    global calibration_locked, stabilization_start_time, last_valid_px
+    global calibration_locked
     if not calibration_locked:
-        stabilization_start_time = None
-        last_valid_px = None
         calibration_buffer.clear()
 
 
 def process_calibration(result):
     global PIXELS_PER_MM, is_calibrated, calibration_locked
-    global stabilization_start_time, last_valid_px
 
     new_px = result['px_per_mm']
     if new_px == 0: return
 
-    # 1. Handle Locked State
     if calibration_locked:
         if abs(new_px - PIXELS_PER_MM) > RESET_THRESHOLD:
             print("Movement detected! Re-calibrating...")
             calibration_locked = False
-            reset_stabilization()
+            calibration_buffer.clear()
         return
 
-        # 2. Check Jitter
-    if last_valid_px is not None:
-        if abs(new_px - last_valid_px) > MAX_JITTER_PER_FRAME:
-            # Jittered too much, reset timer
-            reset_stabilization()
-            last_valid_px = new_px
-            return
+        # Strict Frame-to-Frame Stability
+    if len(calibration_buffer) > 0:
+        current_avg = np.mean(calibration_buffer)
+        if abs(new_px - current_avg) > 1.0:
+            calibration_buffer.clear()
 
-    last_valid_px = new_px
-
-    # 3. Handle Timer
-    if stabilization_start_time is None:
-        stabilization_start_time = time.time()
-
-    elapsed = time.time() - stabilization_start_time
-
-    # Add to buffer for averaging later
     calibration_buffer.append(new_px)
+    avg_px = np.mean(calibration_buffer)
+    std_dev = np.std(calibration_buffer)
 
-    # Update display (preview)
-    PIXELS_PER_MM = np.mean(calibration_buffer)
+    PIXELS_PER_MM = avg_px
     is_calibrated = True
     update_ranges()
 
-    # 4. Check for Lock
-    if elapsed >= REQUIRED_HOLD_TIME:
-        # Final Lock Calculation
-        final_val = np.mean(calibration_buffer)
-        PIXELS_PER_MM = final_val
-        calibration_locked = True
-        print(f"LOCKED at {final_val:.4f} (held for {elapsed:.1f}s)")
+    if len(calibration_buffer) == CALIBRATION_BUFFER_SIZE:
+        if std_dev < STABILITY_THRESHOLD:
+            calibration_locked = True
+            print(f"LOCKED at {avg_px}")
 
 
 def main():
@@ -504,6 +478,7 @@ def main():
             if result and result['px_per_mm'] > 0:
                 process_calibration(result)
             else:
+                # If analysis failed (e.g. only 4 lines found), reset timer
                 reset_stabilization()
 
         pellets = detect_pellets(frame, yolo_objects)
