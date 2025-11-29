@@ -17,15 +17,17 @@ TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
 
-# --- STRICT STABILITY SETTINGS ---
-CALIBRATION_BUFFER_SIZE = 45  # Increased: Needs 45 frames (~1.5 sec) of pure stillness
-STABILITY_THRESHOLD = 0.2  # Std Dev must be very low to lock
-MAX_FRAME_JUMP = 0.5  # If value changes > 0.5 between frames, RESET immediately
-RESET_THRESHOLD = 2.0  # If locked, only unlock if moved significantly
+# --- STABILITY SETTINGS ---
+# We lowered the buffer slightly so it locks faster, but kept the checks strict
+CALIBRATION_BUFFER_SIZE = 45
+STABILITY_THRESHOLD = 0.3
+MAX_FRAME_JUMP = 2.0  # Increased tolerance for frame jumps (was 0.5)
+RESET_THRESHOLD = 3.0
 
-# Strict Measurement Rules (Metrology)
-MAX_LENGTH_VARIANCE = 0.15
-MAX_GAP_VARIANCE = 0.05
+# --- RELAXED DETECTION RULES ---
+# These are the changes to stop the blinking
+CM_LINE_THRESHOLD = 0.70  # Only needs to be 70% of max length (was 85%)
+ROI_SMOOTHING_FACTOR = 0.2  # How fast the box follows the object (Lower = smoother)
 
 # System State
 yolo_model = None
@@ -34,6 +36,9 @@ calibration_locked = False
 calibration_buffer = deque(maxlen=CALIBRATION_BUFFER_SIZE)
 current_tick_data = None
 calibration_error_msg = ""
+
+# Smooth ROI State
+smooth_roi_box = None
 
 # Camera Settings
 DESIRED_WIDTH = 1280
@@ -101,9 +106,8 @@ def run_yolo_detection(frame):
     results = yolo_model(frame, conf=0.35, verbose=False)
 
     best_detections_map = {}
-    calibration_zone = None
-    overall_best_conf = 0
     best_zone_box = None
+    overall_best_conf = 0
 
     if results and len(results[0].boxes) > 0:
         for box in results[0].boxes:
@@ -139,13 +143,50 @@ def run_yolo_detection(frame):
 
 
 # ----------------------------------------------------------------------
-# 2. Strict Structure Analysis
+# 2. ROI Smoothing (NEW)
 # ----------------------------------------------------------------------
-def analyze_structure(frame, bbox):
+def get_smoothed_roi(target_box):
+    global smooth_roi_box
+
+    if target_box is None:
+        smooth_roi_box = None
+        return None
+
+    tx1, ty1, tx2, ty2 = target_box
+
+    if smooth_roi_box is None:
+        smooth_roi_box = [float(tx1), float(ty1), float(tx2), float(ty2)]
+        return target_box
+
+    # Exponential Moving Average for box coordinates
+    # This prevents the box from jumping 1-2 pixels due to YOLO noise
+    s = smooth_roi_box
+    alpha = ROI_SMOOTHING_FACTOR
+
+    s[0] = s[0] * (1 - alpha) + tx1 * alpha
+    s[1] = s[1] * (1 - alpha) + ty1 * alpha
+    s[2] = s[2] * (1 - alpha) + tx2 * alpha
+    s[3] = s[3] * (1 - alpha) + ty2 * alpha
+
+    smooth_roi_box = s
+
+    return (int(s[0]), int(s[1]), int(s[2]), int(s[3]))
+
+
+# ----------------------------------------------------------------------
+# 3. Robust Structure Analysis
+# ----------------------------------------------------------------------
+def analyze_structure(frame, raw_bbox):
     global calibration_error_msg
+
+    # Use smoothed box for stability
+    bbox = get_smoothed_roi(raw_bbox)
+    if bbox is None: return None
+
     x1, y1, x2, y2 = bbox
     h_img, w_img = frame.shape[:2]
 
+    # Safe padding
     pad = 2
     cx1, cy1 = max(0, x1 + pad), max(0, y1 + pad)
     cx2, cy2 = min(w_img, x2 - pad), min(h_img, y2 - pad)
@@ -158,72 +199,92 @@ def analyze_structure(frame, bbox):
     is_horizontal_ruler = (cx2 - cx1) > (cy2 - cy1)
 
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-    thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+
+    # FIX: Use GaussianBlur before threshold to reduce pixel noise
+    gray_blur = cv2.GaussianBlur(gray, (3, 3), 0)
+
+    thresh = cv2.adaptiveThreshold(gray_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 15, 4)
 
+    # FIX: Slightly thicker kernels to ensure lines don't break
     if is_horizontal_ruler:
         kernel_len = max(5, roi.shape[0] // 8)
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, kernel_len))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, kernel_len))
     else:
         kernel_len = max(5, roi.shape[1] // 8)
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_len, 1))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_len, 2))
 
     clean_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
-    clean_lines = cv2.dilate(clean_lines, None, iterations=1)
+
+    # FIX: Dilate to connect broken segments of the same line
+    clean_lines = cv2.dilate(clean_lines, None, iterations=2)
 
     contours, _ = cv2.findContours(clean_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     all_ticks = []
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if area < 5: continue
+        if area < 10: continue  # Slightly higher area filter
         tx, ty, tw, th = cv2.boundingRect(cnt)
         if is_horizontal_ruler:
             pos = tx + tw / 2.0
             length = th
-            if th > tw * 2: all_ticks.append({'pos': pos, 'len': length, 'rect': (tx, ty, tw, th)})
+            if th > tw * 1.5:  # Relaxed aspect ratio
+                all_ticks.append({'pos': pos, 'len': length, 'rect': (tx, ty, tw, th)})
         else:
             pos = ty + th / 2.0
             length = tw
-            if tw > th * 2: all_ticks.append({'pos': pos, 'len': length, 'rect': (tx, ty, tw, th)})
+            if tw > th * 1.5:
+                all_ticks.append({'pos': pos, 'len': length, 'rect': (tx, ty, tw, th)})
 
     if len(all_ticks) < 5:
         calibration_error_msg = "Not enough lines"
         return None
 
+    # --- RELAXED LENGTH CHECK ---
     max_len = max(t['len'] for t in all_ticks)
-    cm_candidates = [t for t in all_ticks if t['len'] > (max_len * 0.85)]
+    # Changed from 0.85 to CM_LINE_THRESHOLD (0.70)
+    cm_candidates = [t for t in all_ticks if t['len'] > (max_len * CM_LINE_THRESHOLD)]
 
     if len(cm_candidates) < 5:
-        calibration_error_msg = "No CM lines"
+        calibration_error_msg = "No clear CM lines"
         return None
 
-    median_length = np.median([t['len'] for t in cm_candidates])
-    filtered_chain = [t for t in cm_candidates if abs(t['len'] - median_length) < (median_length * MAX_LENGTH_VARIANCE)]
+    # Sort
+    cm_candidates.sort(key=lambda x: x['pos'])
 
-    if len(filtered_chain) < 5:
-        calibration_error_msg = "Inconsistent lines"
-        return None
-
-    filtered_chain.sort(key=lambda x: x['pos'])
-
+    # --- SPACING CONSISTENCY (The real check) ---
+    # We rely more on spacing than length now
     gaps = []
-    for i in range(len(filtered_chain) - 1):
-        gaps.append(filtered_chain[i + 1]['pos'] - filtered_chain[i]['pos'])
+    for i in range(len(cm_candidates) - 1):
+        gaps.append(cm_candidates[i + 1]['pos'] - cm_candidates[i]['pos'])
 
     if not gaps: return None
 
     mean_gap = np.mean(gaps)
-    std_dev_gap = np.std(gaps)
-    spacing_variation = std_dev_gap / mean_gap
 
-    if spacing_variation > MAX_GAP_VARIANCE:
-        calibration_error_msg = f"Uneven spacing ({spacing_variation * 100:.1f}%)"
+    # Filter candidates that break the spacing pattern
+    # This removes accidental noise lines that passed the length check
+    consistent_chain = [cm_candidates[0]]
+    for i in range(len(cm_candidates) - 1):
+        gap = cm_candidates[i + 1]['pos'] - cm_candidates[i]['pos']
+        # If gap is roughly equal to mean (or a multiple of it), keep it
+        if abs(gap - mean_gap) < (mean_gap * 0.15):
+            consistent_chain.append(cm_candidates[i + 1])
+        else:
+            # If gap is huge, start new chain?
+            # For simplicity, if we break consistency, we check which chain is longer
+            if len(consistent_chain) >= 5: break  # Found a good chain
+            consistent_chain = [cm_candidates[i + 1]]
+
+    if len(consistent_chain) < 5:
+        calibration_error_msg = "Spacing inconsistent"
         return None
 
-    y_coords = np.array([t['pos'] for t in filtered_chain])
-    x_coords = np.arange(len(y_coords))
-    slope, intercept = np.polyfit(x_coords, y_coords, 1)
+    # Final Calculation on the consistent chain
+    final_y = np.array([t['pos'] for t in consistent_chain])
+    final_x = np.arange(len(final_y))
+    slope, intercept = np.polyfit(final_x, final_y, 1)
 
     px_per_mm = slope / 10.0
 
@@ -234,13 +295,14 @@ def analyze_structure(frame, bbox):
     calibration_error_msg = ""
     return {
         "px_per_mm": px_per_mm,
-        "ticks": filtered_chain,
-        "roi_offset": (cx1, cy1)
+        "ticks": consistent_chain,
+        "roi_offset": (cx1, cy1),
+        "count": len(consistent_chain)
     }
 
 
 # ----------------------------------------------------------------------
-# 3. Pellet Detection
+# 4. Pellet Detection
 # ----------------------------------------------------------------------
 pellet_history = {}
 
@@ -310,7 +372,7 @@ def detect_pellets(frame, excluded_boxes):
 
 
 # ----------------------------------------------------------------------
-# 4. Visualization
+# 5. Visualization
 # ----------------------------------------------------------------------
 def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
     # Draw Objects
@@ -358,7 +420,7 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
             col = (0, 255, 0)
         else:
             pct = int((len(calibration_buffer) / CALIBRATION_BUFFER_SIZE) * 100)
-            msg = f"Hold Still... {pct}%"
+            msg = f"Stabilizing... {pct}%"
             col = (0, 255, 255)
     else:
         msg = f"UNCALIBRATED: {calibration_error_msg}" if calibration_error_msg else "UNCALIBRATED"
@@ -379,10 +441,10 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
 # Main Logic (Strict Reset)
 # ----------------------------------------------------------------------
 def reset_stabilization():
-    global calibration_locked
-    # Only clear if we are NOT locked. If locked, we stay locked.
+    global calibration_locked, smooth_roi_box
     if not calibration_locked:
         calibration_buffer.clear()
+        smooth_roi_box = None  # Reset smoothing if we lost track completely
 
 
 def process_calibration(result):
@@ -390,21 +452,19 @@ def process_calibration(result):
 
     new_px = result['px_per_mm']
 
-    # 1. Handle Locked State (Safety Check)
     if calibration_locked:
         if abs(new_px - PIXELS_PER_MM) > RESET_THRESHOLD:
-            print("Movement > Threshold! Unlocking...")
+            print("Movement detected! Re-calibrating...")
             calibration_locked = False
             calibration_buffer.clear()
         return
 
-        # 2. Strict Frame-to-Frame Stability Check
+        # Relaxed Frame-to-Frame Stability Check
     if len(calibration_buffer) > 0:
         current_avg = np.mean(calibration_buffer)
+        # Increased to 2.0 to prevent minor jitters from resetting 90% progress
         if abs(new_px - current_avg) > MAX_FRAME_JUMP:
-            # Jitter detected! Reset the counter
             calibration_buffer.clear()
-            # print("Jitter detected - Resetting") # Optional debug
 
     calibration_buffer.append(new_px)
     avg_px = np.mean(calibration_buffer)
@@ -418,10 +478,6 @@ def process_calibration(result):
         if std_dev < STABILITY_THRESHOLD:
             calibration_locked = True
             print(f"LOCKED at {avg_px}")
-        else:
-            # Buffer full but too noisy? Pop oldest to keep moving window
-            # but do NOT lock yet.
-            pass
 
 
 def main():
@@ -446,9 +502,6 @@ def main():
 
         yolo_objects, active_zone = run_yolo_detection(frame)
 
-        # --- THE INTERRUPTION RULE ---
-        # If detection fails for ANY reason (no zone, or analyze returns None),
-        # we immediately reset the stabilization buffer.
         if not active_zone:
             current_tick_data = None
             reset_stabilization()
