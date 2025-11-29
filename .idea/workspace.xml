@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00199" summary="returned">
-      <option name="closed" value="true" />
-      <created>1764226338014</created>
-      <option name="number" value="00199" />
-      <option name="presentableId" value="LOCAL-00199" />
-      <option name="project" value="LOCAL" />
-      <updated>1764226338014</updated>
-    </task>
     <task id="LOCAL-00200" summary="not working">
       <option name="closed" value="true" />
       <created>1764227296204</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764397605928</updated>
     </task>
-    <option name="localTasksCounter" value="248" />
+    <task id="LOCAL-00248" summary="added re calibrate when camera move">
+      <option name="closed" value="true" />
+      <created>1764399813367</created>
+      <option name="number" value="00248" />
+      <option name="presentableId" value="LOCAL-00248" />
+      <option name="project" value="LOCAL" />
+      <updated>1764399813367</updated>
+    </task>
+    <option name="localTasksCounter" value="249" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fix the pellet detection" />
     <MESSAGE value="replaced best.pt" />
     <MESSAGE value="yolo with mm zone" />
     <MESSAGE value="yolo DETECTS ALL" />
@@ -671,7 +670,8 @@
     <MESSAGE value="detecting all lines" />
     <MESSAGE value="strictly check spacing (5%)" />
     <MESSAGE value="5 conseq cm line and 5 second before calib" />
-    <option name="LAST_COMMIT_MESSAGE" value="5 conseq cm line and 5 second before calib" />
+    <MESSAGE value="added re calibrate when camera move" />
+    <option name="LAST_COMMIT_MESSAGE" value="added re calibrate when camera move" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
