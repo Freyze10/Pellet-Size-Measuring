@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00184" summary="removed unnecessary prints">
-      <option name="closed" value="true" />
-      <created>1764127846368</created>
-      <option name="number" value="00184" />
-      <option name="presentableId" value="LOCAL-00184" />
-      <option name="project" value="LOCAL" />
-      <updated>1764127846369</updated>
-    </task>
     <task id="LOCAL-00185" summary="rewrite ruler for calib">
       <option name="closed" value="true" />
       <created>1764128445863</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764318855387</updated>
     </task>
-    <option name="localTasksCounter" value="233" />
+    <task id="LOCAL-00233" summary="fixint results">
+      <option name="closed" value="true" />
+      <created>1764320303338</created>
+      <option name="number" value="00233" />
+      <option name="presentableId" value="LOCAL-00233" />
+      <option name="project" value="LOCAL" />
+      <updated>1764320303338</updated>
+    </task>
+    <option name="localTasksCounter" value="234" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
