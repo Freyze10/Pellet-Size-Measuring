@@ -22,13 +22,10 @@ CALIBRATION_BUFFER_SIZE = 30
 STABILITY_THRESHOLD = 0.5
 RESET_THRESHOLD = 3.0
 
-# --- DETECTION SETTINGS ---
+# --- DETECTION STRICTNESS ---
 ASPECT_RATIO_MIN = 2.0
-
-# *** THE CRITICAL FIX ***
-# Lines must be at least 90% of the longest line to be considered a CM mark.
-# This filters out the 0.5cm lines (which are usually ~70-80% height).
-CM_STRICT_HEIGHT_RATIO = 0.90
+CM_STRICT_HEIGHT_RATIO = 0.90  # Line must be 90% of max height
+MAX_GAP_VARIANCE = 0.05  # Max 5% difference in spacing allowed (Strict Equal Spacing)
 
 # System State
 yolo_model = None
@@ -96,7 +93,7 @@ def should_process_pellet(d, l):
 
 
 # ----------------------------------------------------------------------
-# 1. YOLO Detection (Best-One Logic)
+# 1. YOLO Detection
 # ----------------------------------------------------------------------
 def run_yolo_detection(frame):
     if yolo_model is None: return [], None
@@ -141,7 +138,7 @@ def run_yolo_detection(frame):
 
 
 # ----------------------------------------------------------------------
-# 2. STRICT LINE HEIGHT ANALYSIS
+# 2. STRUCTURE ANALYSIS (Strict Spacing Check)
 # ----------------------------------------------------------------------
 def analyze_structure(frame, bbox):
     global calibration_error_msg
@@ -149,7 +146,6 @@ def analyze_structure(frame, bbox):
     x1, y1, x2, y2 = bbox
     h_img, w_img = frame.shape[:2]
 
-    # Safe padding
     pad = 5
     cx1, cy1 = max(0, x1 - pad), max(0, y1 - pad)
     cx2, cy2 = min(w_img, x2 + pad), min(h_img, y2 + pad)
@@ -157,21 +153,16 @@ def analyze_structure(frame, bbox):
     roi = frame[cy1:cy2, cx1:cx2]
     if roi.size == 0: return None
 
-    # Orientation Check
     is_horizontal_ruler = (cx2 - cx1) > (cy2 - cy1)
 
-    # Grayscale & Adaptive Threshold
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 19, 5)
 
-    # Morphological Line Extraction
     if is_horizontal_ruler:
-        # Vertical lines
         k_height = max(5, roi.shape[0] // 10)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, k_height))
     else:
-        # Horizontal lines
         k_width = max(5, roi.shape[1] // 10)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (k_width, 1))
 
@@ -202,55 +193,61 @@ def analyze_structure(frame, bbox):
         calibration_error_msg = "No lines detected"
         return None
 
-    # --- THE FILTERING LOGIC ---
-
-    # 1. Establish the "Reference Height" for a 1cm line.
-    # We sort all lines by length, and take the median of the top 3 longest lines.
-    # This prevents one giant shadow/artifact from skewing the results.
+    # --- LENGTH FILTERING ---
     sorted_by_len = sorted(all_ticks, key=lambda x: x['len'], reverse=True)
     top_n = min(len(sorted_by_len), 3)
     reference_cm_height = np.median([t['len'] for t in sorted_by_len[:top_n]])
 
-    # 2. Categorize Lines
     cm_ticks = []
 
     for t in all_ticks:
-        # STRICT CHECK: Line must be 90% of the reference height
         if t['len'] > (reference_cm_height * CM_STRICT_HEIGHT_RATIO):
             t['type'] = 'CM'
             cm_ticks.append(t)
         elif t['len'] > (reference_cm_height * 0.60):
-            t['type'] = 'HALF'  # 0.5cm marks (Visual only)
+            t['type'] = 'HALF'
         else:
-            t['type'] = 'MM'  # mm marks (Visual only)
+            t['type'] = 'MM'
 
     if len(cm_ticks) < 2:
         calibration_error_msg = "No 1cm lines found"
-        # Return for visualization even if failed
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    # 3. Spacing Analysis on CM TICKS ONLY
+    # --- SPACING ANALYSIS ---
     cm_ticks.sort(key=lambda x: x['pos'])
 
     gaps = []
     for i in range(len(cm_ticks) - 1):
-        gap = cm_ticks[i + 1]['pos'] - cm_ticks[i]['pos']
-        gaps.append(gap)
+        gaps.append(cm_ticks[i + 1]['pos'] - cm_ticks[i]['pos'])
 
-    # Median gap is robust against missing a line in the sequence
-    median_gap = np.median(gaps)
-
-    # Consistency Check: Only use gaps that are close to the median
-    valid_gaps = [g for g in gaps if abs(g - median_gap) < (median_gap * 0.15)]
-
-    if not valid_gaps:
-        calibration_error_msg = "Gap variance too high"
+    if not gaps:
+        calibration_error_msg = "Error calc gaps"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    avg_gap_px = np.mean(valid_gaps)
+    median_gap = np.median(gaps)
 
-    # THE MATH: The distance between these lines is 10mm (1cm)
-    px_per_mm = avg_gap_px / 10.0
+    # 1. Filter Outliers (Remove gaps that are double the size, indicating a missed line)
+    valid_gaps = [g for g in gaps if abs(g - median_gap) < (median_gap * 0.2)]
+
+    if len(valid_gaps) < len(gaps) * 0.6:  # If we threw away too many gaps
+        calibration_error_msg = "Gap inconsistencies"
+        return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
+
+    # 2. Strict Equality Check (Standard Deviation)
+    gap_mean = np.mean(valid_gaps)
+    gap_std = np.std(valid_gaps)
+
+    # Coefficient of Variation: How much do the gaps vary?
+    # Ideally this should be close to 0.0 (Perfectly equal spacing)
+    spacing_variance = gap_std / gap_mean
+
+    if spacing_variance > MAX_GAP_VARIANCE:
+        calibration_error_msg = f"Uneven Spacing ({spacing_variance * 100:.1f}%)"
+        # We return the data for visualization, but 0 px_per_mm to prevent calibration
+        return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
+
+    # All checks passed
+    px_per_mm = gap_mean / 10.0
 
     if px_per_mm < 2 or px_per_mm > 150:
         calibration_error_msg = "Scale Error"
@@ -259,7 +256,7 @@ def analyze_structure(frame, bbox):
     calibration_error_msg = ""
     return {
         "px_per_mm": px_per_mm,
-        "ticks": all_ticks,  # Return ALL ticks for coloring
+        "ticks": all_ticks,
         "roi_offset": (cx1, cy1)
     }
 
@@ -354,7 +351,6 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
             ax, ay = int(off_x + rx), int(off_y + ry)
             aw, ah = int(rw), int(rh)
 
-            # COLOR CODING:
             if t['type'] == 'CM':
                 # Red = 1cm Lines (Used)
                 cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), (0, 0, 255), -1)
@@ -365,11 +361,12 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
                 # Cyan = mm Lines (Ignored)
                 cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), (255, 255, 0), 1)
 
-    # Draw Pellets
+    # Draw Pellets (Thinner Border)
     for p in pellets:
         box = p['box']
         color = (0, 255, 0) if p['is_good'] else (0, 0, 255)
-        cv2.drawContours(frame, [box], 0, color, 2)
+        # Thickness changed from 2 to 1 here:
+        cv2.drawContours(frame, [box], 0, color, 1)
 
         M = cv2.moments(box)
         if M["m00"] != 0:
@@ -479,7 +476,7 @@ def main():
             reset_stabilization()
         else:
             result = analyze_structure(frame, active_zone)
-            current_tick_data = result
+            current_tick_data = result  # Always show what we see
 
             if result and result['px_per_mm'] > 0:
                 process_calibration(result)
