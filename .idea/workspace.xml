@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00190" summary="removed overlay text">
-      <option name="closed" value="true" />
-      <created>1764129209517</created>
-      <option name="number" value="00190" />
-      <option name="presentableId" value="LOCAL-00190" />
-      <option name="project" value="LOCAL" />
-      <updated>1764129209517</updated>
-    </task>
     <task id="LOCAL-00191" summary="removed overlay text">
       <option name="closed" value="true" />
       <created>1764147729845</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764379342518</updated>
     </task>
-    <option name="localTasksCounter" value="239" />
+    <task id="LOCAL-00239" summary="fixing calibration">
+      <option name="closed" value="true" />
+      <created>1764380094638</created>
+      <option name="number" value="00239" />
+      <option name="presentableId" value="LOCAL-00239" />
+      <option name="project" value="LOCAL" />
+      <updated>1764380094638</updated>
+    </task>
+    <option name="localTasksCounter" value="240" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

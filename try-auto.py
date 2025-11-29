@@ -17,14 +17,15 @@ TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
 
-# Stability & Accuracy Settings
-CALIBRATION_BUFFER_SIZE = 30
-STABILITY_THRESHOLD = 0.5
-RESET_THRESHOLD = 3.0
+# --- STRICT STABILITY SETTINGS ---
+CALIBRATION_BUFFER_SIZE = 45  # Increased: Needs 45 frames (~1.5 sec) of pure stillness
+STABILITY_THRESHOLD = 0.2  # Std Dev must be very low to lock
+MAX_FRAME_JUMP = 0.5  # If value changes > 0.5 between frames, RESET immediately
+RESET_THRESHOLD = 2.0  # If locked, only unlock if moved significantly
 
-# STRICT MEASUREMENT RULES
-MAX_LENGTH_VARIANCE = 0.15  # 15% max difference in tick lengths allowed
-MAX_GAP_VARIANCE = 0.05  # 5% max difference in spacing allowed (Strict!)
+# Strict Measurement Rules (Metrology)
+MAX_LENGTH_VARIANCE = 0.15
+MAX_GAP_VARIANCE = 0.05
 
 # System State
 yolo_model = None
@@ -32,7 +33,7 @@ is_calibrated = False
 calibration_locked = False
 calibration_buffer = deque(maxlen=CALIBRATION_BUFFER_SIZE)
 current_tick_data = None
-calibration_error_msg = ""  # To tell user why it failed
+calibration_error_msg = ""
 
 # Camera Settings
 DESIRED_WIDTH = 1280
@@ -138,7 +139,7 @@ def run_yolo_detection(frame):
 
 
 # ----------------------------------------------------------------------
-# 2. Strict Calibration Logic
+# 2. Strict Structure Analysis
 # ----------------------------------------------------------------------
 def analyze_structure(frame, bbox):
     global calibration_error_msg
@@ -187,37 +188,25 @@ def analyze_structure(frame, bbox):
             if tw > th * 2: all_ticks.append({'pos': pos, 'len': length, 'rect': (tx, ty, tw, th)})
 
     if len(all_ticks) < 5:
-        calibration_error_msg = "Not enough lines detected"
+        calibration_error_msg = "Not enough lines"
         return None
 
-    # --- CHECK 1: Length Uniformity ---
-    # We find the max length, and assume those are CM lines.
     max_len = max(t['len'] for t in all_ticks)
-    # Filter candidates
     cm_candidates = [t for t in all_ticks if t['len'] > (max_len * 0.85)]
 
     if len(cm_candidates) < 5:
-        calibration_error_msg = "No clear CM lines found"
+        calibration_error_msg = "No CM lines"
         return None
 
-    # Strict check: Do these candidates actually look like each other?
-    candidate_lengths = [t['len'] for t in cm_candidates]
-    median_length = np.median(candidate_lengths)
-
-    # Remove any candidate that deviates too much from the median length
-    filtered_chain = []
-    for t in cm_candidates:
-        if abs(t['len'] - median_length) < (median_length * MAX_LENGTH_VARIANCE):
-            filtered_chain.append(t)
+    median_length = np.median([t['len'] for t in cm_candidates])
+    filtered_chain = [t for t in cm_candidates if abs(t['len'] - median_length) < (median_length * MAX_LENGTH_VARIANCE)]
 
     if len(filtered_chain) < 5:
-        calibration_error_msg = "Tick lengths inconsistent (Shadows?)"
+        calibration_error_msg = "Inconsistent lines"
         return None
 
     filtered_chain.sort(key=lambda x: x['pos'])
 
-    # --- CHECK 2: Spacing Uniformity (The most important accuracy check) ---
-    # Calculate gaps
     gaps = []
     for i in range(len(filtered_chain) - 1):
         gaps.append(filtered_chain[i + 1]['pos'] - filtered_chain[i]['pos'])
@@ -226,19 +215,12 @@ def analyze_structure(frame, bbox):
 
     mean_gap = np.mean(gaps)
     std_dev_gap = np.std(gaps)
-
-    # Coefficient of Variation (StdDev / Mean)
-    # If this is high (> 5%), the ruler is likely tilted or detection is bad.
     spacing_variation = std_dev_gap / mean_gap
 
     if spacing_variation > MAX_GAP_VARIANCE:
-        calibration_error_msg = f"Uneven Spacing (Tilt?): {spacing_variation * 100:.1f}% var"
+        calibration_error_msg = f"Uneven spacing ({spacing_variation * 100:.1f}%)"
         return None
 
-    # If we get here, the lines are the same size AND same spacing.
-    # We can trust this data.
-
-    # Use Linear Regression for maximum sub-pixel accuracy
     y_coords = np.array([t['pos'] for t in filtered_chain])
     x_coords = np.arange(len(y_coords))
     slope, intercept = np.polyfit(x_coords, y_coords, 1)
@@ -246,17 +228,14 @@ def analyze_structure(frame, bbox):
     px_per_mm = slope / 10.0
 
     if px_per_mm < 2 or px_per_mm > 150:
-        calibration_error_msg = "Scale out of bounds"
+        calibration_error_msg = "Bad scale"
         return None
 
-    calibration_error_msg = ""  # Clear error
+    calibration_error_msg = ""
     return {
         "px_per_mm": px_per_mm,
         "ticks": filtered_chain,
-        "roi_offset": (cx1, cy1),
-        "count": len(filtered_chain),
-        "gap_mean": mean_gap,
-        "gap_std": std_dev_gap
+        "roi_offset": (cx1, cy1)
     }
 
 
@@ -378,16 +357,16 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
             msg = f"LOCKED: {PIXELS_PER_MM:.2f} px/mm"
             col = (0, 255, 0)
         else:
-            msg = f"Stabilizing... {PIXELS_PER_MM:.2f}"
+            pct = int((len(calibration_buffer) / CALIBRATION_BUFFER_SIZE) * 100)
+            msg = f"Hold Still... {pct}%"
             col = (0, 255, 255)
     else:
-        # Show specific error if available
         msg = f"UNCALIBRATED: {calibration_error_msg}" if calibration_error_msg else "UNCALIBRATED"
         col = (0, 0, 255)
 
     cv2.putText(frame, msg, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, col, 2)
 
-    # Draw Lock Progress
+    # Progress Bar
     if is_calibrated and not calibration_locked:
         progress = len(calibration_buffer) / CALIBRATION_BUFFER_SIZE
         cv2.rectangle(frame, (500, 20), (500 + int(200 * progress), 40), (0, 255, 255), -1)
@@ -397,21 +376,35 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
 
 
 # ----------------------------------------------------------------------
-# Main Logic
+# Main Logic (Strict Reset)
 # ----------------------------------------------------------------------
+def reset_stabilization():
+    global calibration_locked
+    # Only clear if we are NOT locked. If locked, we stay locked.
+    if not calibration_locked:
+        calibration_buffer.clear()
+
+
 def process_calibration(result):
     global PIXELS_PER_MM, is_calibrated, calibration_locked
 
-    if result is None: return
-
     new_px = result['px_per_mm']
 
+    # 1. Handle Locked State (Safety Check)
     if calibration_locked:
         if abs(new_px - PIXELS_PER_MM) > RESET_THRESHOLD:
-            print("Movement detected! Re-calibrating...")
+            print("Movement > Threshold! Unlocking...")
             calibration_locked = False
             calibration_buffer.clear()
         return
+
+        # 2. Strict Frame-to-Frame Stability Check
+    if len(calibration_buffer) > 0:
+        current_avg = np.mean(calibration_buffer)
+        if abs(new_px - current_avg) > MAX_FRAME_JUMP:
+            # Jitter detected! Reset the counter
+            calibration_buffer.clear()
+            # print("Jitter detected - Resetting") # Optional debug
 
     calibration_buffer.append(new_px)
     avg_px = np.mean(calibration_buffer)
@@ -424,6 +417,11 @@ def process_calibration(result):
     if len(calibration_buffer) == CALIBRATION_BUFFER_SIZE:
         if std_dev < STABILITY_THRESHOLD:
             calibration_locked = True
+            print(f"LOCKED at {avg_px}")
+        else:
+            # Buffer full but too noisy? Pop oldest to keep moving window
+            # but do NOT lock yet.
+            pass
 
 
 def main():
@@ -440,19 +438,28 @@ def main():
     window_name = "Inspector"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 
+    print("Running...")
+
     while True:
         ret, frame = cap.read()
         if not ret: break
 
         yolo_objects, active_zone = run_yolo_detection(frame)
 
+        # --- THE INTERRUPTION RULE ---
+        # If detection fails for ANY reason (no zone, or analyze returns None),
+        # we immediately reset the stabilization buffer.
         if not active_zone:
             current_tick_data = None
+            reset_stabilization()
         else:
             result = analyze_structure(frame, active_zone)
-            current_tick_data = result  # Show detected ticks even if rejected by logic
             if result:
                 process_calibration(result)
+                current_tick_data = result
+            else:
+                current_tick_data = None
+                reset_stabilization()
 
         pellets = detect_pellets(frame, yolo_objects)
         frame = draw_ui(frame, yolo_objects, active_zone, pellets, current_tick_data)
