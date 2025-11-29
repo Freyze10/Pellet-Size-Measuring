@@ -17,16 +17,16 @@ TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
 
-# --- STABILITY SETTINGS (5 SECONDS) ---
-# Webcam is approx 30 FPS. 30 * 5 seconds = 150 frames.
-CALIBRATION_BUFFER_SIZE = 150
-STABILITY_THRESHOLD = 0.5
-RESET_THRESHOLD = 3.0
+# --- STABILITY & LOCKING SETTINGS ---
+CALIBRATION_BUFFER_SIZE = 150  # 5 Seconds @ 30fps
+STABILITY_THRESHOLD = 0.5  # Std Dev limit
+RESET_THRESHOLD = 3.0  # Scale change limit (Zoom/Distance)
+MAX_MOVEMENT_PIXELS = 50  # Position change limit (Pan/Tilt) - NEW
 
 # --- DETECTION STRICTNESS ---
 ASPECT_RATIO_MIN = 2.0
-CM_STRICT_HEIGHT_RATIO = 0.90  # Line must be 90% of max height (Filters out 0.5cm marks)
-MAX_GAP_VARIANCE = 0.05  # Max 5% difference in spacing allowed
+CM_STRICT_HEIGHT_RATIO = 0.90
+MAX_GAP_VARIANCE = 0.05
 
 # System State
 yolo_model = None
@@ -35,6 +35,9 @@ calibration_locked = False
 calibration_buffer = deque(maxlen=CALIBRATION_BUFFER_SIZE)
 current_tick_data = None
 calibration_error_msg = ""
+
+# Position Tracking (To detect camera movement)
+locked_zone_coords = None  # Stores (x,y) of ruler when locked
 
 # Camera Settings
 DESIRED_WIDTH = 1280
@@ -139,7 +142,7 @@ def run_yolo_detection(frame):
 
 
 # ----------------------------------------------------------------------
-# 2. STRUCTURE ANALYSIS (Strict 5-Line Spacing Check)
+# 2. STRUCTURE ANALYSIS
 # ----------------------------------------------------------------------
 def analyze_structure(frame, bbox):
     global calibration_error_msg
@@ -190,12 +193,11 @@ def analyze_structure(frame, bbox):
                 pos = ty + th / 2.0
                 all_ticks.append({'pos': pos, 'len': tw, 'rect': (tx, ty, tw, th)})
 
-    # Must find at least 5 raw lines to even start
     if len(all_ticks) < 5:
         calibration_error_msg = "Need 5+ lines"
         return None
 
-    # --- LENGTH FILTERING ---
+    # Length Filtering
     sorted_by_len = sorted(all_ticks, key=lambda x: x['len'], reverse=True)
     top_n = min(len(sorted_by_len), 3)
     reference_cm_height = np.median([t['len'] for t in sorted_by_len[:top_n]])
@@ -211,12 +213,11 @@ def analyze_structure(frame, bbox):
         else:
             t['type'] = 'MM'
 
-    # REQUIRE 5 CONSECUTIVE CM LINES
     if len(cm_ticks) < 5:
         calibration_error_msg = f"Found {len(cm_ticks)}/5 CM lines"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    # --- SPACING ANALYSIS ---
+    # Spacing Analysis
     cm_ticks.sort(key=lambda x: x['pos'])
 
     gaps = []
@@ -229,15 +230,12 @@ def analyze_structure(frame, bbox):
 
     median_gap = np.median(gaps)
 
-    # Filter outliers (missed lines)
     valid_gaps = [g for g in gaps if abs(g - median_gap) < (median_gap * 0.2)]
 
-    # If we had 5 lines, we should have 4 gaps.
     if len(valid_gaps) < 4:
         calibration_error_msg = "Gaps inconsistent"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    # Strict Equality Check
     gap_mean = np.mean(valid_gaps)
     gap_std = np.std(valid_gaps)
 
@@ -247,7 +245,6 @@ def analyze_structure(frame, bbox):
         calibration_error_msg = f"Uneven Spacing ({spacing_variance * 100:.1f}%)"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    # Success
     px_per_mm = gap_mean / 10.0
 
     if px_per_mm < 2 or px_per_mm > 150:
@@ -363,7 +360,7 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
     for p in pellets:
         box = p['box']
         color = (0, 255, 0) if p['is_good'] else (0, 0, 255)
-        cv2.drawContours(frame, [box], 0, color, 1)  # Thickness 1
+        cv2.drawContours(frame, [box], 0, color, 1)
 
         M = cv2.moments(box)
         if M["m00"] != 0:
@@ -414,19 +411,35 @@ def reset_stabilization():
 
 
 def process_calibration(result):
-    global PIXELS_PER_MM, is_calibrated, calibration_locked
+    global PIXELS_PER_MM, is_calibrated, calibration_locked, locked_zone_coords
 
     new_px = result['px_per_mm']
+    new_coords = result['roi_offset']
+
     if new_px == 0: return
 
+    # --- 1. HANDLE LOCKED STATE ---
     if calibration_locked:
+        # A. Check Scale Change (Zoom/Depth)
         if abs(new_px - PIXELS_PER_MM) > RESET_THRESHOLD:
-            print("Movement detected! Re-calibrating...")
+            print("Scale changed! Re-calibrating...")
             calibration_locked = False
             calibration_buffer.clear()
+            return
+
+        # B. Check Position Change (Pan/Tilt)
+        if locked_zone_coords:
+            lx, ly = locked_zone_coords
+            nx, ny = new_coords
+            dist = math.sqrt((lx - nx) ** 2 + (ly - ny) ** 2)
+
+            if dist > MAX_MOVEMENT_PIXELS:
+                print("Camera moved! Re-calibrating...")
+                calibration_locked = False
+                calibration_buffer.clear()
         return
 
-        # Strict Frame-to-Frame Stability
+        # --- 2. STABILIZING STATE ---
     if len(calibration_buffer) > 0:
         current_avg = np.mean(calibration_buffer)
         if abs(new_px - current_avg) > 1.0:
@@ -443,7 +456,8 @@ def process_calibration(result):
     if len(calibration_buffer) == CALIBRATION_BUFFER_SIZE:
         if std_dev < STABILITY_THRESHOLD:
             calibration_locked = True
-            print(f"LOCKED at {avg_px}")
+            locked_zone_coords = new_coords  # Save position when locking
+            print(f"LOCKED at {avg_px} | Pos: {locked_zone_coords}")
 
 
 def main():
@@ -478,7 +492,6 @@ def main():
             if result and result['px_per_mm'] > 0:
                 process_calibration(result)
             else:
-                # If analysis failed (e.g. only 4 lines found), reset timer
                 reset_stabilization()
 
         pellets = detect_pellets(frame, yolo_objects)
