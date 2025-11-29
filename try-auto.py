@@ -23,9 +23,12 @@ STABILITY_THRESHOLD = 0.5
 RESET_THRESHOLD = 3.0
 
 # --- DETECTION SETTINGS ---
-# Lowered threshold to ensure we catch lines even with bad lighting
-CM_LINE_LENGTH_RATIO = 0.65  # Line must be at least 65% of the max length found
-ASPECT_RATIO_MIN = 2.0  # Line must be at least 2x longer than it is wide
+ASPECT_RATIO_MIN = 2.0
+
+# *** THE CRITICAL FIX ***
+# Lines must be at least 90% of the longest line to be considered a CM mark.
+# This filters out the 0.5cm lines (which are usually ~70-80% height).
+CM_STRICT_HEIGHT_RATIO = 0.90
 
 # System State
 yolo_model = None
@@ -111,7 +114,6 @@ def run_yolo_detection(frame):
             cls_id = int(box.cls[0])
             name = yolo_model.names[cls_id]
 
-            # Keep only highest confidence per class
             if name not in best_detections_map or conf > best_detections_map[name]['conf']:
                 best_detections_map[name] = {
                     'box': (x1, y1, x2, y2),
@@ -139,7 +141,7 @@ def run_yolo_detection(frame):
 
 
 # ----------------------------------------------------------------------
-# 2. RAW LINE DETECTION (The "Old Accurate Way")
+# 2. STRICT LINE HEIGHT ANALYSIS
 # ----------------------------------------------------------------------
 def analyze_structure(frame, bbox):
     global calibration_error_msg
@@ -147,7 +149,7 @@ def analyze_structure(frame, bbox):
     x1, y1, x2, y2 = bbox
     h_img, w_img = frame.shape[:2]
 
-    # Pad slightly to ensure we don't cut off line edges
+    # Safe padding
     pad = 5
     cx1, cy1 = max(0, x1 - pad), max(0, y1 - pad)
     cx2, cy2 = min(w_img, x2 + pad), min(h_img, y2 + pad)
@@ -155,98 +157,100 @@ def analyze_structure(frame, bbox):
     roi = frame[cy1:cy2, cx1:cx2]
     if roi.size == 0: return None
 
-    # 1. Determine Orientation
-    # If Width > Height, it's a Horizontal Ruler (Lines are Vertical)
+    # Orientation Check
     is_horizontal_ruler = (cx2 - cx1) > (cy2 - cy1)
 
-    # 2. Convert to Grayscale & Threshold
+    # Grayscale & Adaptive Threshold
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-
-    # Adaptive Threshold handles glare/shadows better than global
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 19, 5)
 
-    # 3. MORPHOLOGICAL LINE EXTRACTION
-    # We create a kernel that looks exactly like the line we want to find.
+    # Morphological Line Extraction
     if is_horizontal_ruler:
-        # Ruler is Horizontal -> Lines are Vertical -> Kernel is (1, Height)
+        # Vertical lines
         k_height = max(5, roi.shape[0] // 10)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, k_height))
     else:
-        # Ruler is Vertical -> Lines are Horizontal -> Kernel is (Width, 1)
+        # Horizontal lines
         k_width = max(5, roi.shape[1] // 10)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (k_width, 1))
 
-    # "Open" operation deletes anything that doesn't fit the kernel shape (numbers, noise)
     lines_img = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
-
-    # Slight dilation to make lines solid
     lines_img = cv2.dilate(lines_img, None, iterations=1)
 
-    # 4. Find Contours (The Lines)
     contours, _ = cv2.findContours(lines_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     all_ticks = []
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if area < 5: continue  # Ignore specks
+        if area < 5: continue
 
         tx, ty, tw, th = cv2.boundingRect(cnt)
 
-        # Check Aspect Ratio (Must look like a line, not a square blob)
         if is_horizontal_ruler:
             aspect_ratio = th / float(tw)
             if aspect_ratio > ASPECT_RATIO_MIN:
                 pos = tx + tw / 2.0
-                all_ticks.append({'pos': pos, 'len': th, 'rect': (tx, ty, tw, th), 'type': 'minor'})
+                all_ticks.append({'pos': pos, 'len': th, 'rect': (tx, ty, tw, th)})
         else:
             aspect_ratio = tw / float(th)
             if aspect_ratio > ASPECT_RATIO_MIN:
                 pos = ty + th / 2.0
-                all_ticks.append({'pos': pos, 'len': tw, 'rect': (tx, ty, tw, th), 'type': 'minor'})
+                all_ticks.append({'pos': pos, 'len': tw, 'rect': (tx, ty, tw, th)})
 
     if len(all_ticks) < 5:
         calibration_error_msg = "No lines detected"
         return None
 
-    # 5. Identify CM Lines (The Longest Ones)
-    max_len = max(t['len'] for t in all_ticks)
+    # --- THE FILTERING LOGIC ---
 
-    # We accept lines that are close to the max length
-    cm_threshold = max_len * CM_LINE_LENGTH_RATIO
+    # 1. Establish the "Reference Height" for a 1cm line.
+    # We sort all lines by length, and take the median of the top 3 longest lines.
+    # This prevents one giant shadow/artifact from skewing the results.
+    sorted_by_len = sorted(all_ticks, key=lambda x: x['len'], reverse=True)
+    top_n = min(len(sorted_by_len), 3)
+    reference_cm_height = np.median([t['len'] for t in sorted_by_len[:top_n]])
 
+    # 2. Categorize Lines
     cm_ticks = []
-    for t in all_ticks:
-        if t['len'] > cm_threshold:
-            t['type'] = 'CM'  # Mark as CM for display
-            cm_ticks.append(t)
 
-    # Need at least 2 CM lines to measure distance
+    for t in all_ticks:
+        # STRICT CHECK: Line must be 90% of the reference height
+        if t['len'] > (reference_cm_height * CM_STRICT_HEIGHT_RATIO):
+            t['type'] = 'CM'
+            cm_ticks.append(t)
+        elif t['len'] > (reference_cm_height * 0.60):
+            t['type'] = 'HALF'  # 0.5cm marks (Visual only)
+        else:
+            t['type'] = 'MM'  # mm marks (Visual only)
+
     if len(cm_ticks) < 2:
-        calibration_error_msg = "No CM lines found"
-        # We return the data anyway so user can see the Cyan lines
+        calibration_error_msg = "No 1cm lines found"
+        # Return for visualization even if failed
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    # 6. Sort and Measure
+    # 3. Spacing Analysis on CM TICKS ONLY
     cm_ticks.sort(key=lambda x: x['pos'])
 
-    # Calculate Gaps
     gaps = []
     for i in range(len(cm_ticks) - 1):
         gap = cm_ticks[i + 1]['pos'] - cm_ticks[i]['pos']
         gaps.append(gap)
 
-    # Use MEDIAN to find the "True" 1cm gap.
-    # This ignores cases where we might have missed a line in the middle.
+    # Median gap is robust against missing a line in the sequence
     median_gap = np.median(gaps)
 
-    # Filter gaps to ensure we are only averaging the "1cm" gaps
-    valid_gaps = [g for g in gaps if abs(g - median_gap) < (median_gap * 0.2)]
+    # Consistency Check: Only use gaps that are close to the median
+    valid_gaps = [g for g in gaps if abs(g - median_gap) < (median_gap * 0.15)]
 
-    if not valid_gaps: return None
+    if not valid_gaps:
+        calibration_error_msg = "Gap variance too high"
+        return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
     avg_gap_px = np.mean(valid_gaps)
-    px_per_mm = avg_gap_px / 10.0  # 1cm = 10mm
+
+    # THE MATH: The distance between these lines is 10mm (1cm)
+    px_per_mm = avg_gap_px / 10.0
 
     if px_per_mm < 2 or px_per_mm > 150:
         calibration_error_msg = "Scale Error"
@@ -255,7 +259,7 @@ def analyze_structure(frame, bbox):
     calibration_error_msg = ""
     return {
         "px_per_mm": px_per_mm,
-        "ticks": all_ticks,  # Return ALL ticks so we can draw Cyan/Red
+        "ticks": all_ticks,  # Return ALL ticks for coloring
         "roi_offset": (cx1, cy1)
     }
 
@@ -300,7 +304,6 @@ def detect_pellets(frame, excluded_boxes):
         raw_w = min(d1, d2)
         raw_h = max(d1, d2)
 
-        # Basic ID for smoothing
         p_id = f"{int(cx // 20)}_{int(cy // 20)}"
         current_ids.append(p_id)
 
@@ -351,11 +354,15 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
             ax, ay = int(off_x + rx), int(off_y + ry)
             aw, ah = int(rw), int(rh)
 
+            # COLOR CODING:
             if t['type'] == 'CM':
-                # RED for the lines we use
-                cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), (0, 0, 255), 1)
+                # Red = 1cm Lines (Used)
+                cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), (0, 0, 255), -1)
+            elif t['type'] == 'HALF':
+                # Yellow = 0.5cm Lines (Ignored)
+                cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), (0, 255, 255), 1)
             else:
-                # CYAN for lines we see but ignore (Visual Debugging)
+                # Cyan = mm Lines (Ignored)
                 cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), (255, 255, 0), 1)
 
     # Draw Pellets
@@ -416,7 +423,7 @@ def process_calibration(result):
     global PIXELS_PER_MM, is_calibrated, calibration_locked
 
     new_px = result['px_per_mm']
-    if new_px == 0: return  # Invalid result from analyze
+    if new_px == 0: return
 
     if calibration_locked:
         if abs(new_px - PIXELS_PER_MM) > RESET_THRESHOLD:
@@ -428,7 +435,7 @@ def process_calibration(result):
         # Strict Frame-to-Frame Stability
     if len(calibration_buffer) > 0:
         current_avg = np.mean(calibration_buffer)
-        if abs(new_px - current_avg) > 1.0:  # 1.0 px tolerance
+        if abs(new_px - current_avg) > 1.0:
             calibration_buffer.clear()
 
     calibration_buffer.append(new_px)
@@ -472,7 +479,7 @@ def main():
             reset_stabilization()
         else:
             result = analyze_structure(frame, active_zone)
-            current_tick_data = result  # Always show what we see
+            current_tick_data = result
 
             if result and result['px_per_mm'] > 0:
                 process_calibration(result)
