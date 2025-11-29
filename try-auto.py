@@ -21,12 +21,14 @@ EXCLUSION_THRESHOLD = 1.0
 CALIBRATION_BUFFER_SIZE = 150  # 5 Seconds @ 30fps
 STABILITY_THRESHOLD = 0.5  # Std Dev limit
 RESET_THRESHOLD = 3.0  # Scale change limit (Zoom/Distance)
-MAX_MOVEMENT_PIXELS = 50  # Position change limit (Pan/Tilt) - NEW
+MAX_MOVEMENT_PIXELS = 50  # Position change limit (Pan/Tilt)
 
 # --- DETECTION STRICTNESS ---
 ASPECT_RATIO_MIN = 2.0
-CM_STRICT_HEIGHT_RATIO = 0.90
-MAX_GAP_VARIANCE = 0.05
+CM_STRICT_HEIGHT_RATIO = 0.90  # CM lines must be at least 90% of tallest line
+MIN_CM_LINES_REQUIRED = 5  # MUST have at least 5 CM lines
+MAX_GAP_VARIANCE = 0.03  # Stricter: 3% variance (was 5%)
+GAP_OUTLIER_TOLERANCE = 0.15  # Individual gaps can vary by max 15% from median
 
 # System State
 yolo_model = None
@@ -142,7 +144,7 @@ def run_yolo_detection(frame):
 
 
 # ----------------------------------------------------------------------
-# 2. STRUCTURE ANALYSIS
+# 2. IMPROVED STRUCTURE ANALYSIS
 # ----------------------------------------------------------------------
 def analyze_structure(frame, bbox):
     global calibration_error_msg
@@ -183,79 +185,93 @@ def analyze_structure(frame, bbox):
         tx, ty, tw, th = cv2.boundingRect(cnt)
 
         if is_horizontal_ruler:
-            aspect_ratio = th / float(tw)
+            aspect_ratio = th / float(tw) if tw > 0 else 0
             if aspect_ratio > ASPECT_RATIO_MIN:
                 pos = tx + tw / 2.0
                 all_ticks.append({'pos': pos, 'len': th, 'rect': (tx, ty, tw, th)})
         else:
-            aspect_ratio = tw / float(th)
+            aspect_ratio = tw / float(th) if th > 0 else 0
             if aspect_ratio > ASPECT_RATIO_MIN:
                 pos = ty + th / 2.0
                 all_ticks.append({'pos': pos, 'len': tw, 'rect': (tx, ty, tw, th)})
 
-    if len(all_ticks) < 5:
-        calibration_error_msg = "Need 5+ lines"
+    if len(all_ticks) < MIN_CM_LINES_REQUIRED:
+        calibration_error_msg = f"Need {MIN_CM_LINES_REQUIRED}+ lines (found {len(all_ticks)})"
         return None
 
-    # Length Filtering
-    sorted_by_len = sorted(all_ticks, key=lambda x: x['len'], reverse=True)
-    top_n = min(len(sorted_by_len), 3)
-    reference_cm_height = np.median([t['len'] for t in sorted_by_len[:top_n]])
+    # === IMPROVED LENGTH FILTERING ===
+    # Find the absolute tallest line(s) - these should be CM markers
+    max_length = max(t['len'] for t in all_ticks)
+
+    # CM lines must be at least CM_STRICT_HEIGHT_RATIO of the max
+    cm_threshold = max_length * CM_STRICT_HEIGHT_RATIO
 
     cm_ticks = []
-
     for t in all_ticks:
-        if t['len'] > (reference_cm_height * CM_STRICT_HEIGHT_RATIO):
+        if t['len'] >= cm_threshold:
             t['type'] = 'CM'
             cm_ticks.append(t)
-        elif t['len'] > (reference_cm_height * 0.60):
+        elif t['len'] > (max_length * 0.60):
             t['type'] = 'HALF'
         else:
             t['type'] = 'MM'
 
-    if len(cm_ticks) < 5:
-        calibration_error_msg = f"Found {len(cm_ticks)}/5 CM lines"
+    # === STRICT REQUIREMENT: EXACTLY 5+ CM LINES ===
+    if len(cm_ticks) < MIN_CM_LINES_REQUIRED:
+        calibration_error_msg = f"Need {MIN_CM_LINES_REQUIRED} CM lines (found {len(cm_ticks)})"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    # Spacing Analysis
+    # === IMPROVED SPACING ANALYSIS ===
     cm_ticks.sort(key=lambda x: x['pos'])
 
     gaps = []
     for i in range(len(cm_ticks) - 1):
         gaps.append(cm_ticks[i + 1]['pos'] - cm_ticks[i]['pos'])
 
-    if not gaps:
-        calibration_error_msg = "Error calc gaps"
+    if len(gaps) < (MIN_CM_LINES_REQUIRED - 1):
+        calibration_error_msg = "Not enough gaps to measure"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
     median_gap = np.median(gaps)
 
-    valid_gaps = [g for g in gaps if abs(g - median_gap) < (median_gap * 0.2)]
+    # === STRICTER GAP VALIDATION ===
+    # Step 1: Remove outliers (gaps that differ by more than GAP_OUTLIER_TOLERANCE)
+    valid_gaps = [g for g in gaps if abs(g - median_gap) / median_gap < GAP_OUTLIER_TOLERANCE]
 
-    if len(valid_gaps) < 4:
-        calibration_error_msg = "Gaps inconsistent"
+    if len(valid_gaps) < (MIN_CM_LINES_REQUIRED - 1):
+        calibration_error_msg = f"Gaps too uneven (only {len(valid_gaps)} valid)"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
+    # Step 2: Calculate variance from valid gaps
     gap_mean = np.mean(valid_gaps)
     gap_std = np.std(valid_gaps)
+    spacing_variance = gap_std / gap_mean if gap_mean > 0 else 1.0
 
-    spacing_variance = gap_std / gap_mean
-
+    # === STRICTER VARIANCE CHECK ===
     if spacing_variance > MAX_GAP_VARIANCE:
-        calibration_error_msg = f"Uneven Spacing ({spacing_variance * 100:.1f}%)"
+        calibration_error_msg = f"Spacing uneven ({spacing_variance * 100:.1f}% > {MAX_GAP_VARIANCE * 100:.0f}%)"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
+    # === CALCULATE PIXELS PER MM ===
+    # Use mean of valid gaps and divide by 10 (1cm = 10mm)
     px_per_mm = gap_mean / 10.0
 
     if px_per_mm < 2 or px_per_mm > 150:
-        calibration_error_msg = "Scale Error"
+        calibration_error_msg = f"Scale invalid ({px_per_mm:.2f} px/mm)"
         return None
 
     calibration_error_msg = ""
+
+    # === DEBUG INFO ===
+    print(
+        f"✓ Found {len(cm_ticks)} CM lines | Gaps: {[f'{g:.1f}' for g in valid_gaps]} | Variance: {spacing_variance * 100:.2f}%")
+
     return {
         "px_per_mm": px_per_mm,
         "ticks": all_ticks,
-        "roi_offset": (cx1, cy1)
+        "roi_offset": (cx1, cy1),
+        "cm_count": len(cm_ticks),
+        "spacing_variance": spacing_variance
     }
 
 
@@ -290,7 +306,7 @@ def detect_pellets(frame, excluded_boxes):
         for ex_obj in excluded_boxes:
             bx1, by1, bx2, by2 = ex_obj['box']
             if (bx1 - 5) <= cx <= (bx2 + 5) and (by1 - 5) <= cy <= (by2 + 5):
-                is_ignored = True;
+                is_ignored = True
                 break
         if is_ignored: continue
 
@@ -422,7 +438,7 @@ def process_calibration(result):
     if calibration_locked:
         # A. Check Scale Change (Zoom/Depth)
         if abs(new_px - PIXELS_PER_MM) > RESET_THRESHOLD:
-            print("Scale changed! Re-calibrating...")
+            print("⚠ Scale changed! Re-calibrating...")
             calibration_locked = False
             calibration_buffer.clear()
             return
@@ -434,12 +450,12 @@ def process_calibration(result):
             dist = math.sqrt((lx - nx) ** 2 + (ly - ny) ** 2)
 
             if dist > MAX_MOVEMENT_PIXELS:
-                print("Camera moved! Re-calibrating...")
+                print("⚠ Camera moved! Re-calibrating...")
                 calibration_locked = False
                 calibration_buffer.clear()
         return
 
-        # --- 2. STABILIZING STATE ---
+    # --- 2. STABILIZING STATE ---
     if len(calibration_buffer) > 0:
         current_avg = np.mean(calibration_buffer)
         if abs(new_px - current_avg) > 1.0:
@@ -456,8 +472,8 @@ def process_calibration(result):
     if len(calibration_buffer) == CALIBRATION_BUFFER_SIZE:
         if std_dev < STABILITY_THRESHOLD:
             calibration_locked = True
-            locked_zone_coords = new_coords  # Save position when locking
-            print(f"LOCKED at {avg_px} | Pos: {locked_zone_coords}")
+            locked_zone_coords = new_coords
+            print(f"🔒 LOCKED at {avg_px:.2f} px/mm | StdDev: {std_dev:.3f} | Pos: {locked_zone_coords}")
 
 
 def main():

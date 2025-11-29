@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00200" summary="not working">
-      <option name="closed" value="true" />
-      <created>1764227296204</created>
-      <option name="number" value="00200" />
-      <option name="presentableId" value="LOCAL-00200" />
-      <option name="project" value="LOCAL" />
-      <updated>1764227296204</updated>
-    </task>
     <task id="LOCAL-00201" summary="box detection">
       <option name="closed" value="true" />
       <created>1764228206978</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764399813367</updated>
     </task>
-    <option name="localTasksCounter" value="249" />
+    <task id="LOCAL-00249" summary="added re calibrate when camera move">
+      <option name="closed" value="true" />
+      <created>1764401146619</created>
+      <option name="number" value="00249" />
+      <option name="presentableId" value="LOCAL-00249" />
+      <option name="project" value="LOCAL" />
+      <updated>1764401146619</updated>
+    </task>
+    <option name="localTasksCounter" value="250" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
