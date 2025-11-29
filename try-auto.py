@@ -105,7 +105,6 @@ def run_yolo_detection(frame):
                 'conf': conf
             })
 
-            # Priority: "mm" or "zone" > "ruler"
             is_preferred = "mm" in name.lower() or "zone" in name.lower()
 
             if is_preferred:
@@ -132,15 +131,12 @@ def analyze_structure(frame, bbox):
     roi = frame[cy1:cy2, cx1:cx2]
     if roi.size == 0 or roi.shape[0] < 20 or roi.shape[1] < 20: return None
 
-    # Detect Orientation
     is_horizontal_ruler = (cx2 - cx1) > (cy2 - cy1)
 
-    # Pre-process
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 15, 4)
 
-    # Line Filter
     if is_horizontal_ruler:
         kernel_len = max(5, roi.shape[0] // 8)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, kernel_len))
@@ -172,72 +168,63 @@ def analyze_structure(frame, bbox):
             if tw > th * 2:
                 all_ticks.append({'pos': pos, 'len': length, 'rect': (tx, ty, tw, th)})
 
-    # Require enough raw data
     if len(all_ticks) < 5: return None
 
-    # --- STEP 1: Filter by Length (Keep Longest Lines) ---
+    # Length Filter (Longest 85%)
     max_len = max(t['len'] for t in all_ticks)
     cm_candidates = [t for t in all_ticks if t['len'] > (max_len * 0.85)]
 
-    if len(cm_candidates) < 5: return None  # Strict rule: need at least 5 CM lines
+    if len(cm_candidates) < 5: return None
 
-    # --- STEP 2: Sort and Sequence Analysis ---
+    # Sequence Logic
     cm_candidates.sort(key=lambda x: x['pos'])
 
-    # Find the longest chain of evenly spaced lines
-    # Calculate gaps between all adjacent candidates
     raw_gaps = []
     for i in range(len(cm_candidates) - 1):
         raw_gaps.append(cm_candidates[i + 1]['pos'] - cm_candidates[i]['pos'])
 
+    if not raw_gaps: return None
     median_gap = np.median(raw_gaps)
 
-    # Identify chains
     current_chain = [cm_candidates[0]]
     longest_chain = []
 
     for i in range(len(cm_candidates) - 1):
         gap = cm_candidates[i + 1]['pos'] - cm_candidates[i]['pos']
 
-        # Tolerance: Gap must be within 10% of the median gap
         if abs(gap - median_gap) < (median_gap * 0.1):
             current_chain.append(cm_candidates[i + 1])
         else:
-            # Chain broken
             if len(current_chain) > len(longest_chain):
                 longest_chain = current_chain
             current_chain = [cm_candidates[i + 1]]
 
-    # Check last chain
     if len(current_chain) > len(longest_chain):
         longest_chain = current_chain
 
-    # --- STEP 3: Validate Final Chain ---
-    # Must have at least 5 lines (4 intervals)
     if len(longest_chain) < 5: return None
 
-    # Calculate final precision
     final_gaps = []
     for i in range(len(longest_chain) - 1):
         final_gaps.append(longest_chain[i + 1]['pos'] - longest_chain[i]['pos'])
 
     avg_gap_px = np.mean(final_gaps)
-    px_per_mm = avg_gap_px / 10.0  # 1 CM gap = 10mm
+    px_per_mm = avg_gap_px / 10.0
 
     if px_per_mm < 2 or px_per_mm > 150: return None
 
     return {
         "px_per_mm": px_per_mm,
-        "ticks": longest_chain,  # ONLY return the valid chain
+        "ticks": longest_chain,
         "roi_offset": (cx1, cy1),
         "count": len(longest_chain)
     }
 
 
 # ----------------------------------------------------------------------
-# 3. Pellet Detection
+# 3. Pellet Detection (With Exclusion)
 # ----------------------------------------------------------------------
-def detect_pellets(frame):
+def detect_pellets(frame, excluded_boxes):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blur = cv2.bilateralFilter(gray, 9, 75, 75)
     thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
@@ -254,7 +241,22 @@ def detect_pellets(frame):
         if not (MIN_CONTOUR_AREA <= cv2.contourArea(cnt) <= MAX_CONTOUR_AREA): continue
 
         rect = cv2.minAreaRect(cnt)
+        (cx, cy), (w, h), angle = rect
         box = np.intp(cv2.boxPoints(rect))
+
+        # --- EXCLUSION CHECK ---
+        # If this pellet is inside ANY YOLO box (ruler, zone), skip it
+        is_ignored = False
+        for ex_obj in excluded_boxes:
+            bx1, by1, bx2, by2 = ex_obj['box']
+            # Simple point-in-box check
+            if bx1 <= cx <= bx2 and by1 <= cy <= by2:
+                is_ignored = True
+                break
+
+        if is_ignored:
+            continue
+        # -----------------------
 
         d1 = get_distance(box[0], box[1])
         d2 = get_distance(box[1], box[2])
@@ -294,12 +296,9 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
 
         cv2.putText(frame, label, (bx1, by1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
-    # B. Draw Analysed Ticks (ONLY Valid Sequence)
+    # B. Draw Analysed Ticks
     if tick_data:
         off_x, off_y = tick_data['roi_offset']
-
-        # We only iterate over the 'ticks' returned, which are GUARANTEED to be
-        # the valid, even-spaced CM lines.
         for t in tick_data['ticks']:
             rx, ry, rw, rh = t['rect']
             ax, ay = int(off_x + rx), int(off_y + ry)
@@ -307,12 +306,6 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
 
             # THIN Red Line (Thickness = 1)
             cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), (0, 0, 255), 1)
-
-        # Optional: Indicate how many lines found
-        tx = int(off_x + tick_data['ticks'][0]['rect'][0])
-        ty = int(off_y + tick_data['ticks'][0]['rect'][1]) - 10
-        cv2.putText(frame, f"{tick_data['count']} CM Lines", (tx, ty),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
     # C. Draw Pellets
     for p in pellets:
@@ -359,6 +352,9 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, DESIRED_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, DESIRED_HEIGHT)
 
+    window_name = "Inspector"
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+
     print("Running...")
 
     while True:
@@ -369,7 +365,6 @@ def main():
 
         current_time = time.time()
 
-        # Clear overlay if zone lost
         if not active_zone: current_tick_data = None
 
         if active_zone and (current_time - last_calibration_time > CALIBRATION_INTERVAL):
@@ -387,11 +382,20 @@ def main():
                 update_ranges()
                 current_tick_data = result
 
-        pellets = detect_pellets(frame)
+        # Pass yolo_objects to exclude detection inside them
+        pellets = detect_pellets(frame, yolo_objects)
+
         frame = draw_ui(frame, yolo_objects, active_zone, pellets, current_tick_data)
 
-        cv2.imshow("Inspector", frame)
-        if cv2.waitKey(1) == ord('q'): break
+        cv2.imshow(window_name, frame)
+
+        key = cv2.waitKey(1)
+        if key == ord('q'):
+            break
+
+        # Check if window "X" button was clicked
+        if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+            break
 
     cap.release()
     cv2.destroyAllWindows()

@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00187" summary="fixing ruler">
-      <option name="closed" value="true" />
-      <created>1764128956225</created>
-      <option name="number" value="00187" />
-      <option name="presentableId" value="LOCAL-00187" />
-      <option name="project" value="LOCAL" />
-      <updated>1764128956225</updated>
-    </task>
     <task id="LOCAL-00188" summary="fixing ruler">
       <option name="closed" value="true" />
       <created>1764129147474</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764377706527</updated>
     </task>
-    <option name="localTasksCounter" value="236" />
+    <task id="LOCAL-00236" summary="removed ignored lines">
+      <option name="closed" value="true" />
+      <created>1764378100088</created>
+      <option name="number" value="00236" />
+      <option name="presentableId" value="LOCAL-00236" />
+      <option name="project" value="LOCAL" />
+      <updated>1764378100088</updated>
+    </task>
+    <option name="localTasksCounter" value="237" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="box detection" />
     <MESSAGE value="modified box ruler selection" />
     <MESSAGE value="updated box ruler selection" />
     <MESSAGE value="deleted best.pt" />
@@ -671,7 +670,8 @@
     <MESSAGE value="new calibration long and short" />
     <MESSAGE value="fixint results" />
     <MESSAGE value="fixing calibrate" />
-    <option name="LAST_COMMIT_MESSAGE" value="fixing calibrate" />
+    <MESSAGE value="removed ignored lines" />
+    <option name="LAST_COMMIT_MESSAGE" value="removed ignored lines" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
