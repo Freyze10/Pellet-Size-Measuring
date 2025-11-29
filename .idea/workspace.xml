@@ -227,22 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00191" summary="removed overlay text">
-      <option name="closed" value="true" />
-      <created>1764147729845</created>
-      <option name="number" value="00191" />
-      <option name="presentableId" value="LOCAL-00191" />
-      <option name="project" value="LOCAL" />
-      <updated>1764147729845</updated>
-    </task>
-    <task id="LOCAL-00192" summary="added from auto">
-      <option name="closed" value="true" />
-      <created>1764204568630</created>
-      <option name="number" value="00192" />
-      <option name="presentableId" value="LOCAL-00192" />
-      <option name="project" value="LOCAL" />
-      <updated>1764204568630</updated>
-    </task>
     <task id="LOCAL-00193" summary="added trained yolo ruler model">
       <option name="closed" value="true" />
       <created>1764222968888</created>
@@ -619,7 +603,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764380094638</updated>
     </task>
-    <option name="localTasksCounter" value="240" />
+    <task id="LOCAL-00240" summary="fixing calibration">
+      <option name="closed" value="true" />
+      <created>1764383558049</created>
+      <option name="number" value="00240" />
+      <option name="presentableId" value="LOCAL-00240" />
+      <option name="project" value="LOCAL" />
+      <updated>1764383558049</updated>
+    </task>
+    <task id="LOCAL-00241" summary="smoother object detection, not jumping">
+      <option name="closed" value="true" />
+      <created>1764383652174</created>
+      <option name="number" value="00241" />
+      <option name="presentableId" value="LOCAL-00241" />
+      <option name="project" value="LOCAL" />
+      <updated>1764383652174</updated>
+    </task>
+    <option name="localTasksCounter" value="242" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="deleted best.pt" />
     <MESSAGE value="uploaded new best.pt" />
     <MESSAGE value="UPDATED AUTO" />
     <MESSAGE value="usage wiht yolo" />
@@ -671,7 +670,8 @@
     <MESSAGE value="removed ignored lines" />
     <MESSAGE value="no pellet detection inside ruler" />
     <MESSAGE value="fixing calibration" />
-    <option name="LAST_COMMIT_MESSAGE" value="fixing calibration" />
+    <MESSAGE value="smoother object detection, not jumping" />
+    <option name="LAST_COMMIT_MESSAGE" value="smoother object detection, not jumping" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
