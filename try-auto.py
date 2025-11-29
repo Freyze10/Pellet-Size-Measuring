@@ -7,10 +7,10 @@ from ultralytics import YOLO
 # ----------------------------------------------------------------------
 # Configuration
 # ----------------------------------------------------------------------
-# EXACT Class name for the mm zone in your YOLO model
-CALIBRATION_ZONE_CLASS = "mm_zone"
+YOLO_MODEL_PATH = "yolo/best.pt"
 
-PIXELS_PER_MM = 10.0  # Fallback
+# Initial Calibration Defaults
+PIXELS_PER_MM = 10.0
 TARGET_DIAMETER = 3.0
 TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
@@ -18,13 +18,12 @@ EXCLUSION_THRESHOLD = 1.0
 
 # System State
 yolo_model = None
-model_names = {}
 is_calibrated = False
 last_calibration_time = 0
 CALIBRATION_INTERVAL = 0.5
 current_tick_data = None
 
-# Settings
+# Camera Settings
 DESIRED_WIDTH = 1280
 DESIRED_HEIGHT = 720
 MIN_CONTOUR_AREA = 100
@@ -57,19 +56,22 @@ update_ranges()
 # Helpers
 # ----------------------------------------------------------------------
 def load_yolo_model():
-    global yolo_model, model_names
+    global yolo_model
     try:
-        yolo_model = YOLO("yolo/best.pt")
-        model_names = yolo_model.names
-        print(f"✓ Model loaded. Calibration Class: '{CALIBRATION_ZONE_CLASS}'")
+        yolo_model = YOLO(YOLO_MODEL_PATH)
+        print(f"✓ YOLO model loaded: {YOLO_MODEL_PATH}")
         return True
     except Exception as e:
-        print(f"✗ Failed to load YOLO: {e}")
+        print(f"✗ Failed to load YOLO model: {e}")
         return False
 
 
 def get_distance(p1, p2):
     return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
+
+
+def is_within_tolerance(d, l):
+    return (DIAMETER_MIN <= d <= DIAMETER_MAX and LENGTH_MIN <= l <= LENGTH_MAX)
 
 
 def should_process_pellet(d, l):
@@ -85,6 +87,7 @@ def run_yolo_detection(frame):
     if yolo_model is None: return [], None
 
     results = yolo_model(frame, conf=0.35, verbose=False)
+
     all_detections = []
     calibration_zone = None
     best_conf = 0
@@ -94,145 +97,140 @@ def run_yolo_detection(frame):
             x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
             conf = float(box.conf[0])
             cls_id = int(box.cls[0])
-            name = model_names[cls_id]
+            name = yolo_model.names[cls_id]
 
-            all_detections.append({'box': (x1, y1, x2, y2), 'name': name, 'conf': conf})
+            all_detections.append({
+                'box': (x1, y1, x2, y2),
+                'name': name,
+                'conf': conf
+            })
 
-            # STRICTLY select the class defined in config
-            if name == CALIBRATION_ZONE_CLASS:
+            # Priority: "mm" or "zone" > "ruler"
+            is_preferred = "mm" in name.lower() or "zone" in name.lower()
+
+            if is_preferred:
                 if conf > best_conf:
                     best_conf = conf
                     calibration_zone = (x1, y1, x2, y2)
+            elif calibration_zone is None and "ruler" in name.lower():
+                calibration_zone = (x1, y1, x2, y2)
 
     return all_detections, calibration_zone
 
 
 # ----------------------------------------------------------------------
-# 2. STRICT CALIBRATION LOGIC
+# 2. Strict CM-Sequence Calibration
 # ----------------------------------------------------------------------
 def analyze_structure(frame, bbox):
     x1, y1, x2, y2 = bbox
     h_img, w_img = frame.shape[:2]
 
-    # 1. Crop to Zone
-    roi = frame[y1:y2, x1:x2]
+    pad = 2
+    cx1, cy1 = max(0, x1 + pad), max(0, y1 + pad)
+    cx2, cy2 = min(w_img, x2 - pad), min(h_img, y2 - pad)
+
+    roi = frame[cy1:cy2, cx1:cx2]
     if roi.size == 0 or roi.shape[0] < 20 or roi.shape[1] < 20: return None
 
-    # 2. Determine Orientation
-    # Width > Height means Ruler is Horizontal, so Ticks are Vertical Lines
-    is_horizontal_ruler = (x2 - x1) > (y2 - y1)
+    # Detect Orientation
+    is_horizontal_ruler = (cx2 - cx1) > (cy2 - cy1)
 
-    # 3. Pre-process (Isolate Lines)
+    # Pre-process
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 15, 6)
+                                   cv2.THRESH_BINARY_INV, 15, 4)
 
-    # Morphological Filter to keep only lines perpendicular to ruler
+    # Line Filter
     if is_horizontal_ruler:
-        # Keep vertical lines
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, roi.shape[0] // 10))
+        kernel_len = max(5, roi.shape[0] // 8)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, kernel_len))
     else:
-        # Keep horizontal lines
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (roi.shape[1] // 10, 1))
+        kernel_len = max(5, roi.shape[1] // 8)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_len, 1))
 
     clean_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
+    clean_lines = cv2.dilate(clean_lines, None, iterations=1)
+
     contours, _ = cv2.findContours(clean_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    candidates = []
+    all_ticks = []
 
-    # 4. Extract Raw Candidates
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if area < 10: continue
+        if area < 5: continue
 
         tx, ty, tw, th = cv2.boundingRect(cnt)
 
         if is_horizontal_ruler:
-            # Check aspect ratio (must be tall)
+            pos = tx + tw / 2
+            length = th
             if th > tw * 2:
-                candidates.append({
-                    'pos': tx + tw / 2,  # Position along ruler
-                    'align_axis': ty + th / 2,  # Vertical alignment center
-                    'length': th,
-                    'rect': (tx, ty, tw, th),
-                    'status': 'unknown'
-                })
+                all_ticks.append({'pos': pos, 'len': length, 'rect': (tx, ty, tw, th)})
         else:
-            # Check aspect ratio (must be wide)
+            pos = ty + th / 2
+            length = tw
             if tw > th * 2:
-                candidates.append({
-                    'pos': ty + th / 2,
-                    'align_axis': tx + tw / 2,
-                    'length': tw,
-                    'rect': (tx, ty, tw, th),
-                    'status': 'unknown'
-                })
+                all_ticks.append({'pos': pos, 'len': length, 'rect': (tx, ty, tw, th)})
 
-    if not candidates: return None
+    # Require enough raw data
+    if len(all_ticks) < 5: return None
 
-    # --- FILTER 1: LENGTH (Find Longest Lines) ---
-    max_len = max(c['length'] for c in candidates)
-    long_ticks = []
+    # --- STEP 1: Filter by Length (Keep Longest Lines) ---
+    max_len = max(t['len'] for t in all_ticks)
+    cm_candidates = [t for t in all_ticks if t['len'] > (max_len * 0.85)]
 
-    for c in candidates:
-        # Must be at least 85% of the longest line detected
-        if c['length'] > (max_len * 0.85):
-            long_ticks.append(c)
+    if len(cm_candidates) < 5: return None  # Strict rule: need at least 5 CM lines
+
+    # --- STEP 2: Sort and Sequence Analysis ---
+    cm_candidates.sort(key=lambda x: x['pos'])
+
+    # Find the longest chain of evenly spaced lines
+    # Calculate gaps between all adjacent candidates
+    raw_gaps = []
+    for i in range(len(cm_candidates) - 1):
+        raw_gaps.append(cm_candidates[i + 1]['pos'] - cm_candidates[i]['pos'])
+
+    median_gap = np.median(raw_gaps)
+
+    # Identify chains
+    current_chain = [cm_candidates[0]]
+    longest_chain = []
+
+    for i in range(len(cm_candidates) - 1):
+        gap = cm_candidates[i + 1]['pos'] - cm_candidates[i]['pos']
+
+        # Tolerance: Gap must be within 10% of the median gap
+        if abs(gap - median_gap) < (median_gap * 0.1):
+            current_chain.append(cm_candidates[i + 1])
         else:
-            c['status'] = 'too_short'
+            # Chain broken
+            if len(current_chain) > len(longest_chain):
+                longest_chain = current_chain
+            current_chain = [cm_candidates[i + 1]]
 
-    if len(long_ticks) < 2: return None
+    # Check last chain
+    if len(current_chain) > len(longest_chain):
+        longest_chain = current_chain
 
-    # --- FILTER 2: ALIGNMENT (Straight Line Check) ---
-    # Calculate median alignment (e.g., all ticks should be at same height)
-    median_align = np.median([c['align_axis'] for c in long_ticks])
-    aligned_ticks = []
-    alignment_tolerance = max_len * 0.3  # Allow some wiggle room
+    # --- STEP 3: Validate Final Chain ---
+    # Must have at least 5 lines (4 intervals)
+    if len(longest_chain) < 5: return None
 
-    for c in long_ticks:
-        if abs(c['align_axis'] - median_align) < alignment_tolerance:
-            aligned_ticks.append(c)
-        else:
-            c['status'] = 'misaligned'
+    # Calculate final precision
+    final_gaps = []
+    for i in range(len(longest_chain) - 1):
+        final_gaps.append(longest_chain[i + 1]['pos'] - longest_chain[i]['pos'])
 
-    if len(aligned_ticks) < 2: return None
+    avg_gap_px = np.mean(final_gaps)
+    px_per_mm = avg_gap_px / 10.0  # 1 CM gap = 10mm
 
-    # --- FILTER 3: EQUAL SPACING (Gap Check) ---
-    aligned_ticks.sort(key=lambda x: x['pos'])
-
-    positions = [c['pos'] for c in aligned_ticks]
-    gaps = np.diff(positions)
-
-    if len(gaps) == 0: return None
-
-    median_gap = np.median(gaps)
-
-    # Strict Spacing Filter: Gap must be within 10% of median
-    # This removes gaps where a line might have been missed
-    valid_gaps = []
-    for g in gaps:
-        if abs(g - median_gap) < (median_gap * 0.1):
-            valid_gaps.append(g)
-
-    if len(valid_gaps) == 0: return None  # No consistent spacing found
-
-    avg_gap_px = np.mean(valid_gaps)
-
-    # 5. Final Calculation
-    # Assumption: The "Longest" lines on a ruler are CM marks (10mm gap)
-    px_per_mm = avg_gap_px / 10.0
-
-    # Sanity Check
-    if px_per_mm < 2 or px_per_mm > 200: return None
-
-    # Mark good ticks for drawing
-    for c in aligned_ticks:
-        c['status'] = 'valid'
+    if px_per_mm < 2 or px_per_mm > 150: return None
 
     return {
         "px_per_mm": px_per_mm,
-        "ticks": candidates,  # Return all for debug drawing
-        "roi_offset": (x1, y1)
+        "ticks": longest_chain,  # ONLY return the valid chain
+        "roi_offset": (cx1, cy1),
+        "count": len(longest_chain)
     }
 
 
@@ -244,9 +242,11 @@ def detect_pellets(frame):
     blur = cv2.bilateralFilter(gray, 9, 75, 75)
     thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 11, 2)
+
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
+
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     pellets = []
@@ -255,18 +255,22 @@ def detect_pellets(frame):
 
         rect = cv2.minAreaRect(cnt)
         box = np.intp(cv2.boxPoints(rect))
+
         d1 = get_distance(box[0], box[1])
         d2 = get_distance(box[1], box[2])
-        w_px = min(d1, d2)
-        h_px = max(d1, d2)
 
-        d_mm = w_px / PIXELS_PER_MM
-        l_mm = h_px / PIXELS_PER_MM
+        width_px = min(d1, d2)
+        height_px = max(d1, d2)
+
+        d_mm = width_px / PIXELS_PER_MM
+        l_mm = height_px / PIXELS_PER_MM
 
         if should_process_pellet(d_mm, l_mm):
             pellets.append({
-                'box': box, 'diameter': d_mm, 'length': l_mm,
-                'is_good': (DIAMETER_MIN <= d_mm <= DIAMETER_MAX and LENGTH_MIN <= l_mm <= LENGTH_MAX)
+                'box': box,
+                'diameter': d_mm,
+                'length': l_mm,
+                'is_good': is_within_tolerance(d_mm, l_mm)
             })
     return pellets
 
@@ -275,53 +279,69 @@ def detect_pellets(frame):
 # 4. Visualization
 # ----------------------------------------------------------------------
 def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
-    # Draw YOLO
+    # A. Draw YOLO Objects
     for obj in yolo_objects:
         bx1, by1, bx2, by2 = obj['box']
-        color = (0, 255, 0) if obj['box'] == active_zone_box else (100, 100, 100)
-        cv2.rectangle(frame, (bx1, by1), (bx2, by2), color, 2 if color == (0, 255, 0) else 1)
-        cv2.putText(frame, obj['name'], (bx1, by1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
-    # Draw Ticks (Debug)
+        if active_zone_box and obj['box'] == active_zone_box:
+            color = (0, 255, 0)  # Green for Active Zone
+            label = f"{obj['name']} [ACTIVE]"
+            cv2.rectangle(frame, (bx1, by1), (bx2, by2), color, 2)
+        else:
+            color = (100, 100, 100)  # Gray for passive objects
+            label = obj['name']
+            cv2.rectangle(frame, (bx1, by1), (bx2, by2), color, 1)
+
+        cv2.putText(frame, label, (bx1, by1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+
+    # B. Draw Analysed Ticks (ONLY Valid Sequence)
     if tick_data:
         off_x, off_y = tick_data['roi_offset']
+
+        # We only iterate over the 'ticks' returned, which are GUARANTEED to be
+        # the valid, even-spaced CM lines.
         for t in tick_data['ticks']:
             rx, ry, rw, rh = t['rect']
             ax, ay = int(off_x + rx), int(off_y + ry)
+            aw, ah = int(rw), int(rh)
 
-            if t['status'] == 'valid':
-                # GREEN: Valid Long, Straight, Spaced line
-                cv2.rectangle(frame, (ax, ay), (ax + int(rw), ay + int(rh)), (0, 255, 0), -1)
-            elif t['status'] == 'too_short':
-                # RED: Too short
-                cv2.rectangle(frame, (ax, ay), (ax + int(rw), ay + int(rh)), (0, 0, 255), 1)
-            elif t['status'] == 'misaligned':
-                # YELLOW: Long enough, but not straight
-                cv2.rectangle(frame, (ax, ay), (ax + int(rw), ay + int(rh)), (0, 255, 255), 1)
-            else:
-                # GRAY: Failed other checks
-                cv2.rectangle(frame, (ax, ay), (ax + int(rw), ay + int(rh)), (100, 100, 100), 1)
+            # THIN Red Line (Thickness = 1)
+            cv2.rectangle(frame, (ax, ay), (ax + aw, ay + ah), (0, 0, 255), 1)
 
-    # Draw Pellets
+        # Optional: Indicate how many lines found
+        tx = int(off_x + tick_data['ticks'][0]['rect'][0])
+        ty = int(off_y + tick_data['ticks'][0]['rect'][1]) - 10
+        cv2.putText(frame, f"{tick_data['count']} CM Lines", (tx, ty),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+
+    # C. Draw Pellets
     for p in pellets:
         box = p['box']
         color = (0, 255, 0) if p['is_good'] else (0, 0, 255)
-        cv2.drawContours(frame, [box], 0, color, 2)
-        top = min(box, key=lambda x: x[1])
-        cv2.putText(frame, f"{p['diameter']:.2f}x{p['length']:.2f}", (int(top[0]), int(top[1] - 10)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        if not p['is_good']:
-            cv2.putText(frame, "!", (int(top[0] - 15), int(top[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-    # Status
+        cv2.drawContours(frame, [box], 0, color, 2)
+
+        top_pt = min(box, key=lambda x: x[1])
+        tx, ty = int(top_pt[0]), int(top_pt[1])
+
+        txt = f"{p['diameter']:.2f}x{p['length']:.2f}"
+        cv2.putText(frame, txt, (tx - 10, ty - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3)
+        cv2.putText(frame, txt, (tx - 10, ty - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+        if not p['is_good']:
+            cv2.putText(frame, "!", (tx - 25, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+
+    # D. Status Overlay
     cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 45), (20, 20, 20), -1)
-    msg = f"CALIBRATED: {PIXELS_PER_MM:.2f} px/mm" if is_calibrated else f"WAITING FOR '{CALIBRATION_ZONE_CLASS}'..."
-    col = (0, 255, 0) if is_calibrated else (0, 0, 255)
-    cv2.putText(frame, msg, (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, col, 2)
 
     if is_calibrated:
-        cv2.putText(frame, "GREEN: Used | RED: Short | YELLOW: Crooked", (400, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                    (200, 200, 200), 1)
+        msg = f"CALIBRATED: {PIXELS_PER_MM:.2f} px/mm"
+        col = (0, 255, 0)
+    else:
+        msg = "UNCALIBRATED (Need 5+ clear CM lines)"
+        col = (0, 0, 255)
+
+    cv2.putText(frame, msg, (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, col, 2)
 
     return frame
 
@@ -331,41 +351,49 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
 # ----------------------------------------------------------------------
 def main():
     global PIXELS_PER_MM, is_calibrated, last_calibration_time, current_tick_data
+
     if not load_yolo_model(): return
 
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     if not cap.isOpened(): cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-    cap.set(3, DESIRED_WIDTH);
-    cap.set(4, DESIRED_HEIGHT)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, DESIRED_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, DESIRED_HEIGHT)
 
     print("Running...")
+
     while True:
         ret, frame = cap.read()
         if not ret: break
 
         yolo_objects, active_zone = run_yolo_detection(frame)
 
-        if active_zone and (time.time() - last_calibration_time > CALIBRATION_INTERVAL):
+        current_time = time.time()
+
+        # Clear overlay if zone lost
+        if not active_zone: current_tick_data = None
+
+        if active_zone and (current_time - last_calibration_time > CALIBRATION_INTERVAL):
             result = analyze_structure(frame, active_zone)
             if result:
                 new_px = result['px_per_mm']
+
                 if is_calibrated:
                     PIXELS_PER_MM = (PIXELS_PER_MM * 0.9) + (new_px * 0.1)
                 else:
-                    PIXELS_PER_MM = new_px; is_calibrated = True
+                    PIXELS_PER_MM = new_px
+                    is_calibrated = True
 
-                last_calibration_time = time.time()
+                last_calibration_time = current_time
                 update_ranges()
                 current_tick_data = result
-            else:
-                current_tick_data = None  # Clear debug if lost
 
         pellets = detect_pellets(frame)
         frame = draw_ui(frame, yolo_objects, active_zone, pellets, current_tick_data)
+
         cv2.imshow("Inspector", frame)
         if cv2.waitKey(1) == ord('q'): break
 
-    cap.release();
+    cap.release()
     cv2.destroyAllWindows()
 
 
