@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00188" summary="fixing ruler">
-      <option name="closed" value="true" />
-      <created>1764129147474</created>
-      <option name="number" value="00188" />
-      <option name="presentableId" value="LOCAL-00188" />
-      <option name="project" value="LOCAL" />
-      <updated>1764129147474</updated>
-    </task>
     <task id="LOCAL-00189" summary="fixing ruler">
       <option name="closed" value="true" />
       <created>1764129154519</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764378100088</updated>
     </task>
-    <option name="localTasksCounter" value="237" />
+    <task id="LOCAL-00237" summary="no pellet detection inside ruler">
+      <option name="closed" value="true" />
+      <created>1764378409508</created>
+      <option name="number" value="00237" />
+      <option name="presentableId" value="LOCAL-00237" />
+      <option name="project" value="LOCAL" />
+      <updated>1764378409508</updated>
+    </task>
+    <option name="localTasksCounter" value="238" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="modified box ruler selection" />
     <MESSAGE value="updated box ruler selection" />
     <MESSAGE value="deleted best.pt" />
     <MESSAGE value="uploaded new best.pt" />
@@ -671,7 +670,8 @@
     <MESSAGE value="fixint results" />
     <MESSAGE value="fixing calibrate" />
     <MESSAGE value="removed ignored lines" />
-    <option name="LAST_COMMIT_MESSAGE" value="removed ignored lines" />
+    <MESSAGE value="no pellet detection inside ruler" />
+    <option name="LAST_COMMIT_MESSAGE" value="no pellet detection inside ruler" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
