@@ -227,22 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00193" summary="added trained yolo ruler model">
-      <option name="closed" value="true" />
-      <created>1764222968888</created>
-      <option name="number" value="00193" />
-      <option name="presentableId" value="LOCAL-00193" />
-      <option name="project" value="LOCAL" />
-      <updated>1764222968888</updated>
-    </task>
-    <task id="LOCAL-00194" summary="updated auto">
-      <option name="closed" value="true" />
-      <created>1764222993154</created>
-      <option name="number" value="00194" />
-      <option name="presentableId" value="LOCAL-00194" />
-      <option name="project" value="LOCAL" />
-      <updated>1764222993154</updated>
-    </task>
     <task id="LOCAL-00195" summary="added yolo model">
       <option name="closed" value="true" />
       <created>1764225266051</created>
@@ -619,7 +603,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764383652174</updated>
     </task>
-    <option name="localTasksCounter" value="242" />
+    <task id="LOCAL-00242" summary="debug detection">
+      <option name="closed" value="true" />
+      <created>1764384278183</created>
+      <option name="number" value="00242" />
+      <option name="presentableId" value="LOCAL-00242" />
+      <option name="project" value="LOCAL" />
+      <updated>1764384278183</updated>
+    </task>
+    <task id="LOCAL-00243" summary="debug detection">
+      <option name="closed" value="true" />
+      <created>1764385775700</created>
+      <option name="number" value="00243" />
+      <option name="presentableId" value="LOCAL-00243" />
+      <option name="project" value="LOCAL" />
+      <updated>1764385775701</updated>
+    </task>
+    <option name="localTasksCounter" value="244" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="uploaded new best.pt" />
     <MESSAGE value="UPDATED AUTO" />
     <MESSAGE value="usage wiht yolo" />
     <MESSAGE value="testing diff measures" />
@@ -671,7 +670,8 @@
     <MESSAGE value="no pellet detection inside ruler" />
     <MESSAGE value="fixing calibration" />
     <MESSAGE value="smoother object detection, not jumping" />
-    <option name="LAST_COMMIT_MESSAGE" value="smoother object detection, not jumping" />
+    <MESSAGE value="debug detection" />
+    <option name="LAST_COMMIT_MESSAGE" value="debug detection" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
