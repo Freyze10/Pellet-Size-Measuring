@@ -17,18 +17,28 @@ TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
 
+# --- CALIBRATION MODES ---
+CALIBRATION_MODE = 'CM'  # Options: 'CM' or 'INCH'
+
+# CM Settings
+MIN_LINES_CM = 5  # Need 5 lines (4 gaps)
+DIVISOR_CM = 10.0  # 1 cm = 10 mm
+
+# Inch Settings
+MIN_LINES_INCH = 4  # Need 4 lines (3 consecutive equal spaces)
+DIVISOR_INCH = 25.4  # 1 inch = 25.4 mm
+
 # --- STABILITY & LOCKING SETTINGS ---
-CALIBRATION_BUFFER_SIZE = 150  # 5 Seconds @ 30fps
-STABILITY_THRESHOLD = 0.5  # Std Dev limit
-RESET_THRESHOLD = 3.0  # Scale change limit (Zoom/Distance)
-MAX_MOVEMENT_PIXELS = 50  # Position change limit (Pan/Tilt)
+CALIBRATION_BUFFER_SIZE = 150
+STABILITY_THRESHOLD = 0.5
+RESET_THRESHOLD = 3.0
+MAX_MOVEMENT_PIXELS = 50
 
 # --- DETECTION STRICTNESS ---
 ASPECT_RATIO_MIN = 2.0
-CM_STRICT_HEIGHT_RATIO = 0.90  # CM lines must be at least 90% of tallest line
-MIN_CM_LINES_REQUIRED = 5  # MUST have at least 5 CM lines
-MAX_GAP_VARIANCE = 0.03  # Stricter: 3% variance (was 5%)
-GAP_OUTLIER_TOLERANCE = 0.15  # Individual gaps can vary by max 15% from median
+HEIGHT_RATIO_STRICT = 0.90  # Major lines must be 90% of tallest
+MAX_GAP_VARIANCE = 0.03
+GAP_OUTLIER_TOLERANCE = 0.15
 
 # System State
 yolo_model = None
@@ -37,9 +47,7 @@ calibration_locked = False
 calibration_buffer = deque(maxlen=CALIBRATION_BUFFER_SIZE)
 current_tick_data = None
 calibration_error_msg = ""
-
-# Position Tracking (To detect camera movement)
-locked_zone_coords = None  # Stores (x,y) of ruler when locked
+locked_zone_coords = None
 
 # Camera Settings
 DESIRED_WIDTH = 1280
@@ -105,7 +113,6 @@ def run_yolo_detection(frame):
     if yolo_model is None: return [], None
 
     results = yolo_model(frame, conf=0.35, verbose=False)
-
     best_detections_map = {}
     best_zone_box = None
     overall_best_conf = 0
@@ -118,36 +125,35 @@ def run_yolo_detection(frame):
             name = yolo_model.names[cls_id]
 
             if name not in best_detections_map or conf > best_detections_map[name]['conf']:
-                best_detections_map[name] = {
-                    'box': (x1, y1, x2, y2),
-                    'name': name,
-                    'conf': conf
-                }
+                best_detections_map[name] = {'box': (x1, y1, x2, y2), 'name': name, 'conf': conf}
 
     all_detections = list(best_detections_map.values())
 
     for det in all_detections:
-        name = det['name']
-        conf = det['conf']
-        box = det['box']
-
-        is_preferred = "mm" in name.lower() or "zone" in name.lower()
-
+        is_preferred = "mm" in det['name'].lower() or "zone" in det['name'].lower()
         if is_preferred:
-            if best_zone_box is None or conf > overall_best_conf:
-                overall_best_conf = conf
-                best_zone_box = box
-        elif best_zone_box is None and "ruler" in name.lower():
-            best_zone_box = box
+            if best_zone_box is None or det['conf'] > overall_best_conf:
+                overall_best_conf = det['conf']
+                best_zone_box = det['box']
+        elif best_zone_box is None and "ruler" in det['name'].lower():
+            best_zone_box = det['box']
 
     return all_detections, best_zone_box
 
 
 # ----------------------------------------------------------------------
-# 2. IMPROVED STRUCTURE ANALYSIS
+# 2. DYNAMIC STRUCTURE ANALYSIS (CM / INCH)
 # ----------------------------------------------------------------------
 def analyze_structure(frame, bbox):
     global calibration_error_msg
+
+    # Determine thresholds based on current mode
+    if CALIBRATION_MODE == 'CM':
+        MIN_LINES = MIN_LINES_CM
+        DIVISOR = DIVISOR_CM
+    else:
+        MIN_LINES = MIN_LINES_INCH
+        DIVISOR = DIVISOR_INCH
 
     x1, y1, x2, y2 = bbox
     h_img, w_img = frame.shape[:2]
@@ -195,43 +201,38 @@ def analyze_structure(frame, bbox):
                 pos = ty + th / 2.0
                 all_ticks.append({'pos': pos, 'len': tw, 'rect': (tx, ty, tw, th)})
 
-    if len(all_ticks) < MIN_CM_LINES_REQUIRED:
-        calibration_error_msg = f"Need {MIN_CM_LINES_REQUIRED}+ lines (found {len(all_ticks)})"
+    if len(all_ticks) < MIN_LINES:
+        calibration_error_msg = f"Need {MIN_LINES}+ lines (found {len(all_ticks)})"
         return None
 
-    # === IMPROVED LENGTH FILTERING ===
+    # Filter for Major Lines (CM or Inch)
     max_length = max(t['len'] for t in all_ticks)
-    cm_threshold = max_length * CM_STRICT_HEIGHT_RATIO
+    major_threshold = max_length * HEIGHT_RATIO_STRICT
 
-    cm_ticks = []
+    major_ticks = []
     for t in all_ticks:
-        if t['len'] >= cm_threshold:
-            t['type'] = 'CM'
-            cm_ticks.append(t)
+        if t['len'] >= major_threshold:
+            t['type'] = 'MAJOR'  # Represents CM or INCH depending on mode
+            major_ticks.append(t)
         elif t['len'] > (max_length * 0.60):
-            t['type'] = 'HALF'
+            t['type'] = 'MEDIUM'
         else:
-            t['type'] = 'MM'
+            t['type'] = 'MINOR'
 
-    if len(cm_ticks) < MIN_CM_LINES_REQUIRED:
-        calibration_error_msg = f"Need {MIN_CM_LINES_REQUIRED} CM lines (found {len(cm_ticks)})"
+    if len(major_ticks) < MIN_LINES:
+        calibration_error_msg = f"Need {MIN_LINES} {CALIBRATION_MODE} lines (found {len(major_ticks)})"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    # === IMPROVED SPACING ANALYSIS ===
-    cm_ticks.sort(key=lambda x: x['pos'])
-
+    # Spacing Analysis
+    major_ticks.sort(key=lambda x: x['pos'])
     gaps = []
-    for i in range(len(cm_ticks) - 1):
-        gaps.append(cm_ticks[i + 1]['pos'] - cm_ticks[i]['pos'])
-
-    if len(gaps) < (MIN_CM_LINES_REQUIRED - 1):
-        calibration_error_msg = "Not enough gaps to measure"
-        return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
+    for i in range(len(major_ticks) - 1):
+        gaps.append(major_ticks[i + 1]['pos'] - major_ticks[i]['pos'])
 
     median_gap = np.median(gaps)
     valid_gaps = [g for g in gaps if abs(g - median_gap) / median_gap < GAP_OUTLIER_TOLERANCE]
 
-    if len(valid_gaps) < (MIN_CM_LINES_REQUIRED - 1):
+    if len(valid_gaps) < (MIN_LINES - 1):
         calibration_error_msg = f"Gaps too uneven (only {len(valid_gaps)} valid)"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
@@ -240,23 +241,22 @@ def analyze_structure(frame, bbox):
     spacing_variance = gap_std / gap_mean if gap_mean > 0 else 1.0
 
     if spacing_variance > MAX_GAP_VARIANCE:
-        calibration_error_msg = f"Spacing uneven ({spacing_variance * 100:.1f}% > {MAX_GAP_VARIANCE * 100:.0f}%)"
+        calibration_error_msg = f"Spacing uneven ({spacing_variance * 100:.1f}%)"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    px_per_mm = gap_mean / 10.0
+    # Calculate px_per_mm based on current mode divisor
+    px_per_mm = gap_mean / DIVISOR
 
     if px_per_mm < 2 or px_per_mm > 150:
         calibration_error_msg = f"Scale invalid ({px_per_mm:.2f} px/mm)"
         return None
 
     calibration_error_msg = ""
-    print(f"✓ Found {len(cm_ticks)} CM lines | Variance: {spacing_variance * 100:.2f}%")
-
     return {
         "px_per_mm": px_per_mm,
         "ticks": all_ticks,
         "roi_offset": (cx1, cy1),
-        "cm_count": len(cm_ticks),
+        "major_count": len(major_ticks),
         "spacing_variance": spacing_variance
     }
 
@@ -343,43 +343,30 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
         cv2.rectangle(frame, (bx1, by1), (bx2, by2), color, 2)
         cv2.putText(frame, label, (bx1, by1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
-    # Draw Ticks (FIXED VISUALS)
+    # Draw Ticks
     if tick_data:
         off_x, off_y = tick_data['roi_offset']
-
-        # We define a fixed visual length for the markers so they look uniform
         MARKER_VISUAL_LENGTH = 20
         THICKNESS = 2
 
         for t in tick_data['ticks']:
-            # t['rect'] is (x, y, w, h) in ROI coordinates
             rx, ry, rw, rh = t['rect']
-
-            # Calculate the exact center of the detected tick
             center_x = int(off_x + rx + rw / 2)
             center_y = int(off_y + ry + rh / 2)
-
-            # Determine if we draw a vertical line or horizontal line
-            # based on the aspect ratio of the tick itself
             is_vertical_tick = rh > rw
 
             if is_vertical_tick:
-                # Draw a vertical line segment centered at center_y
                 pt1 = (center_x, center_y - MARKER_VISUAL_LENGTH // 2)
                 pt2 = (center_x, center_y + MARKER_VISUAL_LENGTH // 2)
             else:
-                # Draw a horizontal line segment centered at center_x
                 pt1 = (center_x - MARKER_VISUAL_LENGTH // 2, center_y)
                 pt2 = (center_x + MARKER_VISUAL_LENGTH // 2, center_y)
 
-            if t['type'] == 'CM':
-                # Bright Red, Fixed Thickness
-                cv2.line(frame, pt1, pt2, (0, 0, 255), THICKNESS)
-            elif t['type'] == 'HALF':
-                # Cyan
-                cv2.line(frame, pt1, pt2, (255, 255, 0), 1)
+            if t['type'] == 'MAJOR':  # CM or INCH
+                cv2.line(frame, pt1, pt2, (0, 0, 255), THICKNESS)  # Red
+            elif t['type'] == 'MEDIUM':
+                cv2.line(frame, pt1, pt2, (255, 255, 0), 1)  # Cyan
             else:
-                # Faint Cyan for small millimeters
                 cv2.line(frame, pt1, pt2, (255, 255, 0), 1)
 
     # Draw Pellets
@@ -402,8 +389,9 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
             cv2.putText(frame, "!", (cx - 45, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
     # Status Bar
-    cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 60), (20, 20, 20), -1)
+    cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 70), (20, 20, 20), -1)
 
+    # Row 1: Calibration Status
     if is_calibrated:
         if calibration_locked:
             msg = f"LOCKED: {PIXELS_PER_MM:.2f} px/mm"
@@ -416,7 +404,11 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
         msg = f"UNCALIBRATED: {calibration_error_msg}" if calibration_error_msg else "UNCALIBRATED"
         col = (0, 0, 255)
 
-    cv2.putText(frame, msg, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, col, 2)
+    cv2.putText(frame, msg, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, col, 2)
+
+    # Row 2: Mode Status
+    mode_text = f"MODE: {CALIBRATION_MODE} (Press 'u' to switch)"
+    cv2.putText(frame, mode_text, (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
 
     if is_calibrated and not calibration_locked:
         progress = len(calibration_buffer) / CALIBRATION_BUFFER_SIZE
@@ -440,31 +432,25 @@ def process_calibration(result):
 
     new_px = result['px_per_mm']
     new_coords = result['roi_offset']
-
     if new_px == 0: return
 
-    # --- 1. HANDLE LOCKED STATE ---
     if calibration_locked:
-        # A. Check Scale Change (Zoom/Depth)
         if abs(new_px - PIXELS_PER_MM) > RESET_THRESHOLD:
             print("⚠ Scale changed! Re-calibrating...")
             calibration_locked = False
             calibration_buffer.clear()
             return
 
-        # B. Check Position Change (Pan/Tilt)
         if locked_zone_coords:
             lx, ly = locked_zone_coords
             nx, ny = new_coords
             dist = math.sqrt((lx - nx) ** 2 + (ly - ny) ** 2)
-
             if dist > MAX_MOVEMENT_PIXELS:
                 print("⚠ Camera moved! Re-calibrating...")
                 calibration_locked = False
                 calibration_buffer.clear()
         return
 
-    # --- 2. STABILIZING STATE ---
     if len(calibration_buffer) > 0:
         current_avg = np.mean(calibration_buffer)
         if abs(new_px - current_avg) > 1.0:
@@ -482,11 +468,11 @@ def process_calibration(result):
         if std_dev < STABILITY_THRESHOLD:
             calibration_locked = True
             locked_zone_coords = new_coords
-            print(f"🔒 LOCKED at {avg_px:.2f} px/mm | StdDev: {std_dev:.3f} | Pos: {locked_zone_coords}")
+            print(f"🔒 LOCKED at {avg_px:.2f} px/mm | StdDev: {std_dev:.3f}")
 
 
 def main():
-    global current_tick_data
+    global current_tick_data, CALIBRATION_MODE, calibration_locked
 
     if not load_yolo_model(): return
 
@@ -498,7 +484,6 @@ def main():
 
     window_name = "Inspector"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-
     print("Running...")
 
     while True:
@@ -524,8 +509,23 @@ def main():
 
         cv2.imshow(window_name, frame)
 
-        if cv2.waitKey(1) == ord('q'): break
-        if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1: break
+        key = cv2.waitKey(1)
+        if key == ord('q'):
+            break
+        elif key == ord('u'):
+            # Switch Mode
+            if CALIBRATION_MODE == 'CM':
+                CALIBRATION_MODE = 'INCH'
+            else:
+                CALIBRATION_MODE = 'CM'
+
+            # Reset Calibration State
+            calibration_locked = False
+            calibration_buffer.clear()
+            is_calibrated = False
+            print(f"Switched to {CALIBRATION_MODE} Mode")
+
+        if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBL34E) < 1: break
 
     cap.release()
     cv2.destroyAllWindows()
