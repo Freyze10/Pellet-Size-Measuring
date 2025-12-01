@@ -90,7 +90,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.main">
+  <component name="RunManager" selected="Python.try-auto">
     <configuration name="label" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -203,8 +203,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.main" />
         <item itemvalue="Python.try-auto" />
+        <item itemvalue="Python.main" />
         <item itemvalue="Python.yolo_cv_scanner" />
         <item itemvalue="Python.newOpencv" />
         <item itemvalue="Python.label" />
@@ -226,22 +226,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00205" summary="updated box ruler selection">
-      <option name="closed" value="true" />
-      <created>1764298679611</created>
-      <option name="number" value="00205" />
-      <option name="presentableId" value="LOCAL-00205" />
-      <option name="project" value="LOCAL" />
-      <updated>1764298679611</updated>
-    </task>
-    <task id="LOCAL-00206" summary="deleted best.pt">
-      <option name="closed" value="true" />
-      <created>1764298751910</created>
-      <option name="number" value="00206" />
-      <option name="presentableId" value="LOCAL-00206" />
-      <option name="project" value="LOCAL" />
-      <updated>1764298751910</updated>
     </task>
     <task id="LOCAL-00207" summary="uploaded new best.pt">
       <option name="closed" value="true" />
@@ -619,7 +603,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764559400942</updated>
     </task>
-    <option name="localTasksCounter" value="254" />
+    <task id="LOCAL-00254" summary="cleansing">
+      <option name="closed" value="true" />
+      <created>1764567284727</created>
+      <option name="number" value="00254" />
+      <option name="presentableId" value="LOCAL-00254" />
+      <option name="project" value="LOCAL" />
+      <updated>1764567284727</updated>
+    </task>
+    <task id="LOCAL-00255" summary="enhance line detection">
+      <option name="closed" value="true" />
+      <created>1764567300216</created>
+      <option name="number" value="00255" />
+      <option name="presentableId" value="LOCAL-00255" />
+      <option name="project" value="LOCAL" />
+      <updated>1764567300216</updated>
+    </task>
+    <option name="localTasksCounter" value="256" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,8 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="eliminate lower confidence" />
-    <MESSAGE value="display calibr" />
     <MESSAGE value="tring" />
     <MESSAGE value="trying" />
     <MESSAGE value="returned main and ruler for auto" />
@@ -671,7 +669,9 @@
     <MESSAGE value="long thin tick overlay" />
     <MESSAGE value="thin tick overlay" />
     <MESSAGE value="medium size overlay" />
-    <option name="LAST_COMMIT_MESSAGE" value="medium size overlay" />
+    <MESSAGE value="cleansing" />
+    <MESSAGE value="enhance line detection" />
+    <option name="LAST_COMMIT_MESSAGE" value="enhance line detection" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

@@ -35,10 +35,11 @@ RESET_THRESHOLD = 2.5  # IMPROVED: Less sensitive to noise
 MAX_MOVEMENT_PIXELS = 50
 
 # --- DETECTION STRICTNESS ---
-ASPECT_RATIO_MIN = 2.0
-HEIGHT_RATIO_STRICT = 0.85  # IMPROVED: Slightly relaxed from 0.90
+ASPECT_RATIO_MIN = 3.0  # IMPROVED: Higher ratio to filter out number strokes
+HEIGHT_RATIO_STRICT = 0.80  # IMPROVED: More lenient for edge detection
 MAX_GAP_VARIANCE = 0.08  # IMPROVED: More realistic tolerance (was 0.03)
 GAP_OUTLIER_TOLERANCE = 0.20  # IMPROVED: Better outlier detection (was 0.15)
+EDGE_MARGIN_PERCENT = 0.25  # NEW: How far from edge to look for lines
 
 # System State
 yolo_model = None
@@ -219,25 +220,38 @@ def analyze_structure(frame, bbox):
     is_horizontal_ruler = (cx2 - cx1) > (cy2 - cy1)
 
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-    thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 19, 5)
 
+    # IMPROVED: Better preprocessing to enhance tick marks
+    # Apply Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+
+    # Use Otsu's method for better thresholding
+    _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    # Alternative: Also try adaptive threshold and combine
+    thresh_adaptive = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                            cv2.THRESH_BINARY_INV, 19, 5)
+
+    # Combine both thresholds (use whichever gives stronger response)
+    thresh = cv2.bitwise_or(thresh, thresh_adaptive)
+
+    # IMPROVED: More aggressive morphology for cleaner line extraction
     if is_horizontal_ruler:
-        k_height = max(5, roi.shape[0] // 10)
+        k_height = max(7, roi.shape[0] // 8)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, k_height))
     else:
-        k_width = max(5, roi.shape[1] // 10)
+        k_width = max(7, roi.shape[1] // 8)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (k_width, 1))
 
-    lines_img = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
-    lines_img = cv2.dilate(lines_img, None, iterations=1)
+    lines_img = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+    lines_img = cv2.dilate(lines_img, kernel, iterations=1)
 
     contours, _ = cv2.findContours(lines_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     all_ticks = []
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if area < 5: continue
+        if area < 10: continue  # IMPROVED: Slightly higher minimum area
 
         tx, ty, tw, th = cv2.boundingRect(cnt)
 
@@ -245,42 +259,65 @@ def analyze_structure(frame, bbox):
             aspect_ratio = th / float(tw) if tw > 0 else 0
             if aspect_ratio > ASPECT_RATIO_MIN:
                 pos = tx + tw / 2.0
-                all_ticks.append({'pos': pos, 'len': th, 'rect': (tx, ty, tw, th)})
+                all_ticks.append({'pos': pos, 'len': th, 'rect': (tx, ty, tw, th), 'width': tw})
         else:
             aspect_ratio = tw / float(th) if th > 0 else 0
             if aspect_ratio > ASPECT_RATIO_MIN:
                 pos = ty + th / 2.0
-                all_ticks.append({'pos': pos, 'len': tw, 'rect': (tx, ty, tw, th)})
+                all_ticks.append({'pos': pos, 'len': tw, 'rect': (tx, ty, tw, th), 'width': th})
 
     if len(all_ticks) < MIN_LINES:
         calibration_error_msg = f"Need {MIN_LINES}+ lines (found {len(all_ticks)})"
         return None
 
-    # IMPROVED: Filter for Major Lines - only at edges to avoid numbers
+    # IMPROVED: Multi-criteria edge detection to avoid numbers
     # Sort ticks to find edge regions
     ticks_sorted = sorted(all_ticks, key=lambda x: x['pos'])
     roi_size = (cx2 - cx1) if is_horizontal_ruler else (cy2 - cy1)
 
-    # Define edge zones (top/bottom 40% for vertical, left/right 40% for horizontal)
-    edge_threshold = roi_size * 0.40
+    # Define strict edge zones (outer 25% on each side)
+    edge_size = roi_size * EDGE_MARGIN_PERCENT
 
     max_length = max(t['len'] for t in all_ticks)
     major_threshold = max_length * HEIGHT_RATIO_STRICT
 
+    # NEW: Calculate average tick width to filter anomalies
+    avg_width = np.mean([t['width'] for t in all_ticks])
+    width_threshold = avg_width * 2.0  # Numbers tend to be thicker
+
     major_ticks = []
     for t in all_ticks:
-        # Check if tick is in edge region (to avoid numbers in center)
+        # Criterion 1: Must be in strict edge region
         if is_horizontal_ruler:
-            # For horizontal ruler, check top/bottom edges
+            # For horizontal ruler, check if at TOP or BOTTOM edge
             ty = t['rect'][1]  # y position
-            is_at_edge = (ty < edge_threshold) or (ty > (roi.shape[0] - edge_threshold))
+            ruler_height = roi.shape[0]
+            is_at_top_edge = ty < edge_size
+            is_at_bottom_edge = (ty + t['rect'][3]) > (ruler_height - edge_size)
+            is_at_edge = is_at_top_edge or is_at_bottom_edge
         else:
-            # For vertical ruler, check left/right edges
+            # For vertical ruler, check if at LEFT or RIGHT edge
             tx = t['rect'][0]  # x position
-            is_at_edge = (tx < edge_threshold) or (tx > (roi.shape[1] - edge_threshold))
+            ruler_width = roi.shape[1]
+            is_at_left_edge = tx < edge_size
+            is_at_right_edge = (tx + t['rect'][2]) > (ruler_width - edge_size)
+            is_at_edge = is_at_left_edge or is_at_right_edge
 
-        # Only consider long lines at edges as MAJOR
-        if t['len'] >= major_threshold and is_at_edge:
+        # Criterion 2: Must be long enough
+        is_long_enough = t['len'] >= major_threshold
+
+        # Criterion 3: Must be thin (not a number stroke)
+        is_thin_enough = t['width'] <= width_threshold
+
+        # Criterion 4: Must have high aspect ratio (very thin line)
+        if is_horizontal_ruler:
+            aspect = t['len'] / t['width'] if t['width'] > 0 else 0
+        else:
+            aspect = t['len'] / t['width'] if t['width'] > 0 else 0
+        has_good_aspect = aspect >= ASPECT_RATIO_MIN
+
+        # ALL criteria must be met
+        if is_at_edge and is_long_enough and is_thin_enough and has_good_aspect:
             t['type'] = 'MAJOR'
             major_ticks.append(t)
         elif t['len'] > (max_length * 0.60):
