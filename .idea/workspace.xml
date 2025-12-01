@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00208" summary="UPDATED AUTO">
-      <option name="closed" value="true" />
-      <created>1764299761439</created>
-      <option name="number" value="00208" />
-      <option name="presentableId" value="LOCAL-00208" />
-      <option name="project" value="LOCAL" />
-      <updated>1764299761439</updated>
-    </task>
     <task id="LOCAL-00209" summary="usage wiht yolo">
       <option name="closed" value="true" />
       <created>1764300186358</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764569387896</updated>
     </task>
-    <option name="localTasksCounter" value="257" />
+    <task id="LOCAL-00257" summary="updated pellet measure label">
+      <option name="closed" value="true" />
+      <created>1764570364857</created>
+      <option name="number" value="00257" />
+      <option name="presentableId" value="LOCAL-00257" />
+      <option name="project" value="LOCAL" />
+      <updated>1764570364857</updated>
+    </task>
+    <option name="localTasksCounter" value="258" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="trying" />
     <MESSAGE value="returned main and ruler for auto" />
     <MESSAGE value="updated auto calibrate" />
     <MESSAGE value="more detailed mm calib" />
@@ -671,7 +670,8 @@
     <MESSAGE value="cleansing" />
     <MESSAGE value="enhance line detection" />
     <MESSAGE value="enhancing line detect" />
-    <option name="LAST_COMMIT_MESSAGE" value="enhancing line detect" />
+    <MESSAGE value="updated pellet measure label" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated pellet measure label" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
