@@ -256,13 +256,31 @@ def analyze_structure(frame, bbox):
         calibration_error_msg = f"Need {MIN_LINES}+ lines (found {len(all_ticks)})"
         return None
 
-    # IMPROVED: Filter for Major Lines with adaptive threshold
+    # IMPROVED: Filter for Major Lines - only at edges to avoid numbers
+    # Sort ticks to find edge regions
+    ticks_sorted = sorted(all_ticks, key=lambda x: x['pos'])
+    roi_size = (cx2 - cx1) if is_horizontal_ruler else (cy2 - cy1)
+
+    # Define edge zones (top/bottom 40% for vertical, left/right 40% for horizontal)
+    edge_threshold = roi_size * 0.40
+
     max_length = max(t['len'] for t in all_ticks)
     major_threshold = max_length * HEIGHT_RATIO_STRICT
 
     major_ticks = []
     for t in all_ticks:
-        if t['len'] >= major_threshold:
+        # Check if tick is in edge region (to avoid numbers in center)
+        if is_horizontal_ruler:
+            # For horizontal ruler, check top/bottom edges
+            ty = t['rect'][1]  # y position
+            is_at_edge = (ty < edge_threshold) or (ty > (roi.shape[0] - edge_threshold))
+        else:
+            # For vertical ruler, check left/right edges
+            tx = t['rect'][0]  # x position
+            is_at_edge = (tx < edge_threshold) or (tx > (roi.shape[1] - edge_threshold))
+
+        # Only consider long lines at edges as MAJOR
+        if t['len'] >= major_threshold and is_at_edge:
             t['type'] = 'MAJOR'
             major_ticks.append(t)
         elif t['len'] > (max_length * 0.60):
