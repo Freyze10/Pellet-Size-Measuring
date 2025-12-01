@@ -30,15 +30,15 @@ DIVISOR_INCH = 25.4  # 1 inch = 25.4 mm
 
 # --- STABILITY & LOCKING SETTINGS ---
 CALIBRATION_BUFFER_SIZE = 150
-STABILITY_THRESHOLD = 0.5
-RESET_THRESHOLD = 3.0
+STABILITY_THRESHOLD = 0.3  # IMPROVED: Tighter stability check
+RESET_THRESHOLD = 2.5  # IMPROVED: Less sensitive to noise
 MAX_MOVEMENT_PIXELS = 50
 
 # --- DETECTION STRICTNESS ---
 ASPECT_RATIO_MIN = 2.0
-HEIGHT_RATIO_STRICT = 0.90  # Major lines must be 90% of tallest
-MAX_GAP_VARIANCE = 0.03
-GAP_OUTLIER_TOLERANCE = 0.15
+HEIGHT_RATIO_STRICT = 0.85  # IMPROVED: Slightly relaxed from 0.90
+MAX_GAP_VARIANCE = 0.08  # IMPROVED: More realistic tolerance (was 0.03)
+GAP_OUTLIER_TOLERANCE = 0.20  # IMPROVED: Better outlier detection (was 0.15)
 
 # System State
 yolo_model = None
@@ -48,6 +48,9 @@ calibration_buffer = deque(maxlen=CALIBRATION_BUFFER_SIZE)
 current_tick_data = None
 calibration_error_msg = ""
 locked_zone_coords = None
+
+# NEW: Temporal smoothing buffer
+measurement_history = deque(maxlen=10)
 
 # Camera Settings
 DESIRED_WIDTH = 1280
@@ -107,6 +110,54 @@ def should_process_pellet(d, l):
 
 
 # ----------------------------------------------------------------------
+# IMPROVED: Robust statistical filtering
+# ----------------------------------------------------------------------
+def remove_outliers_iqr(data, factor=1.5):
+    """Remove outliers using Interquartile Range method - more robust than simple tolerance"""
+    if len(data) < 4:
+        return data
+
+    q1 = np.percentile(data, 25)
+    q3 = np.percentile(data, 75)
+    iqr = q3 - q1
+
+    lower_bound = q1 - (factor * iqr)
+    upper_bound = q3 + (factor * iqr)
+
+    return [x for x in data if lower_bound <= x <= upper_bound]
+
+
+def calculate_consistent_gaps(ticks):
+    """IMPROVED: More robust gap calculation with better outlier handling"""
+    if len(ticks) < 2:
+        return None, 0
+
+    ticks_sorted = sorted(ticks, key=lambda x: x['pos'])
+    all_gaps = []
+
+    for i in range(len(ticks_sorted) - 1):
+        gap = ticks_sorted[i + 1]['pos'] - ticks_sorted[i]['pos']
+        all_gaps.append(gap)
+
+    if len(all_gaps) == 0:
+        return None, 0
+
+    # IMPROVED: Use IQR method for outlier removal
+    clean_gaps = remove_outliers_iqr(all_gaps, factor=1.5)
+
+    if len(clean_gaps) < max(2, len(all_gaps) * 0.6):  # Need at least 60% valid gaps
+        return None, 0
+
+    gap_mean = np.mean(clean_gaps)
+    gap_std = np.std(clean_gaps)
+
+    # Calculate coefficient of variation (CV) - more meaningful than raw variance
+    cv = gap_std / gap_mean if gap_mean > 0 else 1.0
+
+    return gap_mean, cv
+
+
+# ----------------------------------------------------------------------
 # 1. YOLO Detection
 # ----------------------------------------------------------------------
 def run_yolo_detection(frame):
@@ -142,7 +193,7 @@ def run_yolo_detection(frame):
 
 
 # ----------------------------------------------------------------------
-# 2. DYNAMIC STRUCTURE ANALYSIS (CM / INCH)
+# 2. IMPROVED DYNAMIC STRUCTURE ANALYSIS
 # ----------------------------------------------------------------------
 def analyze_structure(frame, bbox):
     global calibration_error_msg
@@ -205,14 +256,14 @@ def analyze_structure(frame, bbox):
         calibration_error_msg = f"Need {MIN_LINES}+ lines (found {len(all_ticks)})"
         return None
 
-    # Filter for Major Lines (CM or Inch)
+    # IMPROVED: Filter for Major Lines with adaptive threshold
     max_length = max(t['len'] for t in all_ticks)
     major_threshold = max_length * HEIGHT_RATIO_STRICT
 
     major_ticks = []
     for t in all_ticks:
         if t['len'] >= major_threshold:
-            t['type'] = 'MAJOR'  # Represents CM or INCH depending on mode
+            t['type'] = 'MAJOR'
             major_ticks.append(t)
         elif t['len'] > (max_length * 0.60):
             t['type'] = 'MEDIUM'
@@ -223,25 +274,15 @@ def analyze_structure(frame, bbox):
         calibration_error_msg = f"Need {MIN_LINES} {CALIBRATION_MODE} lines (found {len(major_ticks)})"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    # Spacing Analysis
-    major_ticks.sort(key=lambda x: x['pos'])
-    gaps = []
-    for i in range(len(major_ticks) - 1):
-        gaps.append(major_ticks[i + 1]['pos'] - major_ticks[i]['pos'])
+    # IMPROVED: Robust gap analysis
+    gap_mean, cv = calculate_consistent_gaps(major_ticks)
 
-    median_gap = np.median(gaps)
-    valid_gaps = [g for g in gaps if abs(g - median_gap) / median_gap < GAP_OUTLIER_TOLERANCE]
-
-    if len(valid_gaps) < (MIN_LINES - 1):
-        calibration_error_msg = f"Gaps too uneven (only {len(valid_gaps)} valid)"
+    if gap_mean is None:
+        calibration_error_msg = f"Cannot determine consistent spacing"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
-    gap_mean = np.mean(valid_gaps)
-    gap_std = np.std(valid_gaps)
-    spacing_variance = gap_std / gap_mean if gap_mean > 0 else 1.0
-
-    if spacing_variance > MAX_GAP_VARIANCE:
-        calibration_error_msg = f"Spacing uneven ({spacing_variance * 100:.1f}%)"
+    if cv > MAX_GAP_VARIANCE:
+        calibration_error_msg = f"Spacing uneven (CV: {cv * 100:.1f}%)"
         return {"px_per_mm": 0, "ticks": all_ticks, "roi_offset": (cx1, cy1)}
 
     # Calculate px_per_mm based on current mode divisor
@@ -257,7 +298,7 @@ def analyze_structure(frame, bbox):
         "ticks": all_ticks,
         "roi_offset": (cx1, cy1),
         "major_count": len(major_ticks),
-        "spacing_variance": spacing_variance
+        "spacing_variance": cv
     }
 
 
@@ -362,7 +403,7 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
                 pt1 = (center_x - MARKER_VISUAL_LENGTH // 2, center_y)
                 pt2 = (center_x + MARKER_VISUAL_LENGTH // 2, center_y)
 
-            if t['type'] == 'MAJOR':  # CM or INCH
+            if t['type'] == 'MAJOR':
                 cv2.line(frame, pt1, pt2, (0, 0, 255), THICKNESS)  # Red
             elif t['type'] == 'MEDIUM':
                 cv2.line(frame, pt1, pt2, (255, 255, 0), 1)  # Cyan
@@ -419,12 +460,13 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
 
 
 # ----------------------------------------------------------------------
-# Main Logic
+# IMPROVED: Main Logic with better stability
 # ----------------------------------------------------------------------
 def reset_stabilization():
-    global calibration_locked
+    global calibration_locked, measurement_history
     if not calibration_locked:
         calibration_buffer.clear()
+        measurement_history.clear()
 
 
 def process_calibration(result):
@@ -434,29 +476,44 @@ def process_calibration(result):
     new_coords = result['roi_offset']
     if new_px == 0: return
 
+    # IMPROVED: Add temporal smoothing
+    measurement_history.append(new_px)
+    if len(measurement_history) >= 3:
+        smoothed_px = np.median(measurement_history)  # Use median for robustness
+    else:
+        smoothed_px = new_px
+
     if calibration_locked:
-        if abs(new_px - PIXELS_PER_MM) > RESET_THRESHOLD:
-            print("⚠ Scale changed! Re-calibrating...")
+        # Check for significant scale change
+        if abs(smoothed_px - PIXELS_PER_MM) > RESET_THRESHOLD:
+            print(f"⚠ Scale changed! ({PIXELS_PER_MM:.2f} -> {smoothed_px:.2f}) Re-calibrating...")
             calibration_locked = False
             calibration_buffer.clear()
+            measurement_history.clear()
             return
 
+        # Check for camera movement
         if locked_zone_coords:
             lx, ly = locked_zone_coords
             nx, ny = new_coords
             dist = math.sqrt((lx - nx) ** 2 + (ly - ny) ** 2)
             if dist > MAX_MOVEMENT_PIXELS:
-                print("⚠ Camera moved! Re-calibrating...")
+                print(f"⚠ Camera moved {dist:.1f}px! Re-calibrating...")
                 calibration_locked = False
                 calibration_buffer.clear()
+                measurement_history.clear()
         return
 
+    # IMPROVED: More intelligent buffer management
     if len(calibration_buffer) > 0:
         current_avg = np.mean(calibration_buffer)
-        if abs(new_px - current_avg) > 1.0:
+        # Use smoothed value and more reasonable threshold
+        if abs(smoothed_px - current_avg) > 2.0:  # Changed from 1.0 to 2.0
+            print(f"⚠ Measurement unstable, resetting buffer")
             calibration_buffer.clear()
+            measurement_history.clear()
 
-    calibration_buffer.append(new_px)
+    calibration_buffer.append(smoothed_px)
     avg_px = np.mean(calibration_buffer)
     std_dev = np.std(calibration_buffer)
 
@@ -464,11 +521,18 @@ def process_calibration(result):
     is_calibrated = True
     update_ranges()
 
+    # IMPROVED: Lock when buffer is full AND stable
     if len(calibration_buffer) == CALIBRATION_BUFFER_SIZE:
         if std_dev < STABILITY_THRESHOLD:
             calibration_locked = True
             locked_zone_coords = new_coords
-            print(f"🔒 LOCKED at {avg_px:.2f} px/mm | StdDev: {std_dev:.3f}")
+            print(f"🔒 LOCKED at {avg_px:.2f} px/mm | StdDev: {std_dev:.3f} | CV: {(std_dev / avg_px) * 100:.2f}%")
+        else:
+            print(f"⚠ Buffer full but unstable (StdDev: {std_dev:.3f}), continuing...")
+            # Remove oldest 50 samples to continue stabilizing
+            for _ in range(50):
+                if len(calibration_buffer) > 0:
+                    calibration_buffer.popleft()
 
 
 def main():
@@ -522,10 +586,11 @@ def main():
             # Reset Calibration State
             calibration_locked = False
             calibration_buffer.clear()
+            measurement_history.clear()
             is_calibrated = False
             print(f"Switched to {CALIBRATION_MODE} Mode")
 
-        if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBL34E) < 1: break
+        if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1: break
 
     cap.release()
     cv2.destroyAllWindows()
