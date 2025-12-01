@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00202" summary="modified box ruler selection">
-      <option name="closed" value="true" />
-      <created>1764228643038</created>
-      <option name="number" value="00202" />
-      <option name="presentableId" value="LOCAL-00202" />
-      <option name="project" value="LOCAL" />
-      <updated>1764228643038</updated>
-    </task>
     <task id="LOCAL-00203" summary="updated box ruler selection">
       <option name="closed" value="true" />
       <created>1764228948346</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764406504455</updated>
     </task>
-    <option name="localTasksCounter" value="251" />
+    <task id="LOCAL-00251" summary="long thin tick overlay">
+      <option name="closed" value="true" />
+      <created>1764550754238</created>
+      <option name="number" value="00251" />
+      <option name="presentableId" value="LOCAL-00251" />
+      <option name="project" value="LOCAL" />
+      <updated>1764550754238</updated>
+    </task>
+    <option name="localTasksCounter" value="252" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="yolo with mm zone" />
     <MESSAGE value="yolo DETECTS ALL" />
     <MESSAGE value="updated the mm zone measure" />
     <MESSAGE value="eliminate lower confidence" />
@@ -671,7 +670,8 @@
     <MESSAGE value="5 conseq cm line and 5 second before calib" />
     <MESSAGE value="added re calibrate when camera move" />
     <MESSAGE value="strict" />
-    <option name="LAST_COMMIT_MESSAGE" value="strict" />
+    <MESSAGE value="long thin tick overlay" />
+    <option name="LAST_COMMIT_MESSAGE" value="long thin tick overlay" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
