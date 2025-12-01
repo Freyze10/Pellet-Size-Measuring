@@ -90,7 +90,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.try-auto">
+  <component name="RunManager" selected="Python.main">
     <configuration name="label" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -203,8 +203,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.try-auto" />
         <item itemvalue="Python.main" />
+        <item itemvalue="Python.try-auto" />
         <item itemvalue="Python.yolo_cv_scanner" />
         <item itemvalue="Python.newOpencv" />
         <item itemvalue="Python.label" />
@@ -226,14 +226,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00207" summary="uploaded new best.pt">
-      <option name="closed" value="true" />
-      <created>1764298799687</created>
-      <option name="number" value="00207" />
-      <option name="presentableId" value="LOCAL-00207" />
-      <option name="project" value="LOCAL" />
-      <updated>1764298799687</updated>
     </task>
     <task id="LOCAL-00208" summary="UPDATED AUTO">
       <option name="closed" value="true" />
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764567300216</updated>
     </task>
-    <option name="localTasksCounter" value="256" />
+    <task id="LOCAL-00256" summary="enhancing line detect">
+      <option name="closed" value="true" />
+      <created>1764569387896</created>
+      <option name="number" value="00256" />
+      <option name="presentableId" value="LOCAL-00256" />
+      <option name="project" value="LOCAL" />
+      <updated>1764569387896</updated>
+    </task>
+    <option name="localTasksCounter" value="257" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="tring" />
     <MESSAGE value="trying" />
     <MESSAGE value="returned main and ruler for auto" />
     <MESSAGE value="updated auto calibrate" />
@@ -671,7 +670,8 @@
     <MESSAGE value="medium size overlay" />
     <MESSAGE value="cleansing" />
     <MESSAGE value="enhance line detection" />
-    <option name="LAST_COMMIT_MESSAGE" value="enhance line detection" />
+    <MESSAGE value="enhancing line detect" />
+    <option name="LAST_COMMIT_MESSAGE" value="enhancing line detect" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
