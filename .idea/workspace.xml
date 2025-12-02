@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00211" summary="try gai stud">
-      <option name="closed" value="true" />
-      <created>1764306818083</created>
-      <option name="number" value="00211" />
-      <option name="presentableId" value="LOCAL-00211" />
-      <option name="project" value="LOCAL" />
-      <updated>1764306818083</updated>
-    </task>
     <task id="LOCAL-00212" summary="fix the pellet detection">
       <option name="closed" value="true" />
       <created>1764307086006</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764653904483</updated>
     </task>
-    <option name="localTasksCounter" value="260" />
+    <task id="LOCAL-00260" summary="adjusted height compensation">
+      <option name="closed" value="true" />
+      <created>1764654275344</created>
+      <option name="number" value="00260" />
+      <option name="presentableId" value="LOCAL-00260" />
+      <option name="project" value="LOCAL" />
+      <updated>1764654275344</updated>
+    </task>
+    <option name="localTasksCounter" value="261" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="more detailed mm calib" />
     <MESSAGE value="updated model path" />
     <MESSAGE value="new calibration long and short" />
     <MESSAGE value="fixint results" />
@@ -671,7 +670,8 @@
     <MESSAGE value="updated pellet measure label" />
     <MESSAGE value="merged ai" />
     <MESSAGE value="added compensation for ruler height" />
-    <option name="LAST_COMMIT_MESSAGE" value="added compensation for ruler height" />
+    <MESSAGE value="adjusted height compensation" />
+    <option name="LAST_COMMIT_MESSAGE" value="adjusted height compensation" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
