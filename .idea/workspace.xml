@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00216" summary="yolo DETECTS ALL">
-      <option name="closed" value="true" />
-      <created>1764310737176</created>
-      <option name="number" value="00216" />
-      <option name="presentableId" value="LOCAL-00216" />
-      <option name="project" value="LOCAL" />
-      <updated>1764310737176</updated>
-    </task>
     <task id="LOCAL-00217" summary="updated the mm zone measure">
       <option name="closed" value="true" />
       <created>1764312999450</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764654817920</updated>
     </task>
-    <option name="localTasksCounter" value="265" />
+    <task id="LOCAL-00265" summary="adjusted height compensation">
+      <option name="closed" value="true" />
+      <created>1764655119850</created>
+      <option name="number" value="00265" />
+      <option name="presentableId" value="LOCAL-00265" />
+      <option name="project" value="LOCAL" />
+      <updated>1764655119850</updated>
+    </task>
+    <option name="localTasksCounter" value="266" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

@@ -18,10 +18,11 @@ TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
 
 # --- HEIGHT COMPENSATION (3mm pellet height vs flat ruler) ---
-# Simple cheat: pellets are 3mm higher than ruler, so they appear ~1.5% larger in perspective
-HEIGHT_COMPENSATION_FACTOR = 1.02  # Compensate for 3mm height difference
+# Cheat: Inflate the ruler calibration scale as if the ruler was 3mm higher (at pellet level)
+# This makes the ruler scale ~1.5% larger to match pellet plane perspective
+RULER_HEIGHT_ADJUSTMENT = 1.015  # Adjust ruler scale to match 3mm pellet height
 
-# --- CALIBRATION MODES ---y
+# --- CALIBRATION MODES ---
 CALIBRATION_MODE = 'CM'  # Options: 'CM' or 'INCH'
 
 # CM Settings
@@ -317,6 +318,9 @@ def analyze_structure(frame, bbox):
     # Calculate px_per_mm based on current mode divisor
     px_per_mm = gap_mean / DIVISOR
 
+    # CHEAT: Inflate the scale to match pellet height (3mm above ruler)
+    px_per_mm = px_per_mm * RULER_HEIGHT_ADJUSTMENT
+
     if px_per_mm < 2 or px_per_mm > 150:
         calibration_error_msg = f"Scale invalid ({px_per_mm:.2f} px/mm)"
         return None
@@ -351,9 +355,6 @@ def detect_pellets(frame, excluded_boxes):
     pellets = []
     current_ids = []
 
-    # CHEAT: Compensate for 3mm height difference between ruler and pellet
-    effective_px_per_mm = PIXELS_PER_MM * HEIGHT_COMPENSATION_FACTOR
-
     for cnt in contours:
         if not (MIN_CONTOUR_AREA <= cv2.contourArea(cnt) <= MAX_CONTOUR_AREA): continue
 
@@ -386,9 +387,9 @@ def detect_pellets(frame, excluded_boxes):
 
         pellet_history[p_id] = (s_w, s_h)
 
-        # Use compensated scale for accurate measurements
-        d_mm = s_w / effective_px_per_mm
-        l_mm = s_h / effective_px_per_mm
+        # Use PIXELS_PER_MM directly (already adjusted for pellet height in calibration)
+        d_mm = s_w / PIXELS_PER_MM
+        l_mm = s_h / PIXELS_PER_MM
 
         if should_process_pellet(d_mm, l_mm):
             pellets.append({
@@ -582,7 +583,7 @@ def main():
     window_name = "Inspector"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     print("Running...")
-    print(f"Height compensation: {HEIGHT_COMPENSATION_FACTOR}x (for 3mm pellet height)")
+    print(f"Ruler scale adjusted by {RULER_HEIGHT_ADJUSTMENT}x to match 3mm pellet height")
 
     while True:
         ret, frame = cap.read()
