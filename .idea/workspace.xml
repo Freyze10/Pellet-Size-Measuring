@@ -227,30 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00212" summary="fix the pellet detection">
-      <option name="closed" value="true" />
-      <created>1764307086006</created>
-      <option name="number" value="00212" />
-      <option name="presentableId" value="LOCAL-00212" />
-      <option name="project" value="LOCAL" />
-      <updated>1764307086006</updated>
-    </task>
-    <task id="LOCAL-00213" summary="replaced best.pt">
-      <option name="closed" value="true" />
-      <created>1764310342873</created>
-      <option name="number" value="00213" />
-      <option name="presentableId" value="LOCAL-00213" />
-      <option name="project" value="LOCAL" />
-      <updated>1764310342873</updated>
-    </task>
-    <task id="LOCAL-00214" summary="yolo with mm zone">
-      <option name="closed" value="true" />
-      <created>1764310405767</created>
-      <option name="number" value="00214" />
-      <option name="presentableId" value="LOCAL-00214" />
-      <option name="project" value="LOCAL" />
-      <updated>1764310405767</updated>
-    </task>
     <task id="LOCAL-00215" summary="yolo with mm zone">
       <option name="closed" value="true" />
       <created>1764310728436</created>
@@ -619,7 +595,31 @@
       <option name="project" value="LOCAL" />
       <updated>1764654275344</updated>
     </task>
-    <option name="localTasksCounter" value="261" />
+    <task id="LOCAL-00261" summary="adjusted height compensation">
+      <option name="closed" value="true" />
+      <created>1764654318327</created>
+      <option name="number" value="00261" />
+      <option name="presentableId" value="LOCAL-00261" />
+      <option name="project" value="LOCAL" />
+      <updated>1764654318327</updated>
+    </task>
+    <task id="LOCAL-00262" summary="adjusted height compensation">
+      <option name="closed" value="true" />
+      <created>1764654405866</created>
+      <option name="number" value="00262" />
+      <option name="presentableId" value="LOCAL-00262" />
+      <option name="project" value="LOCAL" />
+      <updated>1764654405867</updated>
+    </task>
+    <task id="LOCAL-00263" summary="adjusted height compensation">
+      <option name="closed" value="true" />
+      <created>1764654527290</created>
+      <option name="number" value="00263" />
+      <option name="presentableId" value="LOCAL-00263" />
+      <option name="project" value="LOCAL" />
+      <updated>1764654527290</updated>
+    </task>
+    <option name="localTasksCounter" value="264" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
