@@ -20,7 +20,7 @@ EXCLUSION_THRESHOLD = 1.0
 # --- HEIGHT COMPENSATION (3mm pellet height vs flat ruler) ---
 # Cheat: Inflate the ruler calibration scale as if the ruler was 3mm higher (at pellet level)
 # This makes the ruler scale ~1.5% larger to match pellet plane perspective
-RULER_HEIGHT_ADJUSTMENT = 1.1  # Adjust ruler scale to match 3mm pellet height
+RULER_HEIGHT_ADJUSTMENT = 1.09  # Adjust ruler scale to match 3mm pellet height
 
 # --- CALIBRATION MODES ---
 CALIBRATION_MODE = 'CM'  # Options: 'CM' or 'INCH'
