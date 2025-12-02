@@ -227,22 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00217" summary="updated the mm zone measure">
-      <option name="closed" value="true" />
-      <created>1764312999450</created>
-      <option name="number" value="00217" />
-      <option name="presentableId" value="LOCAL-00217" />
-      <option name="project" value="LOCAL" />
-      <updated>1764312999450</updated>
-    </task>
-    <task id="LOCAL-00218" summary="updated the mm zone measure">
-      <option name="closed" value="true" />
-      <created>1764313006770</created>
-      <option name="number" value="00218" />
-      <option name="presentableId" value="LOCAL-00218" />
-      <option name="project" value="LOCAL" />
-      <updated>1764313006770</updated>
-    </task>
     <task id="LOCAL-00219" summary="eliminate lower confidence">
       <option name="closed" value="true" />
       <created>1764313486105</created>
@@ -619,7 +603,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764655119850</updated>
     </task>
-    <option name="localTasksCounter" value="266" />
+    <task id="LOCAL-00266" summary="adjusted height compensation">
+      <option name="closed" value="true" />
+      <created>1764655788199</created>
+      <option name="number" value="00266" />
+      <option name="presentableId" value="LOCAL-00266" />
+      <option name="project" value="LOCAL" />
+      <updated>1764655788199</updated>
+    </task>
+    <task id="LOCAL-00267" summary="adjusted height">
+      <option name="closed" value="true" />
+      <created>1764655950977</created>
+      <option name="number" value="00267" />
+      <option name="presentableId" value="LOCAL-00267" />
+      <option name="project" value="LOCAL" />
+      <updated>1764655950977</updated>
+    </task>
+    <option name="localTasksCounter" value="268" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updated model path" />
     <MESSAGE value="new calibration long and short" />
     <MESSAGE value="fixint results" />
     <MESSAGE value="fixing calibrate" />
@@ -671,7 +670,8 @@
     <MESSAGE value="merged ai" />
     <MESSAGE value="added compensation for ruler height" />
     <MESSAGE value="adjusted height compensation" />
-    <option name="LAST_COMMIT_MESSAGE" value="adjusted height compensation" />
+    <MESSAGE value="adjusted height" />
+    <option name="LAST_COMMIT_MESSAGE" value="adjusted height" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
