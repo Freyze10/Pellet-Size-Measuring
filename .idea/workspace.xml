@@ -20,7 +20,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="trial-of-models" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -65,8 +65,8 @@
     &quot;Python.yolo_cv_scanner (1).executor&quot;: &quot;Run&quot;,
     &quot;Python.yolo_cv_scanner.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Brant/PycharmProjects/FG-INV&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;cam-ai-ruler&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Brant/PycharmProjects/Pellet_Measure/yolo&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   },
   &quot;keyToStringList&quot;: {
@@ -79,9 +79,11 @@
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\yolo" />
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\pellet_label_yolo" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\yolo" />
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\v1\trained_model" />
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\pellet_label_yolo\labels\train" />
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\pellet_label_yolo" />
@@ -203,9 +205,9 @@
       <list>
         <item itemvalue="Python.main" />
         <item itemvalue="Python.try-auto" />
+        <item itemvalue="Python.yolo_cv_scanner" />
         <item itemvalue="Python.newOpencv" />
         <item itemvalue="Python.label" />
-        <item itemvalue="Python.yolo_cv_scanner" />
       </list>
     </recent_temporary>
   </component>
@@ -225,399 +227,399 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00142" summary="thinner measure line for calibration">
+    <task id="LOCAL-00209" summary="usage wiht yolo">
       <option name="closed" value="true" />
-      <created>1763783095160</created>
-      <option name="number" value="00142" />
-      <option name="presentableId" value="LOCAL-00142" />
+      <created>1764300186358</created>
+      <option name="number" value="00209" />
+      <option name="presentableId" value="LOCAL-00209" />
       <option name="project" value="LOCAL" />
-      <updated>1763783095160</updated>
+      <updated>1764300186358</updated>
     </task>
-    <task id="LOCAL-00143" summary="thinner measure line calib and used approxPolyDp">
+    <task id="LOCAL-00210" summary="testing diff measures">
       <option name="closed" value="true" />
-      <created>1763792285286</created>
-      <option name="number" value="00143" />
-      <option name="presentableId" value="LOCAL-00143" />
+      <created>1764300930082</created>
+      <option name="number" value="00210" />
+      <option name="presentableId" value="LOCAL-00210" />
       <option name="project" value="LOCAL" />
-      <updated>1763792285286</updated>
+      <updated>1764300930083</updated>
     </task>
-    <task id="LOCAL-00144" summary="use of fit elipse">
+    <task id="LOCAL-00211" summary="try gai stud">
       <option name="closed" value="true" />
-      <created>1763792919957</created>
-      <option name="number" value="00144" />
-      <option name="presentableId" value="LOCAL-00144" />
+      <created>1764306818083</created>
+      <option name="number" value="00211" />
+      <option name="presentableId" value="LOCAL-00211" />
       <option name="project" value="LOCAL" />
-      <updated>1763792919957</updated>
+      <updated>1764306818083</updated>
     </task>
-    <task id="LOCAL-00145" summary="returned-1">
+    <task id="LOCAL-00212" summary="fix the pellet detection">
       <option name="closed" value="true" />
-      <created>1763794112912</created>
-      <option name="number" value="00145" />
-      <option name="presentableId" value="LOCAL-00145" />
+      <created>1764307086006</created>
+      <option name="number" value="00212" />
+      <option name="presentableId" value="LOCAL-00212" />
       <option name="project" value="LOCAL" />
-      <updated>1763794112912</updated>
+      <updated>1764307086006</updated>
     </task>
-    <task id="LOCAL-00146" summary="added tresholding">
+    <task id="LOCAL-00213" summary="replaced best.pt">
       <option name="closed" value="true" />
-      <created>1763794793716</created>
-      <option name="number" value="00146" />
-      <option name="presentableId" value="LOCAL-00146" />
+      <created>1764310342873</created>
+      <option name="number" value="00213" />
+      <option name="presentableId" value="LOCAL-00213" />
       <option name="project" value="LOCAL" />
-      <updated>1763794793716</updated>
+      <updated>1764310342873</updated>
     </task>
-    <task id="LOCAL-00147" summary="fixed height error">
+    <task id="LOCAL-00214" summary="yolo with mm zone">
       <option name="closed" value="true" />
-      <created>1763795133448</created>
-      <option name="number" value="00147" />
-      <option name="presentableId" value="LOCAL-00147" />
+      <created>1764310405767</created>
+      <option name="number" value="00214" />
+      <option name="presentableId" value="LOCAL-00214" />
       <option name="project" value="LOCAL" />
-      <updated>1763795133448</updated>
+      <updated>1764310405767</updated>
     </task>
-    <task id="LOCAL-00148" summary="returned">
+    <task id="LOCAL-00215" summary="yolo with mm zone">
       <option name="closed" value="true" />
-      <created>1763796247179</created>
-      <option name="number" value="00148" />
-      <option name="presentableId" value="LOCAL-00148" />
+      <created>1764310728436</created>
+      <option name="number" value="00215" />
+      <option name="presentableId" value="LOCAL-00215" />
       <option name="project" value="LOCAL" />
-      <updated>1763796247179</updated>
+      <updated>1764310728436</updated>
     </task>
-    <task id="LOCAL-00149" summary="thinner bbox">
+    <task id="LOCAL-00216" summary="yolo DETECTS ALL">
       <option name="closed" value="true" />
-      <created>1763798305108</created>
-      <option name="number" value="00149" />
-      <option name="presentableId" value="LOCAL-00149" />
+      <created>1764310737176</created>
+      <option name="number" value="00216" />
+      <option name="presentableId" value="LOCAL-00216" />
       <option name="project" value="LOCAL" />
-      <updated>1763798305108</updated>
+      <updated>1764310737176</updated>
     </task>
-    <task id="LOCAL-00150" summary="thinner bbox">
+    <task id="LOCAL-00217" summary="updated the mm zone measure">
       <option name="closed" value="true" />
-      <created>1763945057377</created>
-      <option name="number" value="00150" />
-      <option name="presentableId" value="LOCAL-00150" />
+      <created>1764312999450</created>
+      <option name="number" value="00217" />
+      <option name="presentableId" value="LOCAL-00217" />
       <option name="project" value="LOCAL" />
-      <updated>1763945057377</updated>
+      <updated>1764312999450</updated>
     </task>
-    <task id="LOCAL-00151" summary="thinner bbox">
+    <task id="LOCAL-00218" summary="updated the mm zone measure">
       <option name="closed" value="true" />
-      <created>1763946207815</created>
-      <option name="number" value="00151" />
-      <option name="presentableId" value="LOCAL-00151" />
+      <created>1764313006770</created>
+      <option name="number" value="00218" />
+      <option name="presentableId" value="LOCAL-00218" />
       <option name="project" value="LOCAL" />
-      <updated>1763946207815</updated>
+      <updated>1764313006770</updated>
     </task>
-    <task id="LOCAL-00152" summary="thinner bbox">
+    <task id="LOCAL-00219" summary="eliminate lower confidence">
       <option name="closed" value="true" />
-      <created>1763946252543</created>
-      <option name="number" value="00152" />
-      <option name="presentableId" value="LOCAL-00152" />
+      <created>1764313486105</created>
+      <option name="number" value="00219" />
+      <option name="presentableId" value="LOCAL-00219" />
       <option name="project" value="LOCAL" />
-      <updated>1763946252543</updated>
+      <updated>1764313486105</updated>
     </task>
-    <task id="LOCAL-00153" summary="trying with debug">
+    <task id="LOCAL-00220" summary="display calibr">
       <option name="closed" value="true" />
-      <created>1763946302262</created>
-      <option name="number" value="00153" />
-      <option name="presentableId" value="LOCAL-00153" />
+      <created>1764313710251</created>
+      <option name="number" value="00220" />
+      <option name="presentableId" value="LOCAL-00220" />
       <option name="project" value="LOCAL" />
-      <updated>1763946302262</updated>
+      <updated>1764313710251</updated>
     </task>
-    <task id="LOCAL-00154" summary="returned to thin">
+    <task id="LOCAL-00221" summary="tring">
       <option name="closed" value="true" />
-      <created>1763946363508</created>
-      <option name="number" value="00154" />
-      <option name="presentableId" value="LOCAL-00154" />
+      <created>1764314652541</created>
+      <option name="number" value="00221" />
+      <option name="presentableId" value="LOCAL-00221" />
       <option name="project" value="LOCAL" />
-      <updated>1763946363508</updated>
+      <updated>1764314652541</updated>
     </task>
-    <task id="LOCAL-00155" summary="returned to thin">
+    <task id="LOCAL-00222" summary="tring">
       <option name="closed" value="true" />
-      <created>1763954423263</created>
-      <option name="number" value="00155" />
-      <option name="presentableId" value="LOCAL-00155" />
+      <created>1764314696949</created>
+      <option name="number" value="00222" />
+      <option name="presentableId" value="LOCAL-00222" />
       <option name="project" value="LOCAL" />
-      <updated>1763954423264</updated>
+      <updated>1764314696949</updated>
     </task>
-    <task id="LOCAL-00156" summary="returned to thin">
+    <task id="LOCAL-00223" summary="trying">
       <option name="closed" value="true" />
-      <created>1763955672600</created>
-      <option name="number" value="00156" />
-      <option name="presentableId" value="LOCAL-00156" />
+      <created>1764314777204</created>
+      <option name="number" value="00223" />
+      <option name="presentableId" value="LOCAL-00223" />
       <option name="project" value="LOCAL" />
-      <updated>1763955672600</updated>
+      <updated>1764314777204</updated>
     </task>
-    <task id="LOCAL-00157" summary="adjusted background color overlay">
+    <task id="LOCAL-00224" summary="trying">
       <option name="closed" value="true" />
-      <created>1763963427282</created>
-      <option name="number" value="00157" />
-      <option name="presentableId" value="LOCAL-00157" />
+      <created>1764315248589</created>
+      <option name="number" value="00224" />
+      <option name="presentableId" value="LOCAL-00224" />
       <option name="project" value="LOCAL" />
-      <updated>1763963427282</updated>
+      <updated>1764315248589</updated>
     </task>
-    <task id="LOCAL-00158" summary="adjusted background color overlay">
+    <task id="LOCAL-00225" summary="trying">
       <option name="closed" value="true" />
-      <created>1763964210420</created>
-      <option name="number" value="00158" />
-      <option name="presentableId" value="LOCAL-00158" />
+      <created>1764315257880</created>
+      <option name="number" value="00225" />
+      <option name="presentableId" value="LOCAL-00225" />
       <option name="project" value="LOCAL" />
-      <updated>1763964210420</updated>
+      <updated>1764315257880</updated>
     </task>
-    <task id="LOCAL-00159" summary="adjusted background colouur overlay">
+    <task id="LOCAL-00226" summary="returned main and ruler for auto">
       <option name="closed" value="true" />
-      <created>1763967227954</created>
-      <option name="number" value="00159" />
-      <option name="presentableId" value="LOCAL-00159" />
+      <created>1764317453855</created>
+      <option name="number" value="00226" />
+      <option name="presentableId" value="LOCAL-00226" />
       <option name="project" value="LOCAL" />
-      <updated>1763967227954</updated>
+      <updated>1764317453855</updated>
     </task>
-    <task id="LOCAL-00160" summary="testing longest run">
+    <task id="LOCAL-00227" summary="updated auto calibrate">
       <option name="closed" value="true" />
-      <created>1763967614383</created>
-      <option name="number" value="00160" />
-      <option name="presentableId" value="LOCAL-00160" />
+      <created>1764317696261</created>
+      <option name="number" value="00227" />
+      <option name="presentableId" value="LOCAL-00227" />
       <option name="project" value="LOCAL" />
-      <updated>1763967614383</updated>
+      <updated>1764317696261</updated>
     </task>
-    <task id="LOCAL-00161" summary="return">
+    <task id="LOCAL-00228" summary="updated auto calibrate">
       <option name="closed" value="true" />
-      <created>1763967729650</created>
-      <option name="number" value="00161" />
-      <option name="presentableId" value="LOCAL-00161" />
+      <created>1764317702225</created>
+      <option name="number" value="00228" />
+      <option name="presentableId" value="LOCAL-00228" />
       <option name="project" value="LOCAL" />
-      <updated>1763967729650</updated>
+      <updated>1764317702225</updated>
     </task>
-    <task id="LOCAL-00162" summary="fixed longtime runtime">
+    <task id="LOCAL-00229" summary="more detailed mm calib">
       <option name="closed" value="true" />
-      <created>1763968123748</created>
-      <option name="number" value="00162" />
-      <option name="presentableId" value="LOCAL-00162" />
+      <created>1764317905252</created>
+      <option name="number" value="00229" />
+      <option name="presentableId" value="LOCAL-00229" />
       <option name="project" value="LOCAL" />
-      <updated>1763968123748</updated>
+      <updated>1764317905252</updated>
     </task>
-    <task id="LOCAL-00163" summary="fixed longtime runtime">
+    <task id="LOCAL-00230" summary="updated model path">
       <option name="closed" value="true" />
-      <created>1763969574434</created>
-      <option name="number" value="00163" />
-      <option name="presentableId" value="LOCAL-00163" />
+      <created>1764317926143</created>
+      <option name="number" value="00230" />
+      <option name="presentableId" value="LOCAL-00230" />
       <option name="project" value="LOCAL" />
-      <updated>1763969574434</updated>
+      <updated>1764317926143</updated>
     </task>
-    <task id="LOCAL-00164" summary="returned to working">
+    <task id="LOCAL-00231" summary="new calibration long and short">
       <option name="closed" value="true" />
-      <created>1763973928744</created>
-      <option name="number" value="00164" />
-      <option name="presentableId" value="LOCAL-00164" />
+      <created>1764318540301</created>
+      <option name="number" value="00231" />
+      <option name="presentableId" value="LOCAL-00231" />
       <option name="project" value="LOCAL" />
-      <updated>1763973928744</updated>
+      <updated>1764318540301</updated>
     </task>
-    <task id="LOCAL-00165" summary="improved runtime">
+    <task id="LOCAL-00232" summary="fixint results">
       <option name="closed" value="true" />
-      <created>1763974592021</created>
-      <option name="number" value="00165" />
-      <option name="presentableId" value="LOCAL-00165" />
+      <created>1764318855387</created>
+      <option name="number" value="00232" />
+      <option name="presentableId" value="LOCAL-00232" />
       <option name="project" value="LOCAL" />
-      <updated>1763974592021</updated>
+      <updated>1764318855387</updated>
     </task>
-    <task id="LOCAL-00166" summary="returned ver">
+    <task id="LOCAL-00233" summary="fixint results">
       <option name="closed" value="true" />
-      <created>1763974600170</created>
-      <option name="number" value="00166" />
-      <option name="presentableId" value="LOCAL-00166" />
+      <created>1764320303338</created>
+      <option name="number" value="00233" />
+      <option name="presentableId" value="LOCAL-00233" />
       <option name="project" value="LOCAL" />
-      <updated>1763974600170</updated>
+      <updated>1764320303338</updated>
     </task>
-    <task id="LOCAL-00167" summary="space">
+    <task id="LOCAL-00234" summary="fixing calibrate">
       <option name="closed" value="true" />
-      <created>1764030478435</created>
-      <option name="number" value="00167" />
-      <option name="presentableId" value="LOCAL-00167" />
+      <created>1764376663705</created>
+      <option name="number" value="00234" />
+      <option name="presentableId" value="LOCAL-00234" />
       <option name="project" value="LOCAL" />
-      <updated>1764030478435</updated>
+      <updated>1764376663706</updated>
     </task>
-    <task id="LOCAL-00168" summary="trying auto calibrate">
+    <task id="LOCAL-00235" summary="fixing calibrate">
       <option name="closed" value="true" />
-      <created>1764032927938</created>
-      <option name="number" value="00168" />
-      <option name="presentableId" value="LOCAL-00168" />
+      <created>1764377706527</created>
+      <option name="number" value="00235" />
+      <option name="presentableId" value="LOCAL-00235" />
       <option name="project" value="LOCAL" />
-      <updated>1764032927938</updated>
+      <updated>1764377706527</updated>
     </task>
-    <task id="LOCAL-00169" summary="trying auto calibrate">
+    <task id="LOCAL-00236" summary="removed ignored lines">
       <option name="closed" value="true" />
-      <created>1764032935483</created>
-      <option name="number" value="00169" />
-      <option name="presentableId" value="LOCAL-00169" />
+      <created>1764378100088</created>
+      <option name="number" value="00236" />
+      <option name="presentableId" value="LOCAL-00236" />
       <option name="project" value="LOCAL" />
-      <updated>1764032935483</updated>
+      <updated>1764378100088</updated>
     </task>
-    <task id="LOCAL-00170" summary="try semi auto">
+    <task id="LOCAL-00237" summary="no pellet detection inside ruler">
       <option name="closed" value="true" />
-      <created>1764033601802</created>
-      <option name="number" value="00170" />
-      <option name="presentableId" value="LOCAL-00170" />
+      <created>1764378409508</created>
+      <option name="number" value="00237" />
+      <option name="presentableId" value="LOCAL-00237" />
       <option name="project" value="LOCAL" />
-      <updated>1764033601802</updated>
+      <updated>1764378409508</updated>
     </task>
-    <task id="LOCAL-00171" summary="try semi auto">
+    <task id="LOCAL-00238" summary="fixing calibration">
       <option name="closed" value="true" />
-      <created>1764042268468</created>
-      <option name="number" value="00171" />
-      <option name="presentableId" value="LOCAL-00171" />
+      <created>1764379342517</created>
+      <option name="number" value="00238" />
+      <option name="presentableId" value="LOCAL-00238" />
       <option name="project" value="LOCAL" />
-      <updated>1764042268468</updated>
+      <updated>1764379342518</updated>
     </task>
-    <task id="LOCAL-00172" summary="added camera reso">
+    <task id="LOCAL-00239" summary="fixing calibration">
       <option name="closed" value="true" />
-      <created>1764047538165</created>
-      <option name="number" value="00172" />
-      <option name="presentableId" value="LOCAL-00172" />
+      <created>1764380094638</created>
+      <option name="number" value="00239" />
+      <option name="presentableId" value="LOCAL-00239" />
       <option name="project" value="LOCAL" />
-      <updated>1764047538165</updated>
+      <updated>1764380094638</updated>
     </task>
-    <task id="LOCAL-00173" summary="returned">
+    <task id="LOCAL-00240" summary="fixing calibration">
       <option name="closed" value="true" />
-      <created>1764050419110</created>
-      <option name="number" value="00173" />
-      <option name="presentableId" value="LOCAL-00173" />
+      <created>1764383558049</created>
+      <option name="number" value="00240" />
+      <option name="presentableId" value="LOCAL-00240" />
       <option name="project" value="LOCAL" />
-      <updated>1764050419110</updated>
+      <updated>1764383558049</updated>
     </task>
-    <task id="LOCAL-00174" summary="use obs cam">
+    <task id="LOCAL-00241" summary="smoother object detection, not jumping">
       <option name="closed" value="true" />
-      <created>1764050697705</created>
-      <option name="number" value="00174" />
-      <option name="presentableId" value="LOCAL-00174" />
+      <created>1764383652174</created>
+      <option name="number" value="00241" />
+      <option name="presentableId" value="LOCAL-00241" />
       <option name="project" value="LOCAL" />
-      <updated>1764050697705</updated>
+      <updated>1764383652174</updated>
     </task>
-    <task id="LOCAL-00175" summary="force full hd">
+    <task id="LOCAL-00242" summary="debug detection">
       <option name="closed" value="true" />
-      <created>1764050725341</created>
-      <option name="number" value="00175" />
-      <option name="presentableId" value="LOCAL-00175" />
+      <created>1764384278183</created>
+      <option name="number" value="00242" />
+      <option name="presentableId" value="LOCAL-00242" />
       <option name="project" value="LOCAL" />
-      <updated>1764050725341</updated>
+      <updated>1764384278183</updated>
     </task>
-    <task id="LOCAL-00176" summary="display actual camera reso">
+    <task id="LOCAL-00243" summary="debug detection">
       <option name="closed" value="true" />
-      <created>1764051593999</created>
-      <option name="number" value="00176" />
-      <option name="presentableId" value="LOCAL-00176" />
+      <created>1764385775700</created>
+      <option name="number" value="00243" />
+      <option name="presentableId" value="LOCAL-00243" />
       <option name="project" value="LOCAL" />
-      <updated>1764051593999</updated>
+      <updated>1764385775701</updated>
     </task>
-    <task id="LOCAL-00177" summary="display actual camera reso">
+    <task id="LOCAL-00244" summary="fixing lines">
       <option name="closed" value="true" />
-      <created>1764058315013</created>
-      <option name="number" value="00177" />
-      <option name="presentableId" value="LOCAL-00177" />
+      <created>1764386091539</created>
+      <option name="number" value="00244" />
+      <option name="presentableId" value="LOCAL-00244" />
       <option name="project" value="LOCAL" />
-      <updated>1764058315013</updated>
+      <updated>1764386091539</updated>
     </task>
-    <task id="LOCAL-00178" summary="display actual camera reso">
+    <task id="LOCAL-00245" summary="detecting all lines">
       <option name="closed" value="true" />
-      <created>1764060414114</created>
-      <option name="number" value="00178" />
-      <option name="presentableId" value="LOCAL-00178" />
+      <created>1764386902125</created>
+      <option name="number" value="00245" />
+      <option name="presentableId" value="LOCAL-00245" />
       <option name="project" value="LOCAL" />
-      <updated>1764060414115</updated>
+      <updated>1764386902125</updated>
     </task>
-    <task id="LOCAL-00179" summary="display actual camera reso">
+    <task id="LOCAL-00246" summary="strictly check spacing (5%)">
       <option name="closed" value="true" />
-      <created>1764061174555</created>
-      <option name="number" value="00179" />
-      <option name="presentableId" value="LOCAL-00179" />
+      <created>1764387161548</created>
+      <option name="number" value="00246" />
+      <option name="presentableId" value="LOCAL-00246" />
       <option name="project" value="LOCAL" />
-      <updated>1764061174555</updated>
+      <updated>1764387161548</updated>
     </task>
-    <task id="LOCAL-00180" summary="fot testing">
+    <task id="LOCAL-00247" summary="5 conseq cm line and 5 second before calib">
       <option name="closed" value="true" />
-      <created>1764061348667</created>
-      <option name="number" value="00180" />
-      <option name="presentableId" value="LOCAL-00180" />
+      <created>1764397605928</created>
+      <option name="number" value="00247" />
+      <option name="presentableId" value="LOCAL-00247" />
       <option name="project" value="LOCAL" />
-      <updated>1764061348669</updated>
+      <updated>1764397605928</updated>
     </task>
-    <task id="LOCAL-00181" summary="calib">
+    <task id="LOCAL-00248" summary="added re calibrate when camera move">
       <option name="closed" value="true" />
-      <created>1764126483117</created>
-      <option name="number" value="00181" />
-      <option name="presentableId" value="LOCAL-00181" />
+      <created>1764399813367</created>
+      <option name="number" value="00248" />
+      <option name="presentableId" value="LOCAL-00248" />
       <option name="project" value="LOCAL" />
-      <updated>1764126483118</updated>
+      <updated>1764399813367</updated>
     </task>
-    <task id="LOCAL-00182" summary="calib">
+    <task id="LOCAL-00249" summary="added re calibrate when camera move">
       <option name="closed" value="true" />
-      <created>1764127091661</created>
-      <option name="number" value="00182" />
-      <option name="presentableId" value="LOCAL-00182" />
+      <created>1764401146619</created>
+      <option name="number" value="00249" />
+      <option name="presentableId" value="LOCAL-00249" />
       <option name="project" value="LOCAL" />
-      <updated>1764127091661</updated>
+      <updated>1764401146619</updated>
     </task>
-    <task id="LOCAL-00183" summary="added exit on calib when clicked r">
+    <task id="LOCAL-00250" summary="strict">
       <option name="closed" value="true" />
-      <created>1764127819995</created>
-      <option name="number" value="00183" />
-      <option name="presentableId" value="LOCAL-00183" />
+      <created>1764406504455</created>
+      <option name="number" value="00250" />
+      <option name="presentableId" value="LOCAL-00250" />
       <option name="project" value="LOCAL" />
-      <updated>1764127819995</updated>
+      <updated>1764406504455</updated>
     </task>
-    <task id="LOCAL-00184" summary="removed unnecessary prints">
+    <task id="LOCAL-00251" summary="long thin tick overlay">
       <option name="closed" value="true" />
-      <created>1764127846368</created>
-      <option name="number" value="00184" />
-      <option name="presentableId" value="LOCAL-00184" />
+      <created>1764550754238</created>
+      <option name="number" value="00251" />
+      <option name="presentableId" value="LOCAL-00251" />
       <option name="project" value="LOCAL" />
-      <updated>1764127846369</updated>
+      <updated>1764550754238</updated>
     </task>
-    <task id="LOCAL-00185" summary="rewrite ruler for calib">
+    <task id="LOCAL-00252" summary="thin tick overlay">
       <option name="closed" value="true" />
-      <created>1764128445863</created>
-      <option name="number" value="00185" />
-      <option name="presentableId" value="LOCAL-00185" />
+      <created>1764551401595</created>
+      <option name="number" value="00252" />
+      <option name="presentableId" value="LOCAL-00252" />
       <option name="project" value="LOCAL" />
-      <updated>1764128445863</updated>
+      <updated>1764551401595</updated>
     </task>
-    <task id="LOCAL-00186" summary="fixing ruler">
+    <task id="LOCAL-00253" summary="medium size overlay">
       <option name="closed" value="true" />
-      <created>1764128875515</created>
-      <option name="number" value="00186" />
-      <option name="presentableId" value="LOCAL-00186" />
+      <created>1764559400942</created>
+      <option name="number" value="00253" />
+      <option name="presentableId" value="LOCAL-00253" />
       <option name="project" value="LOCAL" />
-      <updated>1764128875515</updated>
+      <updated>1764559400942</updated>
     </task>
-    <task id="LOCAL-00187" summary="fixing ruler">
+    <task id="LOCAL-00254" summary="cleansing">
       <option name="closed" value="true" />
-      <created>1764128956225</created>
-      <option name="number" value="00187" />
-      <option name="presentableId" value="LOCAL-00187" />
+      <created>1764567284727</created>
+      <option name="number" value="00254" />
+      <option name="presentableId" value="LOCAL-00254" />
       <option name="project" value="LOCAL" />
-      <updated>1764128956225</updated>
+      <updated>1764567284727</updated>
     </task>
-    <task id="LOCAL-00188" summary="fixing ruler">
+    <task id="LOCAL-00255" summary="enhance line detection">
       <option name="closed" value="true" />
-      <created>1764129147474</created>
-      <option name="number" value="00188" />
-      <option name="presentableId" value="LOCAL-00188" />
+      <created>1764567300216</created>
+      <option name="number" value="00255" />
+      <option name="presentableId" value="LOCAL-00255" />
       <option name="project" value="LOCAL" />
-      <updated>1764129147474</updated>
+      <updated>1764567300216</updated>
     </task>
-    <task id="LOCAL-00189" summary="fixing ruler">
+    <task id="LOCAL-00256" summary="enhancing line detect">
       <option name="closed" value="true" />
-      <created>1764129154519</created>
-      <option name="number" value="00189" />
-      <option name="presentableId" value="LOCAL-00189" />
+      <created>1764569387896</created>
+      <option name="number" value="00256" />
+      <option name="presentableId" value="LOCAL-00256" />
       <option name="project" value="LOCAL" />
-      <updated>1764129154519</updated>
+      <updated>1764569387896</updated>
     </task>
-    <task id="LOCAL-00190" summary="removed overlay text">
+    <task id="LOCAL-00257" summary="updated pellet measure label">
       <option name="closed" value="true" />
-      <created>1764129209517</created>
-      <option name="number" value="00190" />
-      <option name="presentableId" value="LOCAL-00190" />
+      <created>1764570364857</created>
+      <option name="number" value="00257" />
+      <option name="presentableId" value="LOCAL-00257" />
       <option name="project" value="LOCAL" />
-      <updated>1764129209517</updated>
+      <updated>1764570364857</updated>
     </task>
-    <option name="localTasksCounter" value="191" />
+    <option name="localTasksCounter" value="258" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -631,7 +633,7 @@
                   <entry key="branch">
                     <value>
                       <list>
-                        <option value="main" />
+                        <option value="cam-ai-ruler" />
                       </list>
                     </value>
                   </entry>
@@ -644,32 +646,32 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="trying with debug" />
-    <MESSAGE value="returned to thin" />
-    <MESSAGE value="adjusted background color overlay" />
-    <MESSAGE value="adjusted background colouur overlay" />
-    <MESSAGE value="testing longest run" />
-    <MESSAGE value="return" />
-    <MESSAGE value="fixed longtime runtime" />
-    <MESSAGE value="returned to working" />
-    <MESSAGE value="improved runtime" />
-    <MESSAGE value="returned ver" />
-    <MESSAGE value="space" />
-    <MESSAGE value="trying auto calibrate" />
-    <MESSAGE value="try semi auto" />
-    <MESSAGE value="added camera reso" />
-    <MESSAGE value="returned" />
-    <MESSAGE value="use obs cam" />
-    <MESSAGE value="force full hd" />
-    <MESSAGE value="display actual camera reso" />
-    <MESSAGE value="fot testing" />
-    <MESSAGE value="calib" />
-    <MESSAGE value="added exit on calib when clicked r" />
-    <MESSAGE value="removed unnecessary prints" />
-    <MESSAGE value="rewrite ruler for calib" />
-    <MESSAGE value="fixing ruler" />
-    <MESSAGE value="removed overlay text" />
-    <option name="LAST_COMMIT_MESSAGE" value="removed overlay text" />
+    <MESSAGE value="returned main and ruler for auto" />
+    <MESSAGE value="updated auto calibrate" />
+    <MESSAGE value="more detailed mm calib" />
+    <MESSAGE value="updated model path" />
+    <MESSAGE value="new calibration long and short" />
+    <MESSAGE value="fixint results" />
+    <MESSAGE value="fixing calibrate" />
+    <MESSAGE value="removed ignored lines" />
+    <MESSAGE value="no pellet detection inside ruler" />
+    <MESSAGE value="fixing calibration" />
+    <MESSAGE value="smoother object detection, not jumping" />
+    <MESSAGE value="debug detection" />
+    <MESSAGE value="fixing lines" />
+    <MESSAGE value="detecting all lines" />
+    <MESSAGE value="strictly check spacing (5%)" />
+    <MESSAGE value="5 conseq cm line and 5 second before calib" />
+    <MESSAGE value="added re calibrate when camera move" />
+    <MESSAGE value="strict" />
+    <MESSAGE value="long thin tick overlay" />
+    <MESSAGE value="thin tick overlay" />
+    <MESSAGE value="medium size overlay" />
+    <MESSAGE value="cleansing" />
+    <MESSAGE value="enhance line detection" />
+    <MESSAGE value="enhancing line detect" />
+    <MESSAGE value="updated pellet measure label" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated pellet measure label" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

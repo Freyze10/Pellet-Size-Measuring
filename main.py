@@ -33,9 +33,8 @@ def update_ranges():
 update_ranges()
 
 MIN_CONTOUR_AREA = 100
-MAX_CONTOUR_AREA = 20000  # Increased slightly to prevent cutting off large close-ups
+MAX_CONTOUR_AREA = 20000
 
-# Common resolutions: 640x480, 1280x720, 1920x1080
 DESIRED_WIDTH = 1280
 DESIRED_HEIGHT = 720
 
@@ -43,7 +42,7 @@ DESIRED_HEIGHT = 720
 # Ruler Calibration State
 # ----------------------------------------------------------------------
 in_ruler_calib_mode = False
-REFERENCE_LENGTH_MM = 76.2  # 3 inches = 76.2mm
+REFERENCE_LENGTH_MM = 76.2
 reference_line_start = None
 reference_line_end = None
 calibration_frozen_frame = None
@@ -102,7 +101,7 @@ def mouse_callback(event, x, y, flags, param):
                 dy = reference_line_end[1] - reference_line_start[1]
                 pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
 
-                if pixel_distance > 10:  # Prevent division by zero or tiny clicks
+                if pixel_distance > 10:
                     PIXELS_PER_MM = pixel_distance / REFERENCE_LENGTH_MM
                     update_ranges()
                     print(f"Calibrated: {PIXELS_PER_MM:.4f} px/mm based on {pixel_distance:.2f}px / 76.2mm")
@@ -134,29 +133,18 @@ def mouse_callback(event, x, y, flags, param):
 
 
 # ----------------------------------------------------------------------
-# Detection with Rotated Bounding Boxes (IMPROVED)
+# Detection with Rotated Bounding Boxes
 # ----------------------------------------------------------------------
 def detect_pellets(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    # 1. Use Bilateral Filter instead of Gaussian.
-    # Bilateral keeps edges sharp while removing noise.
     blur = cv2.bilateralFilter(gray, 9, 75, 75)
-
-    # 2. Adaptive Thresholding with tuned parameters.
-    # Block size 11, C=2 is generally tighter to the real edge than 15/3.
     thresh = cv2.adaptiveThreshold(blur, 255,
                                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 11, 2)
 
-    # 3. Morphological Operations - ONLY remove noise, do NOT erode/shrink.
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    # Morph Open removes small white dots (noise)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
-    # Morph Close fills small black holes inside the pellet
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
-
-    # REMOVED: cv2.erode (This was shrinking your measurements)
 
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -166,18 +154,10 @@ def detect_pellets(frame):
         if not (MIN_CONTOUR_AREA <= area <= MAX_CONTOUR_AREA):
             continue
 
-        # REMOVED: approxPolyDP (This cuts corners on round objects)
-
-        # Get minimum area rectangle
         rect = cv2.minAreaRect(cnt)
         (center_x, center_y), (w, h), angle = rect
         box = cv2.boxPoints(rect)
         box = np.intp(box)
-
-        # 4. Calculate dimensions manually from box corners for higher precision
-        # cv2.minAreaRect width/height can sometimes swap depending on rotation.
-        # We calculate the distance between adjacent corners.
-        # Order of box points: usually bottom-left, top-left, top-right, bottom-right (rotating)
 
         edge1 = get_distance(box[0], box[1])
         edge2 = get_distance(box[1], box[2])
@@ -193,7 +173,6 @@ def detect_pellets(frame):
         width_mm = width_px / PIXELS_PER_MM
         height_mm = height_px / PIXELS_PER_MM
 
-        # Diameter is the smaller dimension, length is the larger
         diameter = width_mm
         length = height_mm
 
@@ -276,14 +255,11 @@ def draw_ruler_calibration_mode(frame):
         pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
         new_px_per_mm = pixel_distance / REFERENCE_LENGTH_MM if pixel_distance > 0 else 0
 
-
     cv2.addWeighted(overlay, 0.9, frame, 0.1, 0, frame)
 
-    # Draw reference line
     if reference_line_start and reference_line_end:
         cv2.line(frame, reference_line_start, reference_line_end, (0, 255, 255), 1)
 
-        # Crosshairs for precision alignment
         cv2.line(frame, (reference_line_start[0] - 10, reference_line_start[1]),
                  (reference_line_start[0] + 10, reference_line_start[1]), (0, 0, 255), 1)
         cv2.line(frame, (reference_line_start[0], reference_line_start[1] - 10),
@@ -299,10 +275,9 @@ def draw_ruler_calibration_mode(frame):
         length = math.sqrt(dx ** 2 + dy ** 2)
         angle = math.atan2(dy, dx)
 
-        if length > 10:  # only draw if line is reasonably long
+        if length > 10:
             angle_rad = math.atan2(dy, dx)
 
-            # Helper to draw a tick perpendicular to the line
             def draw_tick(distance_mm, tick_length, thickness=1, color=(180, 180, 180)):
                 t = distance_mm / REFERENCE_LENGTH_MM
                 x = reference_line_start[0] + dx * t
@@ -315,10 +290,8 @@ def draw_ruler_calibration_mode(frame):
                 pt2 = (int(x + px), int(y + py))
                 cv2.line(frame, pt1, pt2, color, thickness)
 
-            # 1 cm ticks (every 10 mm) — long + labeled
-            for cm in range(1, 8):  # 1 cm to 7 cm
+            for cm in range(1, 8):
                 draw_tick(cm * 10, tick_length=12, thickness=2, color=(255, 255, 255))
-                # labelr
                 t = (cm * 10) / REFERENCE_LENGTH_MM
                 x = reference_line_start[0] + dx * t
                 y = reference_line_start[1] + dy * t
@@ -327,10 +300,8 @@ def draw_ruler_calibration_mode(frame):
                 cv2.putText(frame, str(cm), (label_x - 8, label_y + 8),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 2)
 
-            # 5 mm ticks (half cm) — medium length
             for half_cm in [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5]:
                 draw_tick(half_cm * 10, tick_length=10, thickness=1, color=(200, 200, 200))
-
 
         mid_x = (reference_line_start[0] + reference_line_end[0]) // 2
         mid_y = (reference_line_start[1] + reference_line_end[1]) // 2
@@ -343,7 +314,7 @@ def draw_ruler_calibration_mode(frame):
 
 
 # ----------------------------------------------------------------------
-# Main Overlay
+# Main Overlay (UPDATED LABEL STYLE)
 # ----------------------------------------------------------------------
 def draw_overlay(frame, pellets):
     total = len(pellets)
@@ -366,15 +337,21 @@ def draw_overlay(frame, pellets):
         cv2.drawContours(frame, [box], 0, color, 1)
         cv2.circle(frame, (int(center[0]), int(center[1])), 2, color, -1)
 
-        top_y = int(min(box[:, 1]))
-        left_x = int(min(box[:, 0]))
-        bg_y = max(top_y - 30, 0)
+        # --- UPDATED LABEL STYLE START ---
+        # Using Moments to calculate center for text (mimicking reference style)
+        M = cv2.moments(box)
+        if M["m00"] != 0:
+            cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+        else:
+            cx, cy = int(center[0]), int(center[1])
 
-        cv2.rectangle(frame, (left_x, bg_y), (left_x + 70, top_y - 5), (0, 0, 0), -1)
-        cv2.putText(frame, f"D: {p['diameter']:.2f}mm", (left_x + 3, bg_y + 12),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
-        cv2.putText(frame, f"L: {p['length']:.2f}mm", (left_x + 3, bg_y + 24),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
+        txt = f"{p['diameter']:.2f}x{p['length']:.2f}"
+
+        # Black Outline (Thickness 3) for contrast
+        cv2.putText(frame, txt, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3)
+        # White Text (Thickness 1)
+        cv2.putText(frame, txt, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        # --- UPDATED LABEL STYLE END ---
 
         if not p['within_tolerance']:
             top_right = box[np.argmax(box[:, 0])]
@@ -398,22 +375,15 @@ def draw_overlay(frame, pellets):
 # ----------------------------------------------------------------------
 
 def get_camera():
-    # Try index 0 first, then 1 if 0 fails
-    # obs in index 1
-
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     if not cap.isOpened():
         cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 
-    # Request the desired resolution
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, DESIRED_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, DESIRED_HEIGHT)
-
-    # Request specific FPS (camera might ignore this if lighting is low)
     cap.set(cv2.CAP_PROP_FPS, 30)
     cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 
-    # READ BACK what the camera actually accepted
     actual_w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     actual_h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
@@ -492,14 +462,12 @@ def main():
             break
         elif key == ord('r'):
             if in_ruler_calib_mode:
-                # Pressing 'r' again while in calibration mode = Cancel
                 in_ruler_calib_mode = False
                 reference_line_start = None
                 reference_line_end = None
                 is_dragging = False
                 calibration_frozen_frame = None
             else:
-                # Normal behaviour – enter calibration mode
                 in_ruler_calib_mode = True
 
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
