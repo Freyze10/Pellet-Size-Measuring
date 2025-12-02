@@ -17,6 +17,10 @@ TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
 
+# --- HEIGHT COMPENSATION (3mm pellet height vs flat ruler) ---
+# Simple cheat: pellets are 3mm higher than ruler, so they appear ~1.5% larger in perspective
+HEIGHT_COMPENSATION_FACTOR = 1.015  # Compensate for 3mm height difference
+
 # --- CALIBRATION MODES ---
 CALIBRATION_MODE = 'CM'  # Options: 'CM' or 'INCH'
 
@@ -347,6 +351,9 @@ def detect_pellets(frame, excluded_boxes):
     pellets = []
     current_ids = []
 
+    # CHEAT: Compensate for 3mm height difference between ruler and pellet
+    effective_px_per_mm = PIXELS_PER_MM * HEIGHT_COMPENSATION_FACTOR
+
     for cnt in contours:
         if not (MIN_CONTOUR_AREA <= cv2.contourArea(cnt) <= MAX_CONTOUR_AREA): continue
 
@@ -379,8 +386,9 @@ def detect_pellets(frame, excluded_boxes):
 
         pellet_history[p_id] = (s_w, s_h)
 
-        d_mm = s_w / PIXELS_PER_MM
-        l_mm = s_h / PIXELS_PER_MM
+        # Use compensated scale for accurate measurements
+        d_mm = s_w / effective_px_per_mm
+        l_mm = s_h / effective_px_per_mm
 
         if should_process_pellet(d_mm, l_mm):
             pellets.append({
@@ -574,6 +582,7 @@ def main():
     window_name = "Inspector"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     print("Running...")
+    print(f"Height compensation: {HEIGHT_COMPENSATION_FACTOR}x (for 3mm pellet height)")
 
     while True:
         ret, frame = cap.read()
