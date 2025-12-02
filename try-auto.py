@@ -19,9 +19,9 @@ EXCLUSION_THRESHOLD = 1.0
 
 # --- HEIGHT COMPENSATION (3mm pellet height vs flat ruler) ---
 # Simple cheat: pellets are 3mm higher than ruler, so they appear ~1.5% larger in perspective
-HEIGHT_COMPENSATION_FACTOR = 1.015  # Compensate for 3mm height difference
+HEIGHT_COMPENSATION_FACTOR = 1.02  # Compensate for 3mm height difference
 
-# --- CALIBRATION MODES ---
+# --- CALIBRATION MODES ---y
 CALIBRATION_MODE = 'CM'  # Options: 'CM' or 'INCH'
 
 # CM Settings
