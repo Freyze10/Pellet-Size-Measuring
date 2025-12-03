@@ -11,7 +11,7 @@ from ultralytics import YOLO
 YOLO_MODEL_PATH = "yolo/best.pt"
 
 # Initial Calibration Defaults
-PIXELS_PER_MM = 10.0
+PIXELS_PER_MM = 7.0
 TARGET_DIAMETER = 3.0
 TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
@@ -461,7 +461,7 @@ def process_calibration(result):
     calibration_buffer.append(smoothed_px)
     avg_px = np.mean(calibration_buffer)
     std_dev = np.std(calibration_buffer)
-    PIXELS_PER_MM = avg_px
+    PIXELS_PER_MM = avg_px + 0.3
     is_calibrated = True
     update_ranges()
 
