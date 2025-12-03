@@ -11,14 +11,16 @@ from ultralytics import YOLO
 YOLO_MODEL_PATH = "yolo/best.pt"
 
 # Initial Calibration Defaults
-PIXELS_PER_MM = 7.0
+PIXELS_PER_MM = 10.0
 TARGET_DIAMETER = 3.0
 TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 EXCLUSION_THRESHOLD = 1.0
 
 # --- HEIGHT COMPENSATION ---
-RULER_HEIGHT_ADJUSTMENT = 1.0
+# Kept at 1.06 (Original "Cheat") to compensate for 3mm height difference
+# If you place the ruler on a 3mm shim, change this to 1.0
+RULER_HEIGHT_ADJUSTMENT = 1.06
 
 # --- CALIBRATION MODES ---
 CALIBRATION_MODE = 'CM'
@@ -61,48 +63,46 @@ MAX_CONTOUR_AREA = 20000
 
 
 # ----------------------------------------------------------------------
-# NEW: STABILIZATION CLASS
+# NEW: STABILIZATION CLASS (The "Anti-Jitter" Logic)
 # ----------------------------------------------------------------------
 class PelletStabilizer:
     def __init__(self, maxlen=30):
-        # Store last N raw measurements
         self.diam_history = deque(maxlen=maxlen)
         self.len_history = deque(maxlen=maxlen)
 
-        # Display values (what the user sees)
+        # The number currently shown on screen
         self.display_diam = 0.0
         self.display_len = 0.0
-
-        # Locking logic
-        self.is_locked = False
-        self.last_update_time = time.time()
+        self.is_initialized = False
 
     def update(self, raw_d, raw_l):
         self.diam_history.append(raw_d)
         self.len_history.append(raw_l)
 
-        # Get averages
+        # Calculate smooth averages
         avg_d = np.mean(self.diam_history)
         avg_l = np.mean(self.len_history)
 
-        # Calculate volatility (Standard Deviation)
-        std_d = np.std(self.diam_history) if len(self.diam_history) > 5 else 999
-
-        # LOCKING LOGIC:
-        # If variance is low (< 0.05mm) for enough frames, LOCK the value.
-        if len(self.diam_history) > 15 and std_d < 0.03:
-            self.is_locked = True
-            # When locked, we stop updating the display value to prevent "flicker"
-            # We only update if the physical object actually moves significantly
-            if abs(avg_d - self.display_diam) > 0.1:  # Moved more than 0.1mm
-                self.display_diam = avg_d
-                self.display_len = avg_l
-        else:
-            self.is_locked = False
+        # Initialization: Show number immediately
+        if not self.is_initialized:
             self.display_diam = avg_d
             self.display_len = avg_l
+            if len(self.diam_history) > 5: self.is_initialized = True
+            return self.display_diam, self.display_len
 
-        return self.display_diam, self.display_len, self.is_locked
+        # LOGIC: Only change the number if the change is REAL (large)
+        # If the change is tiny (noise), keep the old number.
+
+        # Check difference between new average and displayed number
+        diff_d = abs(avg_d - self.display_diam)
+        diff_l = abs(avg_l - self.display_len)
+
+        # 0.05mm threshold. If it moves less than 0.05mm, we ignore it (jitter).
+        # If it moves MORE than 0.05mm, we update the display.
+        if diff_d > 0.05: self.display_diam = avg_d
+        if diff_l > 0.05: self.display_len = avg_l
+
+        return self.display_diam, self.display_len
 
 
 # Global Dictionary to store stabilizers per pellet ID
@@ -141,10 +141,6 @@ def load_yolo_model():
         return True
     except:
         return False
-
-
-def get_distance(p1, p2):
-    return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
 
 
 def is_within_tolerance(d, l):
@@ -228,7 +224,6 @@ def analyze_structure(frame, bbox):
 
     cnts, _ = cv2.findContours(lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Mode Settings
     min_lines = MIN_LINES_CM if CALIBRATION_MODE == 'CM' else MIN_LINES_INCH
     divisor = DIVISOR_CM if CALIBRATION_MODE == 'CM' else DIVISOR_INCH
 
@@ -253,7 +248,6 @@ def analyze_structure(frame, bbox):
     major_ticks = []
 
     for t in all_ticks:
-        # Determine if near edge
         if is_horiz:
             at_edge = t['rect'][1] < edge_thresh or (t['rect'][1] + t['rect'][3]) > (roi.shape[0] - edge_thresh)
         else:
@@ -281,13 +275,12 @@ def analyze_structure(frame, bbox):
 
 
 # ----------------------------------------------------------------------
-# 3. Pellet Detection (IMPROVED WITH STABILIZER)
+# 3. Pellet Detection (With STABILITY)
 # ----------------------------------------------------------------------
 def detect_pellets(frame, excluded_boxes):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blur = cv2.bilateralFilter(gray, 9, 75, 75)
     thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
-    # Heavier morphological close to fill holes and smooth edges
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
 
@@ -302,7 +295,6 @@ def detect_pellets(frame, excluded_boxes):
         (cx, cy), (w, h), angle = rect
         box = np.intp(cv2.boxPoints(rect))
 
-        # Check exclusion zones
         is_ignored = False
         for ex_obj in excluded_boxes:
             bx1, by1, bx2, by2 = ex_obj['box']
@@ -311,29 +303,26 @@ def detect_pellets(frame, excluded_boxes):
                 break
         if is_ignored: continue
 
-        # Calculate raw dimensions
         dim1, dim2 = min(w, h), max(w, h)
         raw_d_mm = dim1 / PIXELS_PER_MM
         raw_l_mm = dim2 / PIXELS_PER_MM
 
-        # --- STABILIZATION LOGIC ---
-        # Generate Spatial ID (grid based)
+        # --- STABILIZATION ---
         p_id = f"{int(cx // 30)}_{int(cy // 30)}"
         current_ids.append(p_id)
 
         if p_id not in pellet_stabilizers:
             pellet_stabilizers[p_id] = PelletStabilizer()
 
-        # Get smoothed & locked values
-        final_d, final_l, is_locked = pellet_stabilizers[p_id].update(raw_d_mm, raw_l_mm)
+        # Get smoothed values
+        final_d, final_l = pellet_stabilizers[p_id].update(raw_d_mm, raw_l_mm)
 
         if should_process_pellet(final_d, final_l):
             pellets.append({
                 'box': box,
                 'diameter': final_d,
                 'length': final_l,
-                'is_good': is_within_tolerance(final_d, final_l),
-                'is_locked': is_locked
+                'is_good': is_within_tolerance(final_d, final_l)
             })
 
     # Cleanup old trackers
@@ -344,7 +333,7 @@ def detect_pellets(frame, excluded_boxes):
 
 
 # ----------------------------------------------------------------------
-# 4. Visualization
+# 4. Visualization (RESTORED TO GREEN/RED)
 # ----------------------------------------------------------------------
 def draw_ui(frame, yolo_objects, active_zone, pellets, tick_data):
     # Draw Yolo Zones
@@ -370,30 +359,23 @@ def draw_ui(frame, yolo_objects, active_zone, pellets, tick_data):
     # Draw Pellets
     for p in pellets:
         box = p['box']
-        # If locked, show Gold, else standard Green/Red
-        if p['is_locked']:
-            box_color = (0, 215, 255)  # Gold
-        else:
-            box_color = (0, 255, 0) if p['is_good'] else (0, 0, 255)
+        # COLOR LOGIC: Green if Good, Red if Bad
+        color = (0, 255, 0) if p['is_good'] else (0, 0, 255)
 
-        cv2.drawContours(frame, [box], 0, box_color, 2)
+        cv2.drawContours(frame, [box], 0, color, 2)
 
         M = cv2.moments(box)
         cx = int(M["m10"] / M["m00"]) if M["m00"] != 0 else box[0][0]
         cy = int(M["m01"] / M["m00"]) if M["m00"] != 0 else box[0][1]
 
-        # TEXT DISPLAY
         txt = f"{p['diameter']:.2f} x {p['length']:.2f}"
 
         # Shadow
         cv2.putText(frame, txt, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 3)
-        # Main Text (White if fluctuating, Cyan if LOCKED)
-        txt_color = (0, 255, 255) if p['is_locked'] else (255, 255, 255)
-        cv2.putText(frame, txt, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, txt_color, 2)
+        # Main Text (White)
+        cv2.putText(frame, txt, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-        if p['is_locked']:
-            cv2.putText(frame, "LOCKED", (cx - 30, cy + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 215, 255), 1)
-        elif not p['is_good']:
+        if not p['is_good']:
             cv2.putText(frame, "!", (cx - 45, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
     # Status Bar
@@ -419,9 +401,9 @@ def draw_ui(frame, yolo_objects, active_zone, pellets, tick_data):
 # Main Logic
 # ----------------------------------------------------------------------
 def process_calibration(result):
-    global PIXELS_PER_MM, is_calibrated, calibration_locked, locked_zone_coords
+    global PIXELS_PER_MM, is_calibrated, calibration_locked
 
-    # Simple median filter for calibration
+    # Filter calibration jitter
     measurement_history.append(result['px_per_mm'])
     smoothed_px = np.median(measurement_history) if len(measurement_history) >= 5 else result['px_per_mm']
 
@@ -436,12 +418,12 @@ def process_calibration(result):
     if len(calibration_buffer) == CALIBRATION_BUFFER_SIZE:
         std = np.std(calibration_buffer)
         if std < STABILITY_THRESHOLD:
-            PIXELS_PER_MM = np.mean(calibration_buffer) + 0.35  # Small bias correction
+            PIXELS_PER_MM = np.mean(calibration_buffer)
             is_calibrated = True
             calibration_locked = True
             print(f"LOCKED CALIBRATION: {PIXELS_PER_MM:.2f}")
         else:
-            calibration_buffer.popleft()  # Slide window
+            calibration_buffer.popleft()
 
 
 def main():
