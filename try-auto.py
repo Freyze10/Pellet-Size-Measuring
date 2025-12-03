@@ -461,7 +461,7 @@ def process_calibration(result):
     calibration_buffer.append(smoothed_px)
     avg_px = np.mean(calibration_buffer)
     std_dev = np.std(calibration_buffer)
-    PIXELS_PER_MM = avg_px + 0.3
+    PIXELS_PER_MM = avg_px + 0.35
     is_calibrated = True
     update_ranges()
 
