@@ -273,6 +273,11 @@ def analyze_structure(frame, bbox):
     }
 
 
+# ----------------------------------------------------------------------
+# 3. Pellet Detection
+# ----------------------------------------------------------------------
+pellet_history = {}
+
 def detect_pellets(frame, excluded_boxes):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blur = cv2.bilateralFilter(gray, 9, 75, 75)
