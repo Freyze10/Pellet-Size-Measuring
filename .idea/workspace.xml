@@ -227,14 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00233" summary="fixint results">
-      <option name="closed" value="true" />
-      <created>1764320303338</created>
-      <option name="number" value="00233" />
-      <option name="presentableId" value="LOCAL-00233" />
-      <option name="project" value="LOCAL" />
-      <updated>1764320303338</updated>
-    </task>
     <task id="LOCAL-00234" summary="fixing calibrate">
       <option name="closed" value="true" />
       <created>1764376663705</created>
@@ -619,7 +611,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764745802824</updated>
     </task>
-    <option name="localTasksCounter" value="282" />
+    <task id="LOCAL-00282" summary="revert to stable">
+      <option name="closed" value="true" />
+      <created>1764745831033</created>
+      <option name="number" value="00282" />
+      <option name="presentableId" value="LOCAL-00282" />
+      <option name="project" value="LOCAL" />
+      <updated>1764745831033</updated>
+    </task>
+    <option name="localTasksCounter" value="283" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,7 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="5 conseq cm line and 5 second before calib" />
     <MESSAGE value="added re calibrate when camera move" />
     <MESSAGE value="strict" />
     <MESSAGE value="long thin tick overlay" />
@@ -671,7 +670,8 @@
     <MESSAGE value="added 0.35 mm in the final mm" />
     <MESSAGE value="added lock on reading pellet" />
     <MESSAGE value="modifying" />
-    <option name="LAST_COMMIT_MESSAGE" value="modifying" />
+    <MESSAGE value="revert to stable" />
+    <option name="LAST_COMMIT_MESSAGE" value="revert to stable" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

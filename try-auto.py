@@ -63,6 +63,66 @@ MAX_CONTOUR_AREA = 20000
 
 
 # ----------------------------------------------------------------------
+# NEW: STABILIZATION LOGIC
+# ----------------------------------------------------------------------
+class PelletStabilizer:
+    def __init__(self, maxlen=30):
+        # Deep Buffering: Remembers last 30 measurements
+        self.diam_history = deque(maxlen=maxlen)
+        self.len_history = deque(maxlen=maxlen)
+
+        # Display state
+        self.display_diam = 0.0
+        self.display_len = 0.0
+        self.locked = False
+
+    def update(self, raw_d, raw_l):
+        self.diam_history.append(raw_d)
+        self.len_history.append(raw_l)
+
+        # Calculate averages
+        avg_d = np.mean(self.diam_history)
+        avg_l = np.mean(self.len_history)
+
+        # Calculate Volatility (Standard Deviation)
+        # We check if the measurements are jittering or stable
+        if len(self.diam_history) > 5:
+            std_d = np.std(self.diam_history)
+            std_l = np.std(self.len_history)
+        else:
+            std_d, std_l = 1.0, 1.0  # High volatility if not enough data
+
+        # LOCKING LOGIC
+        if self.locked:
+            # If locked, we only UNLOCK if the pellet physically moves significantly.
+            # Movement Threshold: 0.2mm difference from the locked value
+            if abs(avg_d - self.display_diam) > 0.2 or abs(avg_l - self.display_len) > 0.2:
+                self.locked = False
+                self.diam_history.clear()  # Reset buffer on movement
+                self.len_history.clear()
+                # Return current raw value temporarily while buffer rebuilds
+                return raw_d, raw_l
+            else:
+                # Return the locked, solid number
+                return self.display_diam, self.display_len
+        else:
+            # Not locked: update display with the smooth average
+            self.display_diam = avg_d
+            self.display_len = avg_l
+
+            # Check if we SHOULD lock
+            # Requirement: Buffer full (30 frames) AND very low volatility (stable)
+            if len(self.diam_history) >= 30 and std_d < 0.05 and std_l < 0.05:
+                self.locked = True
+
+            return self.display_diam, self.display_len
+
+
+# Dictionary to hold stabilizers for each specific pellet ID
+pellet_stabilizers = {}
+
+
+# ----------------------------------------------------------------------
 # Range Logic
 # ----------------------------------------------------------------------
 def update_ranges():
@@ -274,10 +334,8 @@ def analyze_structure(frame, bbox):
 
 
 # ----------------------------------------------------------------------
-# 3. Pellet Detection
+# 3. Pellet Detection (MODIFIED WITH DEEP BUFFERING & LOCKING)
 # ----------------------------------------------------------------------
-pellet_history = {}
-
 def detect_pellets(frame, excluded_boxes):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blur = cv2.bilateralFilter(gray, 9, 75, 75)
@@ -289,6 +347,7 @@ def detect_pellets(frame, excluded_boxes):
 
     pellets = []
     current_ids = []
+
     for cnt in contours:
         if not (MIN_CONTOUR_AREA <= cv2.contourArea(cnt) <= MAX_CONTOUR_AREA): continue
         rect = cv2.minAreaRect(cnt)
@@ -305,31 +364,40 @@ def detect_pellets(frame, excluded_boxes):
 
         d1, d2 = get_distance(box[0], box[1]), get_distance(box[1], box[2])
         raw_w, raw_h = min(d1, d2), max(d1, d2)
+
+        # Spatial ID for tracking specific pellets
         p_id = f"{int(cx // 20)}_{int(cy // 20)}"
         current_ids.append(p_id)
 
-        if p_id in pellet_history:
-            prev_w, prev_h = pellet_history[p_id]
-            s_w = (prev_w * 0.7) + (raw_w * 0.3)
-            s_h = (prev_h * 0.7) + (raw_h * 0.3)
-        else:
-            s_w, s_h = raw_w, raw_h
-        pellet_history[p_id] = (s_w, s_h)
+        # Raw MM values
+        d_mm_raw = raw_w / PIXELS_PER_MM
+        l_mm_raw = raw_h / PIXELS_PER_MM
 
-        d_mm = s_w / PIXELS_PER_MM
-        l_mm = s_h / PIXELS_PER_MM
+        # --- NEW STABILIZATION LOGIC ---
+        if p_id not in pellet_stabilizers:
+            pellet_stabilizers[p_id] = PelletStabilizer()  # Create new stabilizer for this pellet
 
-        if should_process_pellet(d_mm, l_mm):
-            pellets.append({'box': box, 'diameter': d_mm, 'length': l_mm, 'is_good': is_within_tolerance(d_mm, l_mm)})
+        # Feed raw values into stabilizer, get back locked/smoothed values
+        final_d, final_l = pellet_stabilizers[p_id].update(d_mm_raw, l_mm_raw)
 
-    keys = list(pellet_history.keys())
+        if should_process_pellet(final_d, final_l):
+            pellets.append({
+                'box': box,
+                'diameter': final_d,
+                'length': final_l,
+                'is_good': is_within_tolerance(final_d, final_l)
+            })
+
+    # Cleanup old stabilizers for pellets that disappeared
+    keys = list(pellet_stabilizers.keys())
     for k in keys:
-        if k not in current_ids: del pellet_history[k]
+        if k not in current_ids: del pellet_stabilizers[k]
+
     return pellets
 
 
 # ----------------------------------------------------------------------
-# 4. Visualization (UPDATED)
+# 4. Visualization
 # ----------------------------------------------------------------------
 def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
     # Draw Objects
@@ -518,6 +586,7 @@ def main():
             calibration_locked = False
             calibration_buffer.clear()
             measurement_history.clear()
+            pellet_stabilizers.clear()  # Clear stabilizer history on mode switch
             is_calibrated = False
 
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1: break
