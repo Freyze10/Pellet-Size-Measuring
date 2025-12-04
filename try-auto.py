@@ -55,6 +55,9 @@ calibration_error_msg = ""
 locked_zone_coords = None
 measurement_history = deque(maxlen=10)
 
+# NEW: Calibration Mode State
+calibration_active = False  # Whether we're currently in calibration mode
+
 # Camera Settings
 DESIRED_WIDTH = 1280
 DESIRED_HEIGHT = 720
@@ -400,16 +403,17 @@ def detect_pellets(frame, excluded_boxes):
 # 4. Visualization
 # ----------------------------------------------------------------------
 def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
-    # Draw Objects
-    for obj in yolo_objects:
-        bx1, by1, bx2, by2 = obj['box']
-        color = (0, 255, 0) if (active_zone_box and obj['box'] == active_zone_box) else (100, 100, 100)
-        label = f"{obj['name']}"
-        cv2.rectangle(frame, (bx1, by1), (bx2, by2), color, 2)
-        cv2.putText(frame, label, (bx1, by1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+    # Draw Objects (only in calibration mode)
+    if calibration_active:
+        for obj in yolo_objects:
+            bx1, by1, bx2, by2 = obj['box']
+            color = (0, 255, 0) if (active_zone_box and obj['box'] == active_zone_box) else (100, 100, 100)
+            label = f"{obj['name']}"
+            cv2.rectangle(frame, (bx1, by1), (bx2, by2), color, 2)
+            cv2.putText(frame, label, (bx1, by1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
-    # Draw Ticks (MODIFIED)
-    if tick_data:
+    # Draw Ticks (only in calibration mode)
+    if calibration_active and tick_data:
         off_x, off_y = tick_data['roi_offset']
 
         # --- CONFIG FOR UNIFORM VISUALIZATION ---
@@ -448,47 +452,63 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
 
             cv2.line(frame, pt1, pt2, color, thick)
 
-    # Draw Pellets
-    for p in pellets:
-        box = p['box']
-        color = (0, 255, 0) if p['is_good'] else (0, 0, 255)
-        cv2.drawContours(frame, [box], 0, color, 1)
+    # Draw Pellets (only in main mode)
+    if not calibration_active:
+        for p in pellets:
+            box = p['box']
+            color = (0, 255, 0) if p['is_good'] else (0, 0, 255)
+            cv2.drawContours(frame, [box], 0, color, 1)
 
-        M = cv2.moments(box)
-        if M["m00"] != 0:
-            cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
-        else:
-            cx, cy = box[0]
+            M = cv2.moments(box)
+            if M["m00"] != 0:
+                cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+            else:
+                cx, cy = box[0]
 
-        txt = f"{p['diameter']:.2f}x{p['length']:.2f}"
-        cv2.putText(frame, txt, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3)
-        cv2.putText(frame, txt, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            txt = f"{p['diameter']:.2f}x{p['length']:.2f}"
+            cv2.putText(frame, txt, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3)
+            cv2.putText(frame, txt, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
-        if not p['is_good']:
-            cv2.putText(frame, "!", (cx - 45, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            if not p['is_good']:
+                cv2.putText(frame, "!", (cx - 45, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
     # Status Bar
-    cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 70), (20, 20, 20), -1)
-    if is_calibrated:
-        if calibration_locked:
-            msg = f"LOCKED: {PIXELS_PER_MM:.2f} px/mm"
+    cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 90), (20, 20, 20), -1)
+
+    if calibration_active:
+        # Calibration mode status
+        if is_calibrated:
+            if calibration_locked:
+                msg = f"CALIBRATION COMPLETE: {PIXELS_PER_MM:.2f} px/mm"
+                col = (0, 255, 0)
+            else:
+                pct = int((len(calibration_buffer) / CALIBRATION_BUFFER_SIZE) * 100)
+                msg = f"Calibrating... {pct}%"
+                col = (0, 255, 255)
+        else:
+            msg = f"CALIBRATION MODE: {calibration_error_msg}" if calibration_error_msg else "Place ruler in view"
+            col = (0, 165, 255)
+
+        cv2.putText(frame, msg, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, col, 2)
+        mode_text = f"MODE: {CALIBRATION_MODE} | Press 'u' to switch | Press 'q' to exit"
+        cv2.putText(frame, mode_text, (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+
+        if is_calibrated and not calibration_locked:
+            progress = len(calibration_buffer) / CALIBRATION_BUFFER_SIZE
+            cv2.rectangle(frame, (500, 20), (500 + int(200 * progress), 40), (0, 255, 255), -1)
+            cv2.rectangle(frame, (500, 20), (700, 40), (255, 255, 255), 1)
+    else:
+        # Main screen status
+        if is_calibrated:
+            msg = f"CALIBRATED: {PIXELS_PER_MM:.2f} px/mm"
             col = (0, 255, 0)
         else:
-            pct = int((len(calibration_buffer) / CALIBRATION_BUFFER_SIZE) * 100)
-            msg = f"Stabilizing (5s)... {pct}%"
-            col = (0, 255, 255)
-    else:
-        msg = f"UNCALIBRATED: {calibration_error_msg}" if calibration_error_msg else "UNCALIBRATED"
-        col = (0, 0, 255)
+            msg = "NOT CALIBRATED - Press 'a' to calibrate"
+            col = (0, 0, 255)
 
-    cv2.putText(frame, msg, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, col, 2)
-    mode_text = f"MODE: {CALIBRATION_MODE} (Press 'u' to switch)"
-    cv2.putText(frame, mode_text, (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
-
-    if is_calibrated and not calibration_locked:
-        progress = len(calibration_buffer) / CALIBRATION_BUFFER_SIZE
-        cv2.rectangle(frame, (500, 20), (500 + int(200 * progress), 40), (0, 255, 255), -1)
-        cv2.rectangle(frame, (500, 20), (700, 40), (255, 255, 255), 1)
+        cv2.putText(frame, msg, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, col, 2)
+        info_text = "Press 'a' to calibrate | Press 'q' to exit"
+        cv2.putText(frame, info_text, (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
     return frame
 
@@ -497,7 +517,7 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
 # Main
 # ----------------------------------------------------------------------
 def process_calibration(result):
-    global PIXELS_PER_MM, is_calibrated, calibration_locked, locked_zone_coords
+    global PIXELS_PER_MM, is_calibrated, calibration_locked, locked_zone_coords, calibration_active
     new_px = result['px_per_mm']
     new_coords = result['roi_offset']
     if new_px == 0: return
@@ -506,20 +526,10 @@ def process_calibration(result):
     smoothed_px = np.median(measurement_history) if len(measurement_history) >= 3 else new_px
 
     if calibration_locked:
-        if abs(smoothed_px - PIXELS_PER_MM) > RESET_THRESHOLD:
-            print(f"⚠ Scale changed! Re-calibrating...")
-            calibration_locked = False
-            calibration_buffer.clear()
-            measurement_history.clear()
-            return
-        if locked_zone_coords:
-            lx, ly = locked_zone_coords
-            nx, ny = new_coords
-            if math.sqrt((lx - nx) ** 2 + (ly - ny) ** 2) > MAX_MOVEMENT_PIXELS:
-                print(f"⚠ Camera moved! Re-calibrating...")
-                calibration_locked = False
-                calibration_buffer.clear()
-                measurement_history.clear()
+        # Check if calibration just finished - return to main screen
+        if len(calibration_buffer) == CALIBRATION_BUFFER_SIZE:
+            print(f"✓ Calibration complete! Returning to main screen...")
+            calibration_active = False
         return
 
     if len(calibration_buffer) > 0 and abs(smoothed_px - np.mean(calibration_buffer)) > 2.0:
@@ -538,13 +548,16 @@ def process_calibration(result):
             calibration_locked = True
             locked_zone_coords = new_coords
             print(f"🔒 LOCKED at {avg_px:.2f} px/mm")
+            # Auto-return to main screen after 1 second
+            time.sleep(1)
+            calibration_active = False
         else:
             for _ in range(50):
                 if len(calibration_buffer) > 0: calibration_buffer.popleft()
 
 
 def main():
-    global current_tick_data, CALIBRATION_MODE, calibration_locked, is_calibrated
+    global current_tick_data, CALIBRATION_MODE, calibration_locked, is_calibrated, calibration_active
 
     if not load_yolo_model(): return
 
@@ -561,32 +574,53 @@ def main():
         ret, frame = cap.read()
         if not ret: break
 
-        yolo_objects, active_zone = run_yolo_detection(frame)
+        # Only run YOLO detection and calibration when in calibration mode
+        if calibration_active:
+            yolo_objects, active_zone = run_yolo_detection(frame)
 
-        if not active_zone:
-            current_tick_data = None
-            if not calibration_locked: calibration_buffer.clear()
+            if not active_zone:
+                current_tick_data = None
+                if not calibration_locked: calibration_buffer.clear()
+            else:
+                result = analyze_structure(frame, active_zone)
+                current_tick_data = result
+                if result and result['px_per_mm'] > 0:
+                    process_calibration(result)
+                elif not calibration_locked:
+                    calibration_buffer.clear()
         else:
-            result = analyze_structure(frame, active_zone)
-            current_tick_data = result
-            if result and result['px_per_mm'] > 0:
-                process_calibration(result)
-            elif not calibration_locked:
-                calibration_buffer.clear()
+            yolo_objects = []
+            active_zone = None
+            current_tick_data = None
 
-        pellets = detect_pellets(frame, yolo_objects)
+        # Detect pellets only in main mode
+        pellets = detect_pellets(frame, yolo_objects) if not calibration_active else []
+
         frame = draw_ui(frame, yolo_objects, active_zone, pellets, current_tick_data)
         cv2.imshow(window_name, frame)
 
         key = cv2.waitKey(1)
         if key == ord('q'):
             break
-        elif key == ord('u'):
+        elif key == ord('a'):
+            # Toggle calibration mode
+            calibration_active = not calibration_active
+            if calibration_active:
+                print("🔧 Entering calibration mode...")
+                # Reset calibration state
+                calibration_locked = False
+                calibration_buffer.clear()
+                measurement_history.clear()
+                is_calibrated = False
+            else:
+                print("📊 Returning to main screen...")
+        elif key == ord('u') and calibration_active:
+            # Only allow mode switching during calibration
             CALIBRATION_MODE = 'INCH' if CALIBRATION_MODE == 'CM' else 'CM'
             calibration_locked = False
             calibration_buffer.clear()
             measurement_history.clear()
-            pellet_stabilizers.clear()  # Clear stabilizer history on mode switch
+            pellet_stabilizers.clear()
             is_calibrated = False
 
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1: break
