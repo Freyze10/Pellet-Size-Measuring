@@ -97,7 +97,7 @@ class PelletStabilizer:
 
         # LOCKING LOGIC
         if self.locked:
-            # If locked, we only UNLOCK if the pellet physically moves significantly.
+            # If locked, we only UNLOCK if the camera physically moves significantly.
             # Movement Threshold: 0.2mm difference from the locked value
             if abs(avg_d - self.display_diam) > 0.2 or abs(avg_l - self.display_len) > 0.2:
                 self.locked = False
