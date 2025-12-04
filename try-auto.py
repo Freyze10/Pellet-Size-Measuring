@@ -473,7 +473,7 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
                 cv2.putText(frame, "!", (cx - 45, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
     # Status Bar
-    cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 85), (20, 20, 20), -1)
+    cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 80), (20, 20, 20), -1)
 
     if calibration_active:
         # Calibration mode status
