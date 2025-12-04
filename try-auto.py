@@ -510,6 +510,18 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
         info_text = "Press 'a' to calibrate | Press 'q' to exit"
         cv2.putText(frame, info_text, (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
+        # Display pellet count in main mode
+        if pellets:
+            good_count = sum(1 for p in pellets if p['is_good'])
+            bad_count = len(pellets) - good_count
+
+            # Count display on the right side
+            count_x = DESIRED_WIDTH - 350
+            cv2.putText(frame, f"IN SPEC: {good_count}", (count_x, 35),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(frame, f"OUT OF SPEC: {bad_count}", (count_x, 65),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+
     return frame
 
 
