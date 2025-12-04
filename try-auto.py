@@ -126,7 +126,7 @@ pellet_stabilizers = {}
 
 
 # ----------------------------------------------------------------------
-# Range Logic
+# Range
 # ----------------------------------------------------------------------
 def update_ranges():
     global DIAMETER_MIN, DIAMETER_MAX, LENGTH_MIN, LENGTH_MAX
