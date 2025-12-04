@@ -416,7 +416,7 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
     if calibration_active and tick_data:
         off_x, off_y = tick_data['roi_offset']
 
-        # --- CONFIG FOR UNIFORM VISUALIZATION ---
+        # --- CONFIG FOR TICKS VISUALIZATION ---
         VISUAL_LEN_MAJOR = 25  # Fixed length for major ticks
         VISUAL_LEN_MINOR = 12  # Fixed length for minor ticks
         COLOR_MAJOR = (0, 0, 255)  # Red for Major
