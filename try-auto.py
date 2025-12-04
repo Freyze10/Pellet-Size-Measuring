@@ -517,7 +517,7 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
 
             # Count display on the right side
             count_x = DESIRED_WIDTH - 350
-            cv2.putText(frame, f"IN SPEC: {good_count}", (count_x, 35),
+            cv2.putText(frame, f"IN: {good_count}", (count_x, 35),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
             cv2.putText(frame, f"OUT OF SPEC: {bad_count}", (count_x, 65),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
