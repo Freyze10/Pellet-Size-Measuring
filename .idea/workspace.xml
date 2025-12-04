@@ -90,7 +90,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.main">
+  <component name="RunManager" selected="Python.try-auto">
     <configuration name="label" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -203,8 +203,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.main" />
         <item itemvalue="Python.try-auto" />
+        <item itemvalue="Python.main" />
         <item itemvalue="Python.yolo_cv_scanner" />
         <item itemvalue="Python.newOpencv" />
         <item itemvalue="Python.label" />
@@ -226,38 +226,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00237" summary="no pellet detection inside ruler">
-      <option name="closed" value="true" />
-      <created>1764378409508</created>
-      <option name="number" value="00237" />
-      <option name="presentableId" value="LOCAL-00237" />
-      <option name="project" value="LOCAL" />
-      <updated>1764378409508</updated>
-    </task>
-    <task id="LOCAL-00238" summary="fixing calibration">
-      <option name="closed" value="true" />
-      <created>1764379342517</created>
-      <option name="number" value="00238" />
-      <option name="presentableId" value="LOCAL-00238" />
-      <option name="project" value="LOCAL" />
-      <updated>1764379342518</updated>
-    </task>
-    <task id="LOCAL-00239" summary="fixing calibration">
-      <option name="closed" value="true" />
-      <created>1764380094638</created>
-      <option name="number" value="00239" />
-      <option name="presentableId" value="LOCAL-00239" />
-      <option name="project" value="LOCAL" />
-      <updated>1764380094638</updated>
-    </task>
-    <task id="LOCAL-00240" summary="fixing calibration">
-      <option name="closed" value="true" />
-      <created>1764383558049</created>
-      <option name="number" value="00240" />
-      <option name="presentableId" value="LOCAL-00240" />
-      <option name="project" value="LOCAL" />
-      <updated>1764383558049</updated>
     </task>
     <task id="LOCAL-00241" summary="smoother object detection, not jumping">
       <option name="closed" value="true" />
@@ -619,7 +587,39 @@
       <option name="project" value="LOCAL" />
       <updated>1764811134691</updated>
     </task>
-    <option name="localTasksCounter" value="286" />
+    <task id="LOCAL-00286" summary="auto calib after pressing 'a'">
+      <option name="closed" value="true" />
+      <created>1764831780976</created>
+      <option name="number" value="00286" />
+      <option name="presentableId" value="LOCAL-00286" />
+      <option name="project" value="LOCAL" />
+      <updated>1764831780976</updated>
+    </task>
+    <task id="LOCAL-00287" summary="added pellet count in main screen">
+      <option name="closed" value="true" />
+      <created>1764831791572</created>
+      <option name="number" value="00287" />
+      <option name="presentableId" value="LOCAL-00287" />
+      <option name="project" value="LOCAL" />
+      <updated>1764831791572</updated>
+    </task>
+    <task id="LOCAL-00288" summary="revert back tthe main">
+      <option name="closed" value="true" />
+      <created>1764831802570</created>
+      <option name="number" value="00288" />
+      <option name="presentableId" value="LOCAL-00288" />
+      <option name="project" value="LOCAL" />
+      <updated>1764831802570</updated>
+    </task>
+    <task id="LOCAL-00289" summary="added pellet count in main screen">
+      <option name="closed" value="true" />
+      <created>1764831811197</created>
+      <option name="number" value="00289" />
+      <option name="presentableId" value="LOCAL-00289" />
+      <option name="project" value="LOCAL" />
+      <updated>1764831811197</updated>
+    </task>
+    <option name="localTasksCounter" value="290" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,8 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="thin tick overlay" />
-    <MESSAGE value="medium size overlay" />
     <MESSAGE value="cleansing" />
     <MESSAGE value="enhance line detection" />
     <MESSAGE value="enhancing line detect" />
@@ -671,7 +669,9 @@
     <MESSAGE value="added freeze pellet size reading" />
     <MESSAGE value="modified" />
     <MESSAGE value="auto calib after pressing 'a'" />
-    <option name="LAST_COMMIT_MESSAGE" value="auto calib after pressing 'a'" />
+    <MESSAGE value="revert back tthe main" />
+    <MESSAGE value="added pellet count in main screen" />
+    <option name="LAST_COMMIT_MESSAGE" value="added pellet count in main screen" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
