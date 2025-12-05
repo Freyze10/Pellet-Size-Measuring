@@ -793,7 +793,12 @@ def main():
             if manual_frozen_frame is None:
                 manual_frozen_frame = frame.copy()
             display_frame = manual_frozen_frame.copy()
-            display_frame = draw_ui(display_frame, [], None, [], None)
+
+            # Draw the UI with manual calibration interface
+            yolo_objects = []
+            active_zone = None
+            pellets = []
+            display_frame = draw_ui(display_frame, yolo_objects, active_zone, pellets, None)
             cv2.imshow(window_name, display_frame)
 
             key = cv2.waitKey(1)
@@ -803,6 +808,12 @@ def main():
                 # Exit manual calibration
                 in_manual_calib_mode = False
                 manual_frozen_frame = None
+                manual_line_start = None
+                manual_line_end = None
+                is_dragging = False
+
+            if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                break
             continue
 
         # Reset frozen frame when not in manual mode
