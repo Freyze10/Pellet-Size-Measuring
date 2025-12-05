@@ -186,7 +186,7 @@ def get_distance(p1, p2):
 # ----------------------------------------------------------------------
 def mouse_callback(event, x, y, flags, param):
     global manual_line_start, manual_line_end, is_dragging
-    global in_manual_calib_mode, PIXELS_PER_MM
+    global in_manual_calib_mode, PIXELS_PER_MM, is_calibrated
 
     if not in_manual_calib_mode:
         return
@@ -197,16 +197,12 @@ def mouse_callback(event, x, y, flags, param):
 
     # Handle button clicks
     if event == cv2.EVENT_LBUTTONDOWN:
-        print(f"Mouse clicked at ({x}, {y})")  # Debug
-
         if in_rect(x, y, RESET_BTN):
-            print("RESET button clicked")
             manual_line_start = None
             manual_line_end = None
             is_dragging = False
             return
         elif in_rect(x, y, APPLY_BTN):
-            print("APPLY button clicked")
             if manual_line_start and manual_line_end:
                 dx = manual_line_end[0] - manual_line_start[0]
                 dy = manual_line_end[1] - manual_line_start[1]
@@ -215,9 +211,9 @@ def mouse_callback(event, x, y, flags, param):
                 if pixel_distance > 10:
                     # Apply the +0.35 adjustment to match auto-calibration
                     PIXELS_PER_MM = (pixel_distance / MANUAL_REFERENCE_LENGTH_MM) + 0.35
+                    is_calibrated = True  # Mark as calibrated
                     update_ranges()
-                    print(
-                        f"Manual Calibration: {PIXELS_PER_MM:.4f} px/mm (base: {pixel_distance / MANUAL_REFERENCE_LENGTH_MM:.4f} + 0.35)")
+                    print(f"✓ Manual Calibration Complete: {PIXELS_PER_MM:.2f} px/mm")
 
                 in_manual_calib_mode = False
                 manual_line_start = None
@@ -225,7 +221,6 @@ def mouse_callback(event, x, y, flags, param):
                 is_dragging = False
             return
         elif in_rect(x, y, CANCEL_BTN):
-            print("CANCEL button clicked")
             in_manual_calib_mode = False
             manual_line_start = None
             manual_line_end = None
@@ -233,7 +228,6 @@ def mouse_callback(event, x, y, flags, param):
             return
 
         if not in_rect(x, y, (MANUAL_PANEL_X, MANUAL_PANEL_Y, MANUAL_PANEL_W, MANUAL_PANEL_H)):
-            print(f"Starting line at ({x}, {y})")
             manual_line_start = (x, y)
             manual_line_end = (x, y)
             is_dragging = True
@@ -243,7 +237,6 @@ def mouse_callback(event, x, y, flags, param):
 
     elif event == cv2.EVENT_LBUTTONUP:
         if is_dragging:
-            print(f"Ending line at ({x}, {y})")
             manual_line_end = (x, y)
             is_dragging = False
 
@@ -491,8 +484,6 @@ def detect_pellets(frame, excluded_boxes):
 # ----------------------------------------------------------------------
 def draw_manual_calibration_mode(frame):
     """Draw the manual ruler calibration interface"""
-    print("Drawing manual calibration interface")  # Debug
-
     overlay = frame.copy()
 
     cv2.rectangle(overlay, (MANUAL_PANEL_X, MANUAL_PANEL_Y),
