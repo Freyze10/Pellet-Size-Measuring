@@ -197,12 +197,16 @@ def mouse_callback(event, x, y, flags, param):
 
     # Handle button clicks
     if event == cv2.EVENT_LBUTTONDOWN:
+        print(f"Mouse clicked at ({x}, {y})")  # Debug
+
         if in_rect(x, y, RESET_BTN):
+            print("RESET button clicked")
             manual_line_start = None
             manual_line_end = None
             is_dragging = False
             return
         elif in_rect(x, y, APPLY_BTN):
+            print("APPLY button clicked")
             if manual_line_start and manual_line_end:
                 dx = manual_line_end[0] - manual_line_start[0]
                 dy = manual_line_end[1] - manual_line_start[1]
@@ -221,6 +225,7 @@ def mouse_callback(event, x, y, flags, param):
                 is_dragging = False
             return
         elif in_rect(x, y, CANCEL_BTN):
+            print("CANCEL button clicked")
             in_manual_calib_mode = False
             manual_line_start = None
             manual_line_end = None
@@ -228,6 +233,7 @@ def mouse_callback(event, x, y, flags, param):
             return
 
         if not in_rect(x, y, (MANUAL_PANEL_X, MANUAL_PANEL_Y, MANUAL_PANEL_W, MANUAL_PANEL_H)):
+            print(f"Starting line at ({x}, {y})")
             manual_line_start = (x, y)
             manual_line_end = (x, y)
             is_dragging = True
@@ -237,6 +243,7 @@ def mouse_callback(event, x, y, flags, param):
 
     elif event == cv2.EVENT_LBUTTONUP:
         if is_dragging:
+            print(f"Ending line at ({x}, {y})")
             manual_line_end = (x, y)
             is_dragging = False
 
@@ -866,8 +873,16 @@ def main():
                 in_manual_calib_mode = not in_manual_calib_mode
                 if in_manual_calib_mode:
                     print("📏 Entering manual calibration mode...")
+                    manual_line_start = None
+                    manual_line_end = None
+                    is_dragging = False
+                    manual_frozen_frame = None
                 else:
                     print("📊 Exiting manual calibration...")
+                    manual_line_start = None
+                    manual_line_end = None
+                    is_dragging = False
+                    manual_frozen_frame = None
         elif key == ord('u') and calibration_active:
             # Only allow mode switching during calibration
             CALIBRATION_MODE = 'INCH' if CALIBRATION_MODE == 'CM' else 'CM'
