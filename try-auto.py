@@ -58,6 +58,22 @@ measurement_history = deque(maxlen=10)
 # NEW: Calibration Mode State
 calibration_active = False  # Whether we're currently in calibration mode
 
+# Manual Calibration State
+in_manual_calib_mode = False
+MANUAL_REFERENCE_LENGTH_MM = 76.2
+manual_line_start = None
+manual_line_end = None
+manual_frozen_frame = None
+is_dragging = False
+
+# Button rectangles for manual calibration
+MANUAL_PANEL_X, MANUAL_PANEL_Y = 10, 80
+MANUAL_PANEL_W, MANUAL_PANEL_H = 380, 280
+
+RESET_BTN = (MANUAL_PANEL_X + 20, MANUAL_PANEL_Y + 200, 100, 40)
+APPLY_BTN = (MANUAL_PANEL_X + 140, MANUAL_PANEL_Y + 200, 100, 40)
+CANCEL_BTN = (MANUAL_PANEL_X + 260, MANUAL_PANEL_Y + 200, 100, 40)
+
 # Camera Settings
 DESIRED_WIDTH = 1280
 DESIRED_HEIGHT = 720
@@ -97,7 +113,7 @@ class PelletStabilizer:
 
         # LOCKING LOGIC
         if self.locked:
-            # If locked, we only UNLOCK if the camera physically moves significantly.
+            # If locked, we only UNLOCK if the pellet physically moves significantly.
             # Movement Threshold: 0.2mm difference from the locked value
             if abs(avg_d - self.display_diam) > 0.2 or abs(avg_l - self.display_len) > 0.2:
                 self.locked = False
@@ -126,7 +142,7 @@ pellet_stabilizers = {}
 
 
 # ----------------------------------------------------------------------
-# Range
+# Range Logic
 # ----------------------------------------------------------------------
 def update_ranges():
     global DIAMETER_MIN, DIAMETER_MAX, LENGTH_MIN, LENGTH_MAX
@@ -159,6 +175,70 @@ def load_yolo_model():
     except Exception as e:
         print(f"✗ Failed to load YOLO model: {e}")
         return False
+
+
+def get_distance(p1, p2):
+    return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
+
+
+# ----------------------------------------------------------------------
+# Mouse Callback for Manual Calibration
+# ----------------------------------------------------------------------
+def mouse_callback(event, x, y, flags, param):
+    global manual_line_start, manual_line_end, is_dragging
+    global in_manual_calib_mode, PIXELS_PER_MM
+
+    if not in_manual_calib_mode:
+        return
+
+    def in_rect(px, py, rect):
+        rx, ry, rw, rh = rect
+        return rx <= px <= rx + rw and ry <= py <= ry + rh
+
+    # Handle button clicks
+    if event == cv2.EVENT_LBUTTONDOWN:
+        if in_rect(x, y, RESET_BTN):
+            manual_line_start = None
+            manual_line_end = None
+            is_dragging = False
+            return
+        elif in_rect(x, y, APPLY_BTN):
+            if manual_line_start and manual_line_end:
+                dx = manual_line_end[0] - manual_line_start[0]
+                dy = manual_line_end[1] - manual_line_start[1]
+                pixel_distance = math.sqrt(dx ** 2 + dy ** 2)
+
+                if pixel_distance > 10:
+                    # Apply the +0.35 adjustment to match auto-calibration
+                    PIXELS_PER_MM = (pixel_distance / MANUAL_REFERENCE_LENGTH_MM) + 0.35
+                    update_ranges()
+                    print(
+                        f"Manual Calibration: {PIXELS_PER_MM:.4f} px/mm (base: {pixel_distance / MANUAL_REFERENCE_LENGTH_MM:.4f} + 0.35)")
+
+                in_manual_calib_mode = False
+                manual_line_start = None
+                manual_line_end = None
+                is_dragging = False
+            return
+        elif in_rect(x, y, CANCEL_BTN):
+            in_manual_calib_mode = False
+            manual_line_start = None
+            manual_line_end = None
+            is_dragging = False
+            return
+
+        if not in_rect(x, y, (MANUAL_PANEL_X, MANUAL_PANEL_Y, MANUAL_PANEL_W, MANUAL_PANEL_H)):
+            manual_line_start = (x, y)
+            manual_line_end = (x, y)
+            is_dragging = True
+
+    elif event == cv2.EVENT_MOUSEMOVE and is_dragging:
+        manual_line_end = (x, y)
+
+    elif event == cv2.EVENT_LBUTTONUP:
+        if is_dragging:
+            manual_line_end = (x, y)
+            is_dragging = False
 
 
 def get_distance(p1, p2):
@@ -337,7 +417,7 @@ def analyze_structure(frame, bbox):
 
 
 # ----------------------------------------------------------------------
-# 3. Pellet Detection
+# 3. Pellet Detection (MODIFIED WITH DEEP BUFFERING & LOCKING)
 # ----------------------------------------------------------------------
 def detect_pellets(frame, excluded_boxes):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -402,6 +482,126 @@ def detect_pellets(frame, excluded_boxes):
 # ----------------------------------------------------------------------
 # 4. Visualization
 # ----------------------------------------------------------------------
+def draw_manual_calibration_mode(frame):
+    """Draw the manual ruler calibration interface"""
+    overlay = frame.copy()
+
+    cv2.rectangle(overlay, (MANUAL_PANEL_X, MANUAL_PANEL_Y),
+                  (MANUAL_PANEL_X + MANUAL_PANEL_W, MANUAL_PANEL_Y + MANUAL_PANEL_H),
+                  (30, 30, 50), -1)
+    cv2.rectangle(overlay, (MANUAL_PANEL_X, MANUAL_PANEL_Y),
+                  (MANUAL_PANEL_X + MANUAL_PANEL_W, MANUAL_PANEL_Y + MANUAL_PANEL_H),
+                  (100, 150, 255), 3)
+
+    cv2.putText(overlay, "MANUAL CALIBRATION", (MANUAL_PANEL_X + 65, MANUAL_PANEL_Y + 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+    instructions = [
+        "1. Place a ruler in camera view",
+        "2. Click and drag to match the",
+        "   reference line (3 inch / 7.62 cm)",
+        "3. Click APPLY when aligned"
+    ]
+
+    y_offset = MANUAL_PANEL_Y + 60
+    for instr in instructions:
+        cv2.putText(overlay, instr, (MANUAL_PANEL_X + 20, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
+        y_offset += 20
+
+    cv2.putText(overlay, "Reference: 3 inch (76.2 mm)",
+                (MANUAL_PANEL_X + 60, MANUAL_PANEL_Y + 165),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 255), 2)
+
+    # Buttons
+    cv2.rectangle(overlay, (RESET_BTN[0], RESET_BTN[1]),
+                  (RESET_BTN[0] + RESET_BTN[2], RESET_BTN[1] + RESET_BTN[3]),
+                  (50, 50, 200), -1)
+    cv2.putText(overlay, "RESET", (RESET_BTN[0] + 15, RESET_BTN[1] + 28),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+    apply_enabled = manual_line_start and manual_line_end
+    apply_color = (0, 200, 0) if apply_enabled else (100, 100, 100)
+    cv2.rectangle(overlay, (APPLY_BTN[0], APPLY_BTN[1]),
+                  (APPLY_BTN[0] + APPLY_BTN[2], APPLY_BTN[1] + APPLY_BTN[3]),
+                  apply_color, -1)
+    cv2.putText(overlay, "APPLY", (APPLY_BTN[0] + 15, APPLY_BTN[1] + 28),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+    cv2.rectangle(overlay, (CANCEL_BTN[0], CANCEL_BTN[1]),
+                  (CANCEL_BTN[0] + CANCEL_BTN[2], CANCEL_BTN[1] + CANCEL_BTN[3]),
+                  (100, 100, 100), -1)
+    cv2.putText(overlay, "CANCEL", (CANCEL_BTN[0] + 10, CANCEL_BTN[1] + 28),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+    cv2.putText(overlay, f"Current: {PIXELS_PER_MM:.2f} px/mm",
+                (MANUAL_PANEL_X + 20, MANUAL_PANEL_Y + 250),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 255, 150), 2)
+
+    cv2.addWeighted(overlay, 0.9, frame, 0.1, 0, frame)
+
+    # Draw the reference line with tick marks
+    if manual_line_start and manual_line_end:
+        cv2.line(frame, manual_line_start, manual_line_end, (0, 255, 255), 2)
+
+        # Draw crosshairs at start
+        cv2.line(frame, (manual_line_start[0] - 10, manual_line_start[1]),
+                 (manual_line_start[0] + 10, manual_line_start[1]), (0, 0, 255), 2)
+        cv2.line(frame, (manual_line_start[0], manual_line_start[1] - 10),
+                 (manual_line_start[0], manual_line_start[1] + 10), (0, 0, 255), 2)
+
+        # Draw crosshairs at end
+        cv2.line(frame, (manual_line_end[0] - 10, manual_line_end[1]),
+                 (manual_line_end[0] + 10, manual_line_end[1]), (0, 0, 255), 2)
+        cv2.line(frame, (manual_line_end[0], manual_line_end[1] - 10),
+                 (manual_line_end[0], manual_line_end[1] + 10), (0, 0, 255), 2)
+
+        dx = manual_line_end[0] - manual_line_start[0]
+        dy = manual_line_end[1] - manual_line_start[1]
+        length = math.sqrt(dx ** 2 + dy ** 2)
+
+        if length > 10:
+            angle_rad = math.atan2(dy, dx)
+
+            def draw_tick(distance_mm, tick_length, thickness=1, color=(180, 180, 180)):
+                t = distance_mm / MANUAL_REFERENCE_LENGTH_MM
+                x = manual_line_start[0] + dx * t
+                y = manual_line_start[1] + dy * t
+
+                px = int(tick_length * math.sin(angle_rad))
+                py = int(-tick_length * math.cos(angle_rad))
+
+                pt1 = (int(x - px), int(y - py))
+                pt2 = (int(x + px), int(y + py))
+                cv2.line(frame, pt1, pt2, color, thickness)
+
+            # Draw centimeter marks
+            for cm in range(1, 8):
+                draw_tick(cm * 10, tick_length=12, thickness=2, color=(255, 255, 255))
+                t = (cm * 10) / MANUAL_REFERENCE_LENGTH_MM
+                x = manual_line_start[0] + dx * t
+                y = manual_line_start[1] + dy * t
+                label_x = int(x + 25 * math.sin(angle_rad))
+                label_y = int(y - 25 * math.cos(angle_rad))
+                cv2.putText(frame, str(cm), (label_x - 8, label_y + 8),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 2)
+
+            # Draw half-centimeter marks
+            for half_cm in [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5]:
+                draw_tick(half_cm * 10, tick_length=10, thickness=1, color=(200, 200, 200))
+
+        # Display length
+        mid_x = (manual_line_start[0] + manual_line_end[0]) // 2
+        mid_y = (manual_line_start[1] + manual_line_end[1]) // 2
+        angle = math.atan2(dy, dx)
+        text_offset_x = int(-20 * math.sin(angle))
+        text_offset_y = int(20 * math.cos(angle))
+
+        cv2.putText(frame, f"{length:.1f} px",
+                    (mid_x + text_offset_x, mid_y + text_offset_y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+
+
 def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
     # Draw Objects (only in calibration mode)
     if calibration_active:
@@ -416,7 +616,7 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
     if calibration_active and tick_data:
         off_x, off_y = tick_data['roi_offset']
 
-        # --- CONFIG FOR TICKS VISUALIZATION ---
+        # --- CONFIG FOR UNIFORM VISUALIZATION ---
         VISUAL_LEN_MAJOR = 25  # Fixed length for major ticks
         VISUAL_LEN_MINOR = 12  # Fixed length for minor ticks
         COLOR_MAJOR = (0, 0, 255)  # Red for Major
@@ -473,7 +673,7 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
                 cv2.putText(frame, "!", (cx - 45, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
     # Status Bar
-    cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 85), (20, 20, 20), -1)
+    cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 90), (20, 20, 20), -1)
 
     if calibration_active:
         # Calibration mode status
@@ -507,7 +707,7 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
             col = (0, 0, 255)
 
         cv2.putText(frame, msg, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, col, 2)
-        info_text = "Press 'a' to calibrate | Press 'q' to exit"
+        info_text = "Press 'a' to calibrate | Press 'm' for manual | Press 'q' to exit"
         cv2.putText(frame, info_text, (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
         # Display pellet count in main mode
@@ -517,9 +717,9 @@ def draw_ui(frame, yolo_objects, active_zone_box, pellets, tick_data):
 
             # Count display on the right side
             count_x = DESIRED_WIDTH - 350
-            cv2.putText(frame, f"IN: {good_count}", (count_x, 35),
+            cv2.putText(frame, f"IN SPEC: {good_count}", (count_x, 35),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-            cv2.putText(frame, f"OUT: {bad_count}", (count_x, 65),
+            cv2.putText(frame, f"OUT OF SPEC: {bad_count}", (count_x, 65),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
     return frame
@@ -570,6 +770,7 @@ def process_calibration(result):
 
 def main():
     global current_tick_data, CALIBRATION_MODE, calibration_locked, is_calibrated, calibration_active
+    global in_manual_calib_mode, manual_frozen_frame
 
     if not load_yolo_model(): return
 
@@ -581,12 +782,33 @@ def main():
 
     window_name = "Inspector"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    cv2.setMouseCallback(window_name, mouse_callback)
 
     while True:
         ret, frame = cap.read()
         if not ret: break
 
-        # Only run YOLO detection and calibration when in calibration mode
+        # Handle manual calibration mode
+        if in_manual_calib_mode:
+            if manual_frozen_frame is None:
+                manual_frozen_frame = frame.copy()
+            display_frame = manual_frozen_frame.copy()
+            display_frame = draw_ui(display_frame, [], None, [], None)
+            cv2.imshow(window_name, display_frame)
+
+            key = cv2.waitKey(1)
+            if key == ord('q'):
+                break
+            elif key == ord('m'):
+                # Exit manual calibration
+                in_manual_calib_mode = False
+                manual_frozen_frame = None
+            continue
+
+        # Reset frozen frame when not in manual mode
+        manual_frozen_frame = None
+
+        # Only run YOLO detection and calibration when in auto-calibration mode
         if calibration_active:
             yolo_objects, active_zone = run_yolo_detection(frame)
 
@@ -615,17 +837,26 @@ def main():
         if key == ord('q'):
             break
         elif key == ord('a'):
-            # Toggle calibration mode
-            calibration_active = not calibration_active
-            if calibration_active:
-                print("🔧 Entering calibration mode...")
-                # Reset calibration state
-                calibration_locked = False
-                calibration_buffer.clear()
-                measurement_history.clear()
-                is_calibrated = False
-            else:
-                print("📊 Returning to main screen...")
+            # Toggle auto calibration mode
+            if not in_manual_calib_mode:  # Prevent switching while in manual mode
+                calibration_active = not calibration_active
+                if calibration_active:
+                    print("🔧 Entering auto-calibration mode...")
+                    # Reset calibration state
+                    calibration_locked = False
+                    calibration_buffer.clear()
+                    measurement_history.clear()
+                    is_calibrated = False
+                else:
+                    print("📊 Returning to main screen...")
+        elif key == ord('m'):
+            # Toggle manual calibration mode
+            if not calibration_active:  # Prevent switching while in auto-calibration mode
+                in_manual_calib_mode = not in_manual_calib_mode
+                if in_manual_calib_mode:
+                    print("📏 Entering manual calibration mode...")
+                else:
+                    print("📊 Exiting manual calibration...")
         elif key == ord('u') and calibration_active:
             # Only allow mode switching during calibration
             CALIBRATION_MODE = 'INCH' if CALIBRATION_MODE == 'CM' else 'CM'

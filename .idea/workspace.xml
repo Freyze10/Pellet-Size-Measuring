@@ -227,30 +227,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00248" summary="added re calibrate when camera move">
-      <option name="closed" value="true" />
-      <created>1764399813367</created>
-      <option name="number" value="00248" />
-      <option name="presentableId" value="LOCAL-00248" />
-      <option name="project" value="LOCAL" />
-      <updated>1764399813367</updated>
-    </task>
-    <task id="LOCAL-00249" summary="added re calibrate when camera move">
-      <option name="closed" value="true" />
-      <created>1764401146619</created>
-      <option name="number" value="00249" />
-      <option name="presentableId" value="LOCAL-00249" />
-      <option name="project" value="LOCAL" />
-      <updated>1764401146619</updated>
-    </task>
-    <task id="LOCAL-00250" summary="strict">
-      <option name="closed" value="true" />
-      <created>1764406504455</created>
-      <option name="number" value="00250" />
-      <option name="presentableId" value="LOCAL-00250" />
-      <option name="project" value="LOCAL" />
-      <updated>1764406504455</updated>
-    </task>
     <task id="LOCAL-00251" summary="long thin tick overlay">
       <option name="closed" value="true" />
       <created>1764550754238</created>
@@ -619,7 +595,31 @@
       <option name="project" value="LOCAL" />
       <updated>1764837949770</updated>
     </task>
-    <option name="localTasksCounter" value="297" />
+    <task id="LOCAL-00297" summary="reduced height of rectangular background">
+      <option name="closed" value="true" />
+      <created>1764838220637</created>
+      <option name="number" value="00297" />
+      <option name="presentableId" value="LOCAL-00297" />
+      <option name="project" value="LOCAL" />
+      <updated>1764838220637</updated>
+    </task>
+    <task id="LOCAL-00298" summary="reduced height of rectangular background">
+      <option name="closed" value="true" />
+      <created>1764838227202</created>
+      <option name="number" value="00298" />
+      <option name="presentableId" value="LOCAL-00298" />
+      <option name="project" value="LOCAL" />
+      <updated>1764838227202</updated>
+    </task>
+    <task id="LOCAL-00299" summary="used 85 for rectangle background">
+      <option name="closed" value="true" />
+      <created>1764838294863</created>
+      <option name="number" value="00299" />
+      <option name="presentableId" value="LOCAL-00299" />
+      <option name="project" value="LOCAL" />
+      <updated>1764838294863</updated>
+    </task>
+    <option name="localTasksCounter" value="300" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -646,8 +646,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="adjusted height" />
-    <MESSAGE value="modifying adjustment" />
     <MESSAGE value="ruler scale x1.07" />
     <MESSAGE value="ruler scale x1.05" />
     <MESSAGE value="ruler scale x1.06" />
@@ -671,7 +669,9 @@
     <MESSAGE value="added space" />
     <MESSAGE value="removed some coments" />
     <MESSAGE value="modified some comments" />
-    <option name="LAST_COMMIT_MESSAGE" value="modified some comments" />
+    <MESSAGE value="reduced height of rectangular background" />
+    <MESSAGE value="used 85 for rectangle background" />
+    <option name="LAST_COMMIT_MESSAGE" value="used 85 for rectangle background" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
