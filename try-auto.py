@@ -491,6 +491,8 @@ def detect_pellets(frame, excluded_boxes):
 # ----------------------------------------------------------------------
 def draw_manual_calibration_mode(frame):
     """Draw the manual ruler calibration interface"""
+    print("Drawing manual calibration interface")  # Debug
+
     overlay = frame.copy()
 
     cv2.rectangle(overlay, (MANUAL_PANEL_X, MANUAL_PANEL_Y),
@@ -799,13 +801,13 @@ def main():
         if in_manual_calib_mode:
             if manual_frozen_frame is None:
                 manual_frozen_frame = frame.copy()
+
+            # Use the frozen frame as base
             display_frame = manual_frozen_frame.copy()
 
-            # Draw the UI with manual calibration interface
-            yolo_objects = []
-            active_zone = None
-            pellets = []
-            display_frame = draw_ui(display_frame, yolo_objects, active_zone, pellets, None)
+            # Draw manual calibration interface directly on display_frame
+            draw_manual_calibration_mode(display_frame)
+
             cv2.imshow(window_name, display_frame)
 
             key = cv2.waitKey(1)
