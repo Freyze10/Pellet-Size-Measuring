@@ -91,7 +91,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.try-auto">
+  <component name="RunManager" selected="Python.coin_calib">
     <configuration name="coin_calib" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -204,8 +204,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.try-auto" />
         <item itemvalue="Python.coin_calib" />
+        <item itemvalue="Python.try-auto" />
         <item itemvalue="Python.main" />
         <item itemvalue="Python.yolo_cv_scanner" />
         <item itemvalue="Python.newOpencv" />
