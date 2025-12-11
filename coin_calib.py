@@ -4,7 +4,7 @@ import numpy as np
 # -----------------------------------------------------------------------------
 # CONSTANTS
 # -----------------------------------------------------------------------------
-REAL_COIN_DIAMETER_MM = 23.0
+REAL_COIN_DIAMETER_MM = 22.0
 
 # Area settings (You may need to tweak these if lighting is very bright/dim)
 MIN_COIN_AREA = 2000

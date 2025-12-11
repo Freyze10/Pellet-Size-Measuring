@@ -228,14 +228,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00262" summary="adjusted height compensation">
-      <option name="closed" value="true" />
-      <created>1764654405866</created>
-      <option name="number" value="00262" />
-      <option name="presentableId" value="LOCAL-00262" />
-      <option name="project" value="LOCAL" />
-      <updated>1764654405867</updated>
-    </task>
     <task id="LOCAL-00263" summary="adjusted height compensation">
       <option name="closed" value="true" />
       <created>1764654527290</created>
@@ -620,7 +612,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765422902779</updated>
     </task>
-    <option name="localTasksCounter" value="311" />
+    <task id="LOCAL-00311" summary="use fit elipse for more accurate reading of coin">
+      <option name="closed" value="true" />
+      <created>1765423540112</created>
+      <option name="number" value="00311" />
+      <option name="presentableId" value="LOCAL-00311" />
+      <option name="project" value="LOCAL" />
+      <updated>1765423540112</updated>
+    </task>
+    <option name="localTasksCounter" value="312" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -647,7 +647,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="modifying" />
     <MESSAGE value="revert to stable" />
     <MESSAGE value="added freeze pellet size reading" />
     <MESSAGE value="modified" />
@@ -672,7 +671,8 @@
     <MESSAGE value="created coin calib code" />
     <MESSAGE value="updated coin calib" />
     <MESSAGE value="thinner boxes" />
-    <option name="LAST_COMMIT_MESSAGE" value="thinner boxes" />
+    <MESSAGE value="use fit elipse for more accurate reading of coin" />
+    <option name="LAST_COMMIT_MESSAGE" value="use fit elipse for more accurate reading of coin" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
