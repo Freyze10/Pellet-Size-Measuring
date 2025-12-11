@@ -91,7 +91,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.coin_calib">
+  <component name="RunManager" selected="Python.try-auto">
     <configuration name="coin_calib" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -204,8 +204,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.coin_calib" />
         <item itemvalue="Python.try-auto" />
+        <item itemvalue="Python.coin_calib" />
         <item itemvalue="Python.main" />
         <item itemvalue="Python.yolo_cv_scanner" />
         <item itemvalue="Python.newOpencv" />
@@ -227,30 +227,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00263" summary="adjusted height compensation">
-      <option name="closed" value="true" />
-      <created>1764654527290</created>
-      <option name="number" value="00263" />
-      <option name="presentableId" value="LOCAL-00263" />
-      <option name="project" value="LOCAL" />
-      <updated>1764654527290</updated>
-    </task>
-    <task id="LOCAL-00264" summary="adjusted height compensation">
-      <option name="closed" value="true" />
-      <created>1764654817920</created>
-      <option name="number" value="00264" />
-      <option name="presentableId" value="LOCAL-00264" />
-      <option name="project" value="LOCAL" />
-      <updated>1764654817920</updated>
-    </task>
-    <task id="LOCAL-00265" summary="adjusted height compensation">
-      <option name="closed" value="true" />
-      <created>1764655119850</created>
-      <option name="number" value="00265" />
-      <option name="presentableId" value="LOCAL-00265" />
-      <option name="project" value="LOCAL" />
-      <updated>1764655119850</updated>
     </task>
     <task id="LOCAL-00266" summary="adjusted height compensation">
       <option name="closed" value="true" />
@@ -620,7 +596,31 @@
       <option name="project" value="LOCAL" />
       <updated>1765423540112</updated>
     </task>
-    <option name="localTasksCounter" value="312" />
+    <task id="LOCAL-00312" summary="use fit elipse for more accurate reading of coin">
+      <option name="closed" value="true" />
+      <created>1765424362556</created>
+      <option name="number" value="00312" />
+      <option name="presentableId" value="LOCAL-00312" />
+      <option name="project" value="LOCAL" />
+      <updated>1765424362556</updated>
+    </task>
+    <task id="LOCAL-00313" summary="set 23mm for peso coin base from bsp">
+      <option name="closed" value="true" />
+      <created>1765424393585</created>
+      <option name="number" value="00313" />
+      <option name="presentableId" value="LOCAL-00313" />
+      <option name="project" value="LOCAL" />
+      <updated>1765424393585</updated>
+    </task>
+    <task id="LOCAL-00314" summary="added capture">
+      <option name="closed" value="true" />
+      <created>1765424913359</created>
+      <option name="number" value="00314" />
+      <option name="presentableId" value="LOCAL-00314" />
+      <option name="project" value="LOCAL" />
+      <updated>1765424913359</updated>
+    </task>
+    <option name="localTasksCounter" value="315" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -647,8 +647,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="revert to stable" />
-    <MESSAGE value="added freeze pellet size reading" />
     <MESSAGE value="modified" />
     <MESSAGE value="auto calib after pressing 'a'" />
     <MESSAGE value="revert back tthe main" />
@@ -672,7 +670,9 @@
     <MESSAGE value="updated coin calib" />
     <MESSAGE value="thinner boxes" />
     <MESSAGE value="use fit elipse for more accurate reading of coin" />
-    <option name="LAST_COMMIT_MESSAGE" value="use fit elipse for more accurate reading of coin" />
+    <MESSAGE value="set 23mm for peso coin base from bsp" />
+    <MESSAGE value="added capture" />
+    <option name="LAST_COMMIT_MESSAGE" value="added capture" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
