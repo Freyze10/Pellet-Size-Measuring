@@ -228,22 +228,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00272" summary="ruler scale x1.05">
-      <option name="closed" value="true" />
-      <created>1764722236077</created>
-      <option name="number" value="00272" />
-      <option name="presentableId" value="LOCAL-00272" />
-      <option name="project" value="LOCAL" />
-      <updated>1764722236077</updated>
-    </task>
-    <task id="LOCAL-00273" summary="ruler scale x1.06">
-      <option name="closed" value="true" />
-      <created>1764722244463</created>
-      <option name="number" value="00273" />
-      <option name="presentableId" value="LOCAL-00273" />
-      <option name="project" value="LOCAL" />
-      <updated>1764722244463</updated>
-    </task>
     <task id="LOCAL-00274" summary="ruler scale x1.06back ruler scale to zoom 1 (og)">
       <option name="closed" value="true" />
       <created>1764738935325</created>
@@ -620,7 +604,23 @@
       <option name="project" value="LOCAL" />
       <updated>1765436883625</updated>
     </task>
-    <option name="localTasksCounter" value="321" />
+    <task id="LOCAL-00321" summary="try auto with capture">
+      <option name="closed" value="true" />
+      <created>1765442163392</created>
+      <option name="number" value="00321" />
+      <option name="presentableId" value="LOCAL-00321" />
+      <option name="project" value="LOCAL" />
+      <updated>1765442163392</updated>
+    </task>
+    <task id="LOCAL-00322" summary="return back">
+      <option name="closed" value="true" />
+      <created>1765442378037</created>
+      <option name="number" value="00322" />
+      <option name="presentableId" value="LOCAL-00322" />
+      <option name="project" value="LOCAL" />
+      <updated>1765442378037</updated>
+    </task>
+    <option name="localTasksCounter" value="323" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -647,8 +647,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="modify comments" />
-    <MESSAGE value="removed unnecessary comments" />
     <MESSAGE value="added space" />
     <MESSAGE value="removed some coments" />
     <MESSAGE value="modified some comments" />
@@ -672,7 +670,9 @@
     <MESSAGE value="addded debug window" />
     <MESSAGE value="added calibrate first before belets" />
     <MESSAGE value="calculate height and length" />
-    <option name="LAST_COMMIT_MESSAGE" value="calculate height and length" />
+    <MESSAGE value="try auto with capture" />
+    <MESSAGE value="return back" />
+    <option name="LAST_COMMIT_MESSAGE" value="return back" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
