@@ -228,14 +228,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00271" summary="ruler scale x1.07">
-      <option name="closed" value="true" />
-      <created>1764665959470</created>
-      <option name="number" value="00271" />
-      <option name="presentableId" value="LOCAL-00271" />
-      <option name="project" value="LOCAL" />
-      <updated>1764665959470</updated>
-    </task>
     <task id="LOCAL-00272" summary="ruler scale x1.05">
       <option name="closed" value="true" />
       <created>1764722236077</created>
@@ -620,7 +612,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765431149938</updated>
     </task>
-    <option name="localTasksCounter" value="320" />
+    <task id="LOCAL-00320" summary="calculate height and length">
+      <option name="closed" value="true" />
+      <created>1765436883625</created>
+      <option name="number" value="00320" />
+      <option name="presentableId" value="LOCAL-00320" />
+      <option name="project" value="LOCAL" />
+      <updated>1765436883625</updated>
+    </task>
+    <option name="localTasksCounter" value="321" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -647,7 +647,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="changed out message" />
     <MESSAGE value="modify comments" />
     <MESSAGE value="removed unnecessary comments" />
     <MESSAGE value="added space" />
@@ -672,7 +671,8 @@
     <MESSAGE value="updated spacebar" />
     <MESSAGE value="addded debug window" />
     <MESSAGE value="added calibrate first before belets" />
-    <option name="LAST_COMMIT_MESSAGE" value="added calibrate first before belets" />
+    <MESSAGE value="calculate height and length" />
+    <option name="LAST_COMMIT_MESSAGE" value="calculate height and length" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
