@@ -228,30 +228,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00266" summary="adjusted height compensation">
-      <option name="closed" value="true" />
-      <created>1764655788199</created>
-      <option name="number" value="00266" />
-      <option name="presentableId" value="LOCAL-00266" />
-      <option name="project" value="LOCAL" />
-      <updated>1764655788199</updated>
-    </task>
-    <task id="LOCAL-00267" summary="adjusted height">
-      <option name="closed" value="true" />
-      <created>1764655950977</created>
-      <option name="number" value="00267" />
-      <option name="presentableId" value="LOCAL-00267" />
-      <option name="project" value="LOCAL" />
-      <updated>1764655950977</updated>
-    </task>
-    <task id="LOCAL-00268" summary="adjusted height">
-      <option name="closed" value="true" />
-      <created>1764657057464</created>
-      <option name="number" value="00268" />
-      <option name="presentableId" value="LOCAL-00268" />
-      <option name="project" value="LOCAL" />
-      <updated>1764657057464</updated>
-    </task>
     <task id="LOCAL-00269" summary="modifying adjustment">
       <option name="closed" value="true" />
       <created>1764657083661</created>
@@ -620,7 +596,31 @@
       <option name="project" value="LOCAL" />
       <updated>1765424913359</updated>
     </task>
-    <option name="localTasksCounter" value="315" />
+    <task id="LOCAL-00315" summary="return auto to original">
+      <option name="closed" value="true" />
+      <created>1765430644294</created>
+      <option name="number" value="00315" />
+      <option name="presentableId" value="LOCAL-00315" />
+      <option name="project" value="LOCAL" />
+      <updated>1765430644294</updated>
+    </task>
+    <task id="LOCAL-00316" summary="use space to capture">
+      <option name="closed" value="true" />
+      <created>1765430724758</created>
+      <option name="number" value="00316" />
+      <option name="presentableId" value="LOCAL-00316" />
+      <option name="project" value="LOCAL" />
+      <updated>1765430724759</updated>
+    </task>
+    <task id="LOCAL-00317" summary="updated spacebar">
+      <option name="closed" value="true" />
+      <created>1765430906787</created>
+      <option name="number" value="00317" />
+      <option name="presentableId" value="LOCAL-00317" />
+      <option name="project" value="LOCAL" />
+      <updated>1765430906788</updated>
+    </task>
+    <option name="localTasksCounter" value="318" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -647,9 +647,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="modified" />
-    <MESSAGE value="auto calib after pressing 'a'" />
-    <MESSAGE value="revert back tthe main" />
     <MESSAGE value="added pellet count in main screen" />
     <MESSAGE value="changed in message" />
     <MESSAGE value="changed out message" />
@@ -672,7 +669,10 @@
     <MESSAGE value="use fit elipse for more accurate reading of coin" />
     <MESSAGE value="set 23mm for peso coin base from bsp" />
     <MESSAGE value="added capture" />
-    <option name="LAST_COMMIT_MESSAGE" value="added capture" />
+    <MESSAGE value="return auto to original" />
+    <MESSAGE value="use space to capture" />
+    <MESSAGE value="updated spacebar" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated spacebar" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

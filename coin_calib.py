@@ -2,182 +2,149 @@ import cv2
 import numpy as np
 
 # -----------------------------------------------------------------------------
-# CONSTANTS - PHILIPPINE PESO CONFIGURATION
+# CONSTANTS
 # -----------------------------------------------------------------------------
-REAL_COIN_DIAMETER_MM = 23.0  # NGC 1-Piso (New Series)
-
-# SETTINGS
-MIN_COIN_AREA = 2000
-MIN_PELLET_AREA = 100
-CIRCULARITY_THRESHOLD = 0.82
+REAL_COIN_DIAMETER_MM = 23.0  # NGC 1-Piso
+MIN_PELLET_AREA = 100  # Minimum size for a pellet
 
 
-# -----------------------------------------------------------------------------
-# CORE PROCESSING
-# -----------------------------------------------------------------------------
-def get_contours(img):
+def process_frame_hybrid(frame):
     """
-    Standard pre-processing pipeline.
+    Uses Hough Circles for the Coin, and Contours for Pellets.
     """
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    display_img = frame.copy()
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # Slight blur to reduce noise, but kept low to keep edges sharp
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    # 1. PRE-PROCESSING
+    # Blur helps ignore the "Jose Rizal" face details and focus on the round shape
+    blur = cv2.medianBlur(gray, 5)
 
-    # Auto-Canny (Adjusts to lighting brightness automatically)
-    v = np.median(blur)
-    sigma = 0.33
-    lower = int(max(0, (1.0 - sigma) * v))
-    upper = int(min(255, (1.0 + sigma) * v))
-    canny = cv2.Canny(blur, lower, upper)
+    # 2. FIND THE COIN (HOUGH CIRCLES)
+    # This method is much better for coins than finding contours
+    rows = blur.shape[0]
+    circles = cv2.HoughCircles(
+        blur,
+        cv2.HOUGH_GRADIENT,
+        dp=1.2,
+        minDist=rows / 8,  # Minimum distance between circles
+        param1=100,  # High threshold for Canny
+        param2=30,  # Accumulator threshold (Lower = detects more circles)
+        minRadius=20,  # Min size (pixels)
+        maxRadius=150  # Max size (pixels)
+    )
 
-    # Close gaps in edges
-    kernel = np.ones((2, 2), np.uint8)
-    closed = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel)
-
-    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    return contours
-
-
-def calculate_circularity(cnt):
-    perimeter = cv2.arcLength(cnt, True)
-    area = cv2.contourArea(cnt)
-    if perimeter == 0: return 0
-    return 4 * np.pi * (area / (perimeter * perimeter))
-
-
-def process_frame(frame):
-    """
-    This function analyzes the frozen frame and draws measurements.
-    """
-    processed_img = frame.copy()
-    contours = get_contours(processed_img)
-
-    possible_coins = []
-    pellets = []
-
-    # 1. Sort objects
-    for cnt in contours:
-        area = cv2.contourArea(cnt)
-        if area < MIN_PELLET_AREA: continue
-
-        circ = calculate_circularity(cnt)
-        if area > MIN_COIN_AREA and circ > CIRCULARITY_THRESHOLD:
-            possible_coins.append(cnt)
-        else:
-            pellets.append(cnt)
-
-    # 2. Find Coin & Calculate Scale
     pixels_per_mm = None
 
-    if len(possible_coins) > 0:
-        # Pick largest circular object
-        coin_cnt = max(possible_coins, key=cv2.contourArea)
+    # If we found a circle (The Coin)
+    if circles is not None:
+        circles = np.uint16(np.around(circles))
 
-        # Use fitEllipse for best edge fitting
-        ellipse = cv2.fitEllipse(coin_cnt)
-        (cx, cy), (ew, eh), angle = ellipse
+        # We assume the largest circle found is the Peso coin
+        largest_circle = max(circles[0, :], key=lambda x: x[2])
+        center_x, center_y, radius = largest_circle
 
-        # Average width/height to account for slight tilts
-        avg_pixel_diameter = (ew + eh) / 2.0
-        pixels_per_mm = avg_pixel_diameter / REAL_COIN_DIAMETER_MM
+        # Draw the detected coin
+        cv2.circle(display_img, (center_x, center_y), radius, (0, 255, 255), 2)
+        cv2.circle(display_img, (center_x, center_y), 2, (0, 0, 255), 3)
 
-        # Draw Coin
-        cv2.ellipse(processed_img, ellipse, (0, 255, 255), 1)
-        cv2.putText(processed_img, f"REF: {pixels_per_mm:.2f} px/mm",
-                    (int(cx) - 60, int(cy)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+        # Calculate Scale
+        pixel_diameter = radius * 2
+        pixels_per_mm = pixel_diameter / REAL_COIN_DIAMETER_MM
+
+        cv2.putText(display_img, f"REF: {pixels_per_mm:.2f} px/mm",
+                    (center_x - 60, center_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
     else:
-        cv2.putText(processed_img, "ERROR: Coin not found!", (20, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(display_img, "COIN NOT FOUND", (20, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
 
-    # 3. Measure Pellets
+    # 3. FIND PELLETS (CONTOURS)
+    # We still use contours for pellets because pellets aren't perfect circles
+
+    # Stronger edge detection for pellets
+    edges = cv2.Canny(blur, 50, 150)
+    # Dilate slightly to close gaps in dark pellets
+    kernel = np.ones((2, 2), np.uint8)
+    edges = cv2.dilate(edges, kernel, iterations=1)
+
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    pellet_count = 0
     if pixels_per_mm:
-        count = 0
-        for cnt in pellets:
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+
+            # Filter: Must be big enough to be a pellet, but not HUGE (the coin)
+            # We assume the pellet is significantly smaller than the coin detected above
+            if area < MIN_PELLET_AREA or area > (np.pi * (radius ** 2) * 0.8):
+                continue
+
             rect = cv2.minAreaRect(cnt)
             (cx, cy), (w, h), angle = rect
 
-            # Convert to mm
             dim1 = w / pixels_per_mm
             dim2 = h / pixels_per_mm
 
             diameter = min(dim1, dim2)
             length = max(dim1, dim2)
 
-            # Draw
+            # Visualize
             box = cv2.boxPoints(rect)
             box = np.int64(box)
-            cv2.drawContours(processed_img, [box], 0, (0, 255, 0), 1)
+            cv2.drawContours(display_img, [box], 0, (0, 255, 0), 1)
 
-            # Label
             label = f"{diameter:.2f} x {length:.2f}"
-            cv2.putText(processed_img, label, (int(cx) - 40, int(cy) - 20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-            count += 1
+            cv2.putText(display_img, label, (int(cx) - 20, int(cy) - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+            pellet_count += 1
 
-        cv2.putText(processed_img, f"Measured {count} pellets", (20, 80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-
-    return processed_img
+    return display_img, edges  # Return image AND the debug view
 
 
-# -----------------------------------------------------------------------------
-# MAIN LOOP
-# -----------------------------------------------------------------------------
 def main():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 
+    print("System Started.")
+    print("Look at the 'Debug View' window.")
+    print("If the coin is not a white circle in Debug View, fix your lighting.")
+
     is_frozen = False
     frozen_frame_display = None
-
-    print("System Started. Please CLICK on the video window to focus it.")
+    debug_view = None
 
     while True:
-        # A. IF FROZEN, SHOW RESULT
         if is_frozen:
             cv2.imshow("Inspector", frozen_frame_display)
+            if debug_view is not None:
+                cv2.imshow("Debug View (Edges)", debug_view)
 
-            # Key Handling for Frozen State
-            key = cv2.waitKey(1) & 0xFF  # <--- FIX ADDED HERE
-
+            key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
-            elif key == 32 or key == ord(' '):  # Spacebar
+            elif key == 32:  # Spacebar
                 is_frozen = False
-                frozen_frame_display = None
-                print("Returning to Live Preview...")
+                print("Live View...")
             continue
 
-        # B. LIVE PREVIEW
         ret, frame = cap.read()
         if not ret: break
 
-        # Draw crosshair
-        h, w = frame.shape[:2]
-        cv2.line(frame, (w // 2, 0), (w // 2, h), (50, 50, 50), 1)
-        cv2.line(frame, (0, h // 2), (w, h // 2), (50, 50, 50), 1)
+        # Run detection LIVE so you can adjust lighting before capturing
+        display_frame, edges_frame = process_frame_hybrid(frame.copy())
 
-        cv2.putText(frame, "PREVIEW - Click Window & Press SPACE", (20, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+        cv2.imshow("Inspector", display_frame)
+        cv2.imshow("Debug View (Edges)", edges_frame)
 
-        cv2.imshow("Inspector", frame)
-
-        # C. KEY HANDLING
-        # We use & 0xFF to strip extra data ensuring standard ASCII codes
         key = cv2.waitKey(1) & 0xFF
-
         if key == ord('q'):
             break
-        elif key == 32 or key == ord(' '):  # 32 is the ASCII code for Spacebar
-            print("Spacebar detected! Capturing...")
-            frozen_frame_display = process_frame(frame.copy())
+        elif key == 32:  # Spacebar
+            print("Capturing...")
+            frozen_frame_display = display_frame
+            debug_view = edges_frame
             is_frozen = True
-
-        # Optional: Debug print to see what key code your computer sends
-        # if key != 255: print(f"Key Pressed: {key}")
 
     cap.release()
     cv2.destroyAllWindows()
