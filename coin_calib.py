@@ -3,163 +3,155 @@ import numpy as np
 import time
 
 # -----------------------------------------------------------------------------
-# CONSTANTS
+# CONSTANTS - PHILIPPINES SETTINGS
 # -----------------------------------------------------------------------------
-REAL_COIN_DIAMETER_MM = 23.0  # NGC 1-Piso
-MIN_AREA_THRESHOLD = 100  # Ignore dust
-CANNY_THRESH_1 = 50
-CANNY_THRESH_2 = 150
+REAL_COIN_DIAMETER_MM = 23.0  # NGC 1-Piso (New Series)
+MIN_PELLET_AREA = 150  # Ignore small dust
+MAX_PELLET_AREA = 8000  # Ignore the coin after calibration
 
-# Global Scale Variable (Starts empty)
-LOCKED_PIXELS_PER_MM = None
+# Global Variable to store the "Locked" scale
+LOCKED_SCALE = None
 
 
 def get_contours(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blur, CANNY_THRESH_1, CANNY_THRESH_2)
-    # Close small gaps
+
+    # Auto-adjust thresholds based on lighting
+    v = np.median(blur)
+    lower = int(max(0, (1.0 - 0.33) * v))
+    upper = int(min(255, (1.0 + 0.33) * v))
+
+    edges = cv2.Canny(blur, lower, upper)
     kernel = np.ones((3, 3), np.uint8)
     edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return contours
 
 
-def perform_calibration(cap):
+def calibrate_system(cap):
     """
-    Captures 30 frames, finds the coin in each, averages the diameter.
-    Returns the calculated Pixels_Per_MM.
+    Locks the scale by averaging 20 frames of the coin.
     """
-    print("--- CALIBRATING... DO NOT MOVE COIN ---")
+    print("--- CALIBRATING... ---")
+    measurements = []
 
-    diameters = []
-    frames_to_read = 30
-
-    for _ in range(frames_to_read):
+    for i in range(20):
         ret, frame = cap.read()
         if not ret: continue
 
         contours = get_contours(frame)
-
-        # Find largest object (Assumed to be the coin)
         if contours:
-            largest_cnt = max(contours, key=cv2.contourArea)
-            area = cv2.contourArea(largest_cnt)
-
-            if area > 2000:  # Must be big enough to be a coin
-                ellipse = cv2.fitEllipse(largest_cnt)
+            # Assume largest object is the coin
+            largest = max(contours, key=cv2.contourArea)
+            if cv2.contourArea(largest) > 2000:
+                ellipse = cv2.fitEllipse(largest)
                 (cx, cy), (w, h), angle = ellipse
-                avg_diameter = (w + h) / 2.0
-                diameters.append(avg_diameter)
+                avg_diam = (w + h) / 2.0
+                measurements.append(avg_diam)
+        time.sleep(0.05)
 
-        time.sleep(0.01)  # Small delay
-
-    if len(diameters) < 10:
-        print("Calibration Failed: Coin not seen clearly.")
+    if len(measurements) < 5:
+        print("Calibration Failed. Coin not clear.")
         return None
 
-    # Mathematical Average (removes the jitter/noise)
-    final_avg_pixel_diameter = np.mean(diameters)
-    scale = final_avg_pixel_diameter / REAL_COIN_DIAMETER_MM
-
-    print(f"--- CALIBRATION LOCKED: {scale:.2f} px/mm ---")
-    return scale
+    avg_px_diameter = np.mean(measurements)
+    final_scale = avg_px_diameter / REAL_COIN_DIAMETER_MM
+    print(f"--- LOCKED SCALE: {final_scale:.2f} px/mm ---")
+    return final_scale
 
 
 def main():
-    global LOCKED_PIXELS_PER_MM
-
+    global LOCKED_SCALE
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # DISABLE AUTOFOCUS (Crucial)
+    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 
     while True:
         ret, frame = cap.read()
         if not ret: break
 
-        display_frame = frame.copy()
+        display = frame.copy()
 
-        # ---------------------------------------------------------
-        # MODE 1: NOT CALIBRATED YET
-        # ---------------------------------------------------------
-        if LOCKED_PIXELS_PER_MM is None:
-            # Show instructions
-            cv2.putText(display_frame, "STEP 1: Place 1-Piso Coin", (50, 50),
+        # ----------------------------------------------------
+        # STATE 1: NOT CALIBRATED
+        # ----------------------------------------------------
+        if LOCKED_SCALE is None:
+            cv2.putText(display, "STEP 1: Place 1-Piso Coin", (30, 50),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
-            cv2.putText(display_frame, "Press 'c' to Calibrate", (50, 100),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            cv2.putText(display, "STEP 2: Press 'c' to Calibrate", (30, 90),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-            # Show what the computer sees (to help you align)
+            # Show yellow outline of what computer sees
             contours = get_contours(frame)
             for cnt in contours:
                 if cv2.contourArea(cnt) > 2000:
-                    cv2.drawContours(display_frame, [cnt], -1, (0, 255, 255), 2)
+                    cv2.drawContours(display, [cnt], -1, (0, 255, 255), 2)
 
-        # ---------------------------------------------------------
-        # MODE 2: CALIBRATED (MEASURING PELLETS)
-        # ---------------------------------------------------------
+        # ----------------------------------------------------
+        # STATE 2: CALIBRATED & MEASURING
+        # ----------------------------------------------------
         else:
             contours = get_contours(frame)
+            count = 0
 
-            pellet_count = 0
             for cnt in contours:
                 area = cv2.contourArea(cnt)
 
-                # Filter: Ignore tiny noise AND ignore the huge coin if it's still there
-                # We assume a pellet is roughly between 100 and 3000 pixels (adjust as needed)
-                if area < MIN_AREA_THRESHOLD: continue
-
-                # Check if this object is the Coin (so we don't measure the coin as a pellet)
-                # If area is huge (like > 80% of what the coin was), ignore it.
-                # (Simple heuristic: Pellets are small)
-                if area > 10000:  # Adjust this limit if your coin is huge on screen
-                    cv2.drawContours(display_frame, [cnt], -1, (100, 100, 100), 1)  # Draw coin gray
+                # Filter: Must be pellet size
+                if area < MIN_PELLET_AREA or area > MAX_PELLET_AREA:
                     continue
 
-                # MEASURE THE PELLET
+                # 1. Get Geometry
                 rect = cv2.minAreaRect(cnt)
                 (cx, cy), (w, h), angle = rect
 
-                # Apply the LOCKED scale
-                dim1 = w / LOCKED_PIXELS_PER_MM
-                dim2 = h / LOCKED_PIXELS_PER_MM
+                # 2. Calculate Dimensions
+                dim1 = w / LOCKED_SCALE
+                dim2 = h / LOCKED_SCALE
 
-                diameter = min(dim1, dim2)
-                length = max(dim1, dim2)
+                # Logic: The longer side is Length, shorter is Height/Dia
+                length_mm = max(dim1, dim2)
+                height_mm = min(dim1, dim2)
 
-                # Draw
+                # 3. Draw Box
                 box = cv2.boxPoints(rect)
                 box = np.int64(box)
-                cv2.drawContours(display_frame, [box], 0, (0, 255, 0), 1)
+                cv2.drawContours(display, [box], 0, (0, 255, 0), 1)
 
-                # Text
-                label = f"{diameter:.2f}mm"
-                cv2.putText(display_frame, label, (int(cx) - 20, int(cy) - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-                pellet_count += 1
+                # 4. Draw Text (Separated Lines)
+                # Position text slightly to the right of the pellet
+                text_x = int(cx) + 20
+                text_y = int(cy)
 
-            # Status Bar
-            cv2.rectangle(display_frame, (0, 0), (1280, 40), (0, 0, 0), -1)
-            cv2.putText(display_frame,
-                        f"Scale: {LOCKED_PIXELS_PER_MM:.2f} px/mm  |  Pellets: {pellet_count}  |  'r' to Reset",
-                        (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
+                # LINE 1: Length (Red)
+                cv2.putText(display, f"L: {length_mm:.2f}", (text_x, text_y - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)  # Bold Red
 
-        cv2.imshow("Stable Inspector", display_frame)
+                # LINE 2: Height (Blue/Cyan)
+                cv2.putText(display, f"H: {height_mm:.2f}", (text_x, text_y + 15),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)  # Cyan
 
-        # KEYBOARD CONTROLS
+                count += 1
+
+            # Top Info Bar
+            cv2.rectangle(display, (0, 0), (1280, 40), (20, 20, 20), -1)
+            msg = f"Scale Locked: {LOCKED_SCALE:.2f} px/mm  |  Pellets: {count}  |  'r' Reset"
+            cv2.putText(display, msg, (20, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
+
+        cv2.imshow("Pellet Inspector", display)
+
+        # Controls
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
-        elif key == ord('c') and LOCKED_PIXELS_PER_MM is None:
-            # Trigger Calibration Routine
-            scale = perform_calibration(cap)
-            if scale:
-                LOCKED_PIXELS_PER_MM = scale
+        elif key == ord('c') and LOCKED_SCALE is None:
+            scale = calibrate_system(cap)
+            if scale: LOCKED_SCALE = scale
         elif key == ord('r'):
-            # Reset
-            print("Resetting Calibration...")
-            LOCKED_PIXELS_PER_MM = None
+            LOCKED_SCALE = None
+            print("Resetting...")
 
     cap.release()
     cv2.destroyAllWindows()
