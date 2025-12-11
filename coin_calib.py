@@ -2,36 +2,35 @@ import cv2
 import numpy as np
 
 # -----------------------------------------------------------------------------
-# CONSTANTS - PHILIPPINE PESO CONFIGURATION
+# CONSTANTS
 # -----------------------------------------------------------------------------
-# The New Generation Currency (NGC) 1-Piso coin is exactly 23.0 mm
 REAL_COIN_DIAMETER_MM = 23.0
 
-# Thresholds to distinguish Coin from Pellet
-MIN_COIN_AREA = 2000  # Pixels (ignore small noise)
-MIN_PELLET_AREA = 100  # Pixels (ignore dust)
-CIRCULARITY_THRESHOLD = 0.8  # Above 0.8 is a circle (coin), below is a pellet
+# Area settings (You may need to tweak these if lighting is very bright/dim)
+MIN_COIN_AREA = 2000
+MIN_PELLET_AREA = 100
+CIRCULARITY_THRESHOLD = 0.85  # Increased Strictness for coin
 
 
 # -----------------------------------------------------------------------------
 # HELPER FUNCTIONS
 # -----------------------------------------------------------------------------
 def get_contours(img):
-    # 1. Grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # 2. Blur (removes grain/noise)
-    blur = cv2.GaussianBlur(gray, (7, 7), 1)
+    # Reduced Blur: Less blur = sharper edges = more accuracy
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # 3. Canny Edge Detection
-    canny = cv2.Canny(blur, 50, 150)
+    # Auto-Tuned Canny Edge Detection
+    # We use the median brightness to guess the best edge thresholds
+    v = np.median(blur)
+    lower = int(max(0, (1.0 - 0.33) * v))
+    upper = int(min(255, (1.0 + 0.33) * v))
+    canny = cv2.Canny(blur, lower, upper)
 
-    # 4. Dilate
-    kernel = np.ones((2, 2), np.uint8)
-    dilated = cv2.dilate(canny, kernel, iterations=1)
+    # REMOVED DILATION: We want the exact 1-pixel edge, not a thickened one.
 
-    # 5. Find Contours
-    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(canny, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return contours
 
 
@@ -48,12 +47,12 @@ def calculate_circularity(cnt):
 def main():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
-    # Set Resolution
+    # Maximize Resolution
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 
-    print(f"System Ready. Place a 1-Piso coin ({REAL_COIN_DIAMETER_MM}mm) in view.")
+    print(f"Precision Mode Ready. Place NGC 1-Piso ({REAL_COIN_DIAMETER_MM}mm).")
 
     pixels_per_mm = None
 
@@ -66,7 +65,6 @@ def main():
         possible_coins = []
         pellets = []
 
-        # --- PASS 1: CLASSIFY OBJECTS ---
         for cnt in contours:
             area = cv2.contourArea(cnt)
             if area < MIN_PELLET_AREA: continue
@@ -78,28 +76,34 @@ def main():
             else:
                 pellets.append(cnt)
 
-        # --- PASS 2: CALIBRATE FROM COIN ---
+        # --- CALIBRATION (Using FitEllipse) ---
         if len(possible_coins) > 0:
             coin_cnt = max(possible_coins, key=cv2.contourArea)
-            ((cx, cy), radius) = cv2.minEnclosingCircle(coin_cnt)
 
-            # CHANGED THICKNESS TO 1
-            cv2.circle(frame, (int(cx), int(cy)), int(radius), (0, 255, 255), 1)
-            cv2.putText(frame, "1 PISO (REF)", (int(cx) - 40, int(cy)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+            # FIT ELLIPSE: This is the high-precision fix.
+            # It fits a shape to the average of points, ignoring outliers/dust.
+            # Returns ((center_x, center_y), (width, height), angle)
+            ellipse = cv2.fitEllipse(coin_cnt)
+            (cx, cy), (ew, eh), angle = ellipse
 
-            pixel_diameter = radius * 2
+            # Average the width and height of the ellipse to get diameter
+            # (Handles slight camera tilt better than minEnclosingCircle)
+            pixel_diameter = (ew + eh) / 2.0
+
             pixels_per_mm = pixel_diameter / REAL_COIN_DIAMETER_MM
 
-            cv2.putText(frame, f"Scale: {pixels_per_mm:.2f} px/mm", (20, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 1)
+            # Draw the Ellipse (Green)
+            cv2.ellipse(frame, ellipse, (0, 255, 255), 1)
+            cv2.putText(frame, "REF", (int(cx) - 20, int(cy)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+            cv2.putText(frame, f"Scale: {pixels_per_mm:.2f}", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 1)
         else:
             pixels_per_mm = None
-            cv2.putText(frame, "WAITING FOR COIN...", (20, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
+            cv2.putText(frame, "NO COIN DETECTED", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
 
-        # --- PASS 3: MEASURE PELLETS ---
+        # --- MEASURE PELLETS ---
         if pixels_per_mm:
             for cnt in pellets:
+                # Use minAreaRect for pellets (still the best for rectangles)
                 rect = cv2.minAreaRect(cnt)
                 (cx, cy), (w, h), angle = rect
 
@@ -112,17 +116,15 @@ def main():
                 box = cv2.boxPoints(rect)
                 box = np.int64(box)
 
-                # CHANGED THICKNESS TO 1 HERE
                 cv2.drawContours(frame, [box], 0, (0, 255, 0), 1)
 
-                label = f"{diameter:.2f} x {length:.2f} mm"
+                label = f"{diameter:.2f} x {length:.2f}"
                 cv2.putText(frame, label, (int(cx) - 40, int(cy) - 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
 
-        cv2.imshow("Inspector - Coin Mode", frame)
+        cv2.imshow("Precision Inspector", frame)
 
-        key = cv2.waitKey(1)
-        if key == ord('q'):
+        if cv2.waitKey(1) == ord('q'):
             break
 
     cap.release()
