@@ -128,55 +128,56 @@ def main():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Turn off autofocus
+    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 
-    # State Variables
     is_frozen = False
     frozen_frame_display = None
 
-    print("------------------------------------------------")
-    print("  CONTROLS:")
-    print("  [SPACEBAR] - Capture/Freeze and Measure")
-    print("  [SPACEBAR] - Unfreeze / Return to Preview")
-    print("  [q]        - Quit")
-    print("------------------------------------------------")
+    print("System Started. Please CLICK on the video window to focus it.")
 
     while True:
-        # A. IF FROZEN, SHOW THE RESULT
+        # A. IF FROZEN, SHOW RESULT
         if is_frozen:
             cv2.imshow("Inspector", frozen_frame_display)
 
-            key = cv2.waitKey(1)
+            # Key Handling for Frozen State
+            key = cv2.waitKey(1) & 0xFF  # <--- FIX ADDED HERE
+
             if key == ord('q'):
                 break
-            elif key == 32:  # Spacebar to unfreeze
+            elif key == 32 or key == ord(' '):  # Spacebar
                 is_frozen = False
-                print("Returning to Preview...")
+                frozen_frame_display = None
+                print("Returning to Live Preview...")
             continue
 
-        # B. IF PREVIEW MODE, SHOW LIVE VIDEO
+        # B. LIVE PREVIEW
         ret, frame = cap.read()
         if not ret: break
 
-        # Draw a simple aiming grid (crosshair)
+        # Draw crosshair
         h, w = frame.shape[:2]
         cv2.line(frame, (w // 2, 0), (w // 2, h), (50, 50, 50), 1)
         cv2.line(frame, (0, h // 2), (w, h // 2), (50, 50, 50), 1)
 
-        cv2.putText(frame, "PREVIEW - Press SPACE to Measure", (20, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
+        cv2.putText(frame, "PREVIEW - Click Window & Press SPACE", (20, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
         cv2.imshow("Inspector", frame)
 
-        # C. HANDLE INPUT
-        key = cv2.waitKey(1)
+        # C. KEY HANDLING
+        # We use & 0xFF to strip extra data ensuring standard ASCII codes
+        key = cv2.waitKey(1) & 0xFF
+
         if key == ord('q'):
             break
-        elif key == 32:  # Spacebar to Freeze
-            print("Capturing...")
-            # Run the processing ONCE on this specific frame
+        elif key == 32 or key == ord(' '):  # 32 is the ASCII code for Spacebar
+            print("Spacebar detected! Capturing...")
             frozen_frame_display = process_frame(frame.copy())
             is_frozen = True
+
+        # Optional: Debug print to see what key code your computer sends
+        # if key != 255: print(f"Key Pressed: {key}")
 
     cap.release()
     cv2.destroyAllWindows()
