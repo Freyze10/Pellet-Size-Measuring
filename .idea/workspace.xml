@@ -228,14 +228,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00260" summary="adjusted height compensation">
-      <option name="closed" value="true" />
-      <created>1764654275344</created>
-      <option name="number" value="00260" />
-      <option name="presentableId" value="LOCAL-00260" />
-      <option name="project" value="LOCAL" />
-      <updated>1764654275344</updated>
-    </task>
     <task id="LOCAL-00261" summary="adjusted height compensation">
       <option name="closed" value="true" />
       <created>1764654318327</created>
@@ -620,7 +612,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765421515000</updated>
     </task>
-    <option name="localTasksCounter" value="309" />
+    <task id="LOCAL-00309" summary="updated coin calib">
+      <option name="closed" value="true" />
+      <created>1765422356405</created>
+      <option name="number" value="00309" />
+      <option name="presentableId" value="LOCAL-00309" />
+      <option name="project" value="LOCAL" />
+      <updated>1765422356405</updated>
+    </task>
+    <option name="localTasksCounter" value="310" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -647,7 +647,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added 0.35 mm in the final mm" />
     <MESSAGE value="added lock on reading pellet" />
     <MESSAGE value="modifying" />
     <MESSAGE value="revert to stable" />
@@ -672,7 +671,8 @@
     <MESSAGE value="fixed in/out text in main" />
     <MESSAGE value="added new file coin calib" />
     <MESSAGE value="created coin calib code" />
-    <option name="LAST_COMMIT_MESSAGE" value="created coin calib code" />
+    <MESSAGE value="updated coin calib" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated coin calib" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
