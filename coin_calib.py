@@ -27,7 +27,6 @@ def get_contours(img):
     blur = cv2.GaussianBlur(gray, (7, 7), 1)
 
     # 3. Canny Edge Detection (Great for clean shapes)
-    #    You can also use Thresholding, but Canny is often sharper for coins
     canny = cv2.Canny(blur, 50, 150)
 
     # 4. Dilate (Make the edges thicker to ensure they close up)
@@ -59,7 +58,7 @@ def main():
     # Set Resolution (Higher is better for measurement)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus if possible (keeps scale consistent)
+    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus if possible
 
     print(f"System Ready. Place a 1-Piso coin ({REAL_COIN_DIAMETER_MM}mm) in view.")
 
@@ -133,7 +132,9 @@ def main():
 
                 # --- VISUALIZATION ---
                 box = cv2.boxPoints(rect)
-                box = np.int0(box)  # Convert to integer for drawing
+
+                # --- FIX: Use int64 instead of int0 ---
+                box = np.int64(box)
 
                 # Draw Box (Green)
                 cv2.drawContours(frame, [box], 0, (0, 255, 0), 2)
