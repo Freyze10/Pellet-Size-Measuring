@@ -228,22 +228,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00276" summary="trying to make  the overlay for ticks better">
-      <option name="closed" value="true" />
-      <created>1764740145384</created>
-      <option name="number" value="00276" />
-      <option name="presentableId" value="LOCAL-00276" />
-      <option name="project" value="LOCAL" />
-      <updated>1764740145384</updated>
-    </task>
-    <task id="LOCAL-00277" summary="ADDED PELLET_HISTORY calib">
-      <option name="closed" value="true" />
-      <created>1764740224732</created>
-      <option name="number" value="00277" />
-      <option name="presentableId" value="LOCAL-00277" />
-      <option name="project" value="LOCAL" />
-      <updated>1764740224732</updated>
-    </task>
     <task id="LOCAL-00278" summary="added 0.3 mm in the final mm">
       <option name="closed" value="true" />
       <created>1764741540444</created>
@@ -620,7 +604,23 @@
       <option name="project" value="LOCAL" />
       <updated>1765503044078</updated>
     </task>
-    <option name="localTasksCounter" value="325" />
+    <task id="LOCAL-00325" summary="updated, added calibration on frzen">
+      <option name="closed" value="true" />
+      <created>1765509285384</created>
+      <option name="number" value="00325" />
+      <option name="presentableId" value="LOCAL-00325" />
+      <option name="project" value="LOCAL" />
+      <updated>1765509285384</updated>
+    </task>
+    <task id="LOCAL-00326" summary="added overlay in the auuto calib">
+      <option name="closed" value="true" />
+      <created>1765509565433</created>
+      <option name="number" value="00326" />
+      <option name="presentableId" value="LOCAL-00326" />
+      <option name="project" value="LOCAL" />
+      <updated>1765509565433</updated>
+    </task>
+    <option name="localTasksCounter" value="327" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -647,8 +647,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="removed some coments" />
-    <MESSAGE value="modified some comments" />
     <MESSAGE value="reduced height of rectangular background" />
     <MESSAGE value="used 85 for rectangle background" />
     <MESSAGE value="modifying to add the manual calib" />
@@ -672,7 +670,9 @@
     <MESSAGE value="try auto with capture" />
     <MESSAGE value="return back" />
     <MESSAGE value="added spacebar capture and improved" />
-    <option name="LAST_COMMIT_MESSAGE" value="added spacebar capture and improved" />
+    <MESSAGE value="updated, added calibration on frzen" />
+    <MESSAGE value="added overlay in the auuto calib" />
+    <option name="LAST_COMMIT_MESSAGE" value="added overlay in the auuto calib" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
