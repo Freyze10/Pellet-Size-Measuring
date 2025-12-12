@@ -229,22 +229,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00288" summary="revert back tthe main">
-      <option name="closed" value="true" />
-      <created>1764831802570</created>
-      <option name="number" value="00288" />
-      <option name="presentableId" value="LOCAL-00288" />
-      <option name="project" value="LOCAL" />
-      <updated>1764831802570</updated>
-    </task>
-    <task id="LOCAL-00289" summary="added pellet count in main screen">
-      <option name="closed" value="true" />
-      <created>1764831811197</created>
-      <option name="number" value="00289" />
-      <option name="presentableId" value="LOCAL-00289" />
-      <option name="project" value="LOCAL" />
-      <updated>1764831811197</updated>
-    </task>
     <task id="LOCAL-00290" summary="added pellet count in main screen">
       <option name="closed" value="true" />
       <created>1764836835385</created>
@@ -621,7 +605,23 @@
       <option name="project" value="LOCAL" />
       <updated>1765523403739</updated>
     </task>
-    <option name="localTasksCounter" value="337" />
+    <task id="LOCAL-00337" summary="for marker">
+      <option name="closed" value="true" />
+      <created>1765523863660</created>
+      <option name="number" value="00337" />
+      <option name="presentableId" value="LOCAL-00337" />
+      <option name="project" value="LOCAL" />
+      <updated>1765523863660</updated>
+    </task>
+    <task id="LOCAL-00338" summary="measuring">
+      <option name="closed" value="true" />
+      <created>1765523874924</created>
+      <option name="number" value="00338" />
+      <option name="presentableId" value="LOCAL-00338" />
+      <option name="project" value="LOCAL" />
+      <updated>1765523874924</updated>
+    </task>
+    <option name="localTasksCounter" value="339" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -648,7 +648,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="thinner boxes" />
     <MESSAGE value="use fit elipse for more accurate reading of coin" />
     <MESSAGE value="set 23mm for peso coin base from bsp" />
     <MESSAGE value="added capture" />
@@ -673,7 +672,8 @@
     <MESSAGE value="for print aruco" />
     <MESSAGE value="with aruco bg" />
     <MESSAGE value="for marker" />
-    <option name="LAST_COMMIT_MESSAGE" value="for marker" />
+    <MESSAGE value="measuring" />
+    <option name="LAST_COMMIT_MESSAGE" value="measuring" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
