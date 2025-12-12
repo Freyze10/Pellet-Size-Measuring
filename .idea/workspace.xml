@@ -228,14 +228,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00284" summary="modified">
-      <option name="closed" value="true" />
-      <created>1764809996160</created>
-      <option name="number" value="00284" />
-      <option name="presentableId" value="LOCAL-00284" />
-      <option name="project" value="LOCAL" />
-      <updated>1764809996160</updated>
-    </task>
     <task id="LOCAL-00285" summary="auto calib after pressing 'a'">
       <option name="closed" value="true" />
       <created>1764811134691</created>
@@ -620,7 +612,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765519151288</updated>
     </task>
-    <option name="localTasksCounter" value="333" />
+    <task id="LOCAL-00333" summary="added code for new approach">
+      <option name="closed" value="true" />
+      <created>1765519170670</created>
+      <option name="number" value="00333" />
+      <option name="presentableId" value="LOCAL-00333" />
+      <option name="project" value="LOCAL" />
+      <updated>1765519170670</updated>
+    </task>
+    <option name="localTasksCounter" value="334" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -647,7 +647,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fixed in/out text in main" />
     <MESSAGE value="added new file coin calib" />
     <MESSAGE value="created coin calib code" />
     <MESSAGE value="updated coin calib" />
@@ -672,7 +671,8 @@
     <MESSAGE value="added escape on frozen" />
     <MESSAGE value="removed plus .3" />
     <MESSAGE value="created new file for new approach" />
-    <option name="LAST_COMMIT_MESSAGE" value="created new file for new approach" />
+    <MESSAGE value="added code for new approach" />
+    <option name="LAST_COMMIT_MESSAGE" value="added code for new approach" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
