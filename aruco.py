@@ -2,100 +2,222 @@ import cv2
 import numpy as np
 import cv2.aruco as aruco
 
+# ----------------------------------------------------------------------
+# Configuration
+# ----------------------------------------------------------------------
+# Real-world dimensions of the rectangle formed by the 4 ArUco markers
+# Width and Height in Millimeters (Measure exactly with a physical tape)
+REAL_WIDTH_MM = 200.0
+REAL_HEIGHT_MM = 150.0
 
-def create_small_calibration_sheet():
-    # --- Configuration ---
-    # A4 Size at 300 DPI (Landscape)
-    PAGE_WIDTH_MM = 297
-    PAGE_HEIGHT_MM = 210
-    DPI = 300
+# Target Pellet Dimensions (mm)
+TARGET_DIAMETER = 3.0
+TARGET_LENGTH = 3.0
+TOLERANCE = 0.5
 
-    # Distance between marker CENTERS (Your requested size)
-    # This creates the exact "box" you will place pellets inside
-    WORK_AREA_WIDTH_MM = 80
-    WORK_AREA_HEIGHT_MM = 60
 
-    # Size of the ArUco markers (Reduced from 40mm to 20mm)
-    MARKER_SIZE_MM = 10
+# ----------------------------------------------------------------------
+# Advanced Measurement Class
+# ----------------------------------------------------------------------
+class PrecisionMeasure:
+    def __init__(self):
+        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+        self.aruco_params = aruco.DetectorParameters()
+        self.matrix = None  # Perspective matrix
+        self.width_px = 0
+        self.height_px = 0
+        self.px_per_mm = 0
 
-    # ---------------------
+    def calibrate_perspective(self, frame):
+        """
+        Finds 4 ArUco markers (IDs 0,1,2,3) to define the workspace.
+        Calculates the transformation matrix to 'flatten' the view.
+        """
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        corners, ids, _ = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
 
-    # Conversion factor (Pixels per millimeter)
-    MM_TO_PX = DPI / 25.4
+        if ids is None or len(ids) < 4:
+            return False, frame
 
-    # Create white blank A4 image
-    width_px = int(PAGE_WIDTH_MM * MM_TO_PX)
-    height_px = int(PAGE_HEIGHT_MM * MM_TO_PX)
-    img = np.ones((height_px, width_px), dtype=np.uint8) * 255
+        # Map IDs to corners (Top-Left: 0, Top-Right: 1, Bottom-Right: 2, Bottom-Left: 3)
+        # You must arrange markers 0,1,2,3 in clockwise order on your table
+        id_map = {}
+        for i, id_val in enumerate(ids):
+            # center of the marker
+            c = np.mean(corners[i][0], axis=0)
+            id_map[id_val[0]] = c
 
-    # Define Dictionary (4x4_50)
-    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+        if not all(k in id_map for k in [0, 1, 2, 3]):
+            return False, frame
 
-    # Calculate Center of Page
-    cx = width_px // 2
-    cy = height_px // 2
+        src_pts = np.float32([id_map[0], id_map[1], id_map[2], id_map[3]])
 
-    # Calculate Offsets (half of the work area size)
-    dx = int((WORK_AREA_WIDTH_MM * MM_TO_PX) / 2)
-    dy = int((WORK_AREA_HEIGHT_MM * MM_TO_PX) / 2)
+        # Determine output image size based on aspect ratio of real world size
+        # We assume 10 pixels per mm for high resolution processing
+        scale_factor = 10
+        self.width_px = int(REAL_WIDTH_MM * scale_factor)
+        self.height_px = int(REAL_HEIGHT_MM * scale_factor)
 
-    # Marker size in pixels
-    m_px = int(MARKER_SIZE_MM * MM_TO_PX)
-    half_m = m_px // 2
+        dst_pts = np.float32([
+            [0, 0],
+            [self.width_px, 0],
+            [self.width_px, self.height_px],
+            [0, self.height_px]
+        ])
 
-    # Positions (Center of markers):
-    # ID 0: Top-Left, ID 1: Top-Right, ID 2: Bottom-Right, ID 3: Bottom-Left
-    positions = {
-        0: (cx - dx, cy - dy),  # TL
-        1: (cx + dx, cy - dy),  # TR
-        2: (cx + dx, cy + dy),  # BR
-        3: (cx - dx, cy + dy)  # BL
-    }
+        # Get the transformation matrix
+        self.matrix = cv2.getPerspectiveTransform(src_pts, dst_pts)
+        self.px_per_mm = scale_factor
+        return True, frame
 
-    print(f"Generating sheet...")
-    print(f"Distance between centers: {WORK_AREA_WIDTH_MM}mm x {WORK_AREA_HEIGHT_MM}mm")
-    print(f"Marker Size: {MARKER_SIZE_MM}mm")
+    def process_view(self, frame):
+        """
+        Warps the live frame to top-down view and measures objects.
+        """
+        if self.matrix is None:
+            return frame, []
 
-    for marker_id, (px, py) in positions.items():
-        # Generate marker
-        marker_img = aruco.generateImageMarker(aruco_dict, marker_id, m_px)
+        # 1. Warp Perspective (Flatten the image)
+        warped = cv2.warpPerspective(frame, self.matrix, (self.width_px, self.height_px))
 
-        # Calculate top-left corner for pasting
-        y1 = py - half_m
-        y2 = py + half_m
-        x1 = px - half_m
-        x2 = px + half_m
+        # 2. Pre-processing (Optimize for measurement)
+        gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
 
-        # Paste into image
-        img[y1:y2, x1:x2] = marker_img
+        # Using OTSU thresholding for automatic distinct separation
+        # Note: If you use a backlight, this becomes trivial and highly accurate
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        _, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-        # Add Text Label (made font smaller to fit)
-        cv2.putText(img, f"ID: {marker_id}", (x1, y1 - 5),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        # 3. Watershed Algorithm (Separate touching pellets)
+        # Noise removal
+        kernel = np.ones((3, 3), np.uint8)
+        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
 
-    # Draw Helper Lines (Light gray, to verify print accuracy)
-    # Horizontal Center Line
-    pt1 = positions[0]
-    pt2 = positions[1]
-    cv2.line(img, pt1, pt2, (220, 220, 220), 1)
+        # Sure background area
+        sure_bg = cv2.dilate(opening, kernel, iterations=3)
+        # Finding sure foreground area (center of pellets)
+        dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+        _, sure_fg = cv2.threshold(dist_transform, 0.5 * dist_transform.max(), 255, 0)
 
-    # Vertical Center Line
-    pt3 = positions[0]
-    pt4 = positions[3]
-    cv2.line(img, pt3, pt4, (220, 220, 220), 1)
+        # Finding unknown region
+        sure_fg = np.uint8(sure_fg)
+        unknown = cv2.subtract(sure_bg, sure_fg)
 
-    # Add Dimension Labels
-    cv2.putText(img, f"{WORK_AREA_WIDTH_MM} mm", (cx - 30, pt1[1] - 15),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 150, 150), 2)
-    cv2.putText(img, f"{WORK_AREA_HEIGHT_MM} mm", (pt3[0] - 80, cy),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 150, 150), 2)
+        # Marker labelling
+        _, markers = cv2.connectedComponents(sure_fg)
+        markers = markers + 1
+        markers[unknown == 255] = 0
 
-    # Save
-    filename = "calibration_sheet_small_80x60.png"
-    cv2.imwrite(filename, img)
-    print(f"✓ Saved to {filename}")
-    print("IMPORTANT: Print at 100% Scale (Do not Scale to Fit)")
+        # Apply Watershed
+        markers = cv2.watershed(warped, markers)
+
+        results = []
+
+        # 4. Measure blobs
+        unique_markers = np.unique(markers)
+        for mark in unique_markers:
+            if mark <= 1: continue  # Skip background and unknown
+
+            # Create mask for this specific object
+            mask = np.zeros(gray.shape, dtype=np.uint8)
+            mask[markers == mark] = 255
+
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not contours: continue
+
+            cnt = contours[0]
+            area = cv2.contourArea(cnt)
+
+            # Filter noise (approx 2mm^2 minimum)
+            if area < (2 * self.px_per_mm) ** 2: continue
+
+            # Precision Measurement: Fit Ellipse
+            # Ellipse fits are more accurate than Rects for round/cylindrical objects
+            if len(cnt) >= 5:
+                (x, y), (MA, ma), angle = cv2.fitEllipse(cnt)
+
+                # In an ellipse, the shorter axis is usually the diameter (if viewed from top)
+                # The longer axis is the length
+                dim1 = ma / self.px_per_mm
+                dim2 = MA / self.px_per_mm
+
+                length_mm = max(dim1, dim2)
+                diameter_mm = min(dim1, dim2)
+
+                # Check Tolerance
+                d_ok = abs(diameter_mm - TARGET_DIAMETER) <= TOLERANCE
+                l_ok = abs(length_mm - TARGET_LENGTH) <= TOLERANCE
+                is_good = d_ok and l_ok
+
+                results.append({
+                    'pos': (int(x), int(y)),
+                    'd': diameter_mm,
+                    'l': length_mm,
+                    'ok': is_good
+                })
+
+                # Draw on Warped Image
+                color = (0, 255, 0) if is_good else (0, 0, 255)
+                cv2.ellipse(warped, ((x, y), (MA, ma), angle), color, 2)
+                cv2.putText(warped, f"{diameter_mm:.2f}x{length_mm:.2f}",
+                            (int(x) - 20, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+        return warped, results
+
+
+# ----------------------------------------------------------------------
+# Main Loop
+# ----------------------------------------------------------------------
+def main():
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+    # Disable Autofocus (Very Important for Calibration Stability)
+    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+    cap.set(cv2.CAP_PROP_FOCUS, 150)  # Adjust this value manually
+
+    system = PrecisionMeasure()
+
+    while True:
+        ret, frame = cap.read()
+        if not ret: break
+
+        # Step 1: Detect Calibration Board
+        calibrated, _ = system.calibrate_perspective(frame)
+
+        # Step 2: Process View
+        if calibrated:
+            # We display the warped (top-down) view as the main UI
+            # This view is mathematically corrected for perspective
+            view, results = system.process_view(frame)
+
+            # UI Overlay
+            cv2.putText(view, f"Scale: {system.px_per_mm:.1f} px/mm", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(view, f"Pellets: {len(results)}", (10, 60),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+            # Show the corrected view
+            cv2.imshow("Precision Inspector (Top-Down)", view)
+
+            # Show raw frame with markers for debugging
+            aruco.drawDetectedMarkers(frame,
+                                      aruco.detectMarkers(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY),
+                                                          system.aruco_dict)[0])
+            cv2.imshow("Raw Feed", frame)
+
+        else:
+            cv2.putText(frame, "Looking for 4 ArUco Markers...", (50, 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            cv2.imshow("Precision Inspector (Top-Down)", frame)
+
+        if cv2.waitKey(1) & 0xFF == 27:
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
-    create_small_calibration_sheet()
+    main()
