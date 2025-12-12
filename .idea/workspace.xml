@@ -228,14 +228,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00278" summary="added 0.3 mm in the final mm">
-      <option name="closed" value="true" />
-      <created>1764741540444</created>
-      <option name="number" value="00278" />
-      <option name="presentableId" value="LOCAL-00278" />
-      <option name="project" value="LOCAL" />
-      <updated>1764741540444</updated>
-    </task>
     <task id="LOCAL-00279" summary="added 0.35 mm in the final mm">
       <option name="closed" value="true" />
       <created>1764742530150</created>
@@ -620,7 +612,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765509565433</updated>
     </task>
-    <option name="localTasksCounter" value="327" />
+    <task id="LOCAL-00327" summary="updating functions">
+      <option name="closed" value="true" />
+      <created>1765509856813</created>
+      <option name="number" value="00327" />
+      <option name="presentableId" value="LOCAL-00327" />
+      <option name="project" value="LOCAL" />
+      <updated>1765509856813</updated>
+    </task>
+    <option name="localTasksCounter" value="328" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -647,7 +647,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="reduced height of rectangular background" />
     <MESSAGE value="used 85 for rectangle background" />
     <MESSAGE value="modifying to add the manual calib" />
     <MESSAGE value="added debug" />
@@ -672,7 +671,8 @@
     <MESSAGE value="added spacebar capture and improved" />
     <MESSAGE value="updated, added calibration on frzen" />
     <MESSAGE value="added overlay in the auuto calib" />
-    <option name="LAST_COMMIT_MESSAGE" value="added overlay in the auuto calib" />
+    <MESSAGE value="updating functions" />
+    <option name="LAST_COMMIT_MESSAGE" value="updating functions" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
