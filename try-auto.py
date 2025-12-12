@@ -515,7 +515,7 @@ def draw_ui(frame, yolo_objs, zone, pellets, ticks):
         cv2.putText(frame, msg, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, col, 2)
 
         if in_capture_mode:
-            cv2.putText(frame, "CAPTURE MODE | 'a'=auto calib | 'm'=manual | 'Space'=new capture | 'q'=exit",
+            cv2.putText(frame, "CAPTURE MODE | 'ESC'=live | 'a'=auto | 'm'=manual | 'Space'=new | 'q'=quit",
                         (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
         else:
             cv2.putText(frame, "LIVE VIEW | Press 'Space' to capture",
@@ -557,6 +557,7 @@ def main():
     print("=" * 60)
     print("CONTROLS:")
     print("  SPACE    - Capture frame")
+    print("  ESC      - Return to live view")
     print("  a        - Auto calibration (on captured image)")
     print("  m        - Manual calibration (on captured image)")
     print("  u        - Switch CM/INCH (during calibration)")
@@ -611,6 +612,18 @@ def main():
 
         if key == ord('q'):
             break
+
+        elif key == 27:  # ESC key - return to live view
+            if in_capture_mode:
+                in_capture_mode = False
+                calibration_mode_active = False
+                in_manual_calib_mode = False
+                current_yolo_objects = []
+                current_tick_data = None
+                current_pellets = []
+                manual_line_start = None
+                manual_line_end = None
+                print("\n📹 Returned to live view (calibration preserved)")
 
         elif key == ord(' '):  # Spacebar - capture
             if not in_capture_mode:
