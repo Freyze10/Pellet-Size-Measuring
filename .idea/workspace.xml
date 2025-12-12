@@ -47,37 +47,38 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.Main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.coin_calib.executor&quot;: &quot;Run&quot;,
-    &quot;Python.env.executor&quot;: &quot;Run&quot;,
-    &quot;Python.label.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.newOpencv.executor&quot;: &quot;Run&quot;,
-    &quot;Python.new_scanner.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_coco (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_coco.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_no_ml.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_yolo.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_new.executor&quot;: &quot;Run&quot;,
-    &quot;Python.try-auto.executor&quot;: &quot;Run&quot;,
-    &quot;Python.yolo_cv_scanner (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.yolo_cv_scanner.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Brant/PycharmProjects/File&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.Main.executor": "Run",
+    "Python.aruco.executor": "Run",
+    "Python.coin_calib.executor": "Run",
+    "Python.env.executor": "Run",
+    "Python.label.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.newOpencv.executor": "Run",
+    "Python.new_scanner.executor": "Run",
+    "Python.scanner.executor": "Run",
+    "Python.scanner_coco (1).executor": "Run",
+    "Python.scanner_coco.executor": "Run",
+    "Python.scanner_no_ml.executor": "Run",
+    "Python.scanner_yolo.executor": "Run",
+    "Python.test_new.executor": "Run",
+    "Python.try-auto.executor": "Run",
+    "Python.yolo_cv_scanner (1).executor": "Run",
+    "Python.yolo_cv_scanner.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "C:/Users/Brant/PycharmProjects/File",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;GitStage.ChangesTree.GroupingKeys&quot;: [
-      &quot;directory&quot;,
-      &quot;module&quot;,
-      &quot;repository&quot;
+  "keyToStringList": {
+    "GitStage.ChangesTree.GroupingKeys": [
+      "directory",
+      "module",
+      "repository"
     ]
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\yolo" />
@@ -91,7 +92,29 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.try-auto">
+  <component name="RunManager" selected="Python.aruco">
+    <configuration name="aruco" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Pellet_Measure" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/aruco.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="coin_calib" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -128,28 +151,6 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="newOpencv" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="Pellet_Measure" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/newOpencv.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -204,11 +205,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.aruco" />
         <item itemvalue="Python.try-auto" />
         <item itemvalue="Python.coin_calib" />
         <item itemvalue="Python.main" />
         <item itemvalue="Python.yolo_cv_scanner" />
-        <item itemvalue="Python.newOpencv" />
       </list>
     </recent_temporary>
   </component>
@@ -227,22 +228,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00285" summary="auto calib after pressing 'a'">
-      <option name="closed" value="true" />
-      <created>1764811134691</created>
-      <option name="number" value="00285" />
-      <option name="presentableId" value="LOCAL-00285" />
-      <option name="project" value="LOCAL" />
-      <updated>1764811134691</updated>
-    </task>
-    <task id="LOCAL-00286" summary="auto calib after pressing 'a'">
-      <option name="closed" value="true" />
-      <created>1764831780976</created>
-      <option name="number" value="00286" />
-      <option name="presentableId" value="LOCAL-00286" />
-      <option name="project" value="LOCAL" />
-      <updated>1764831780976</updated>
     </task>
     <task id="LOCAL-00287" summary="added pellet count in main screen">
       <option name="closed" value="true" />
@@ -620,7 +605,23 @@
       <option name="project" value="LOCAL" />
       <updated>1765519170670</updated>
     </task>
-    <option name="localTasksCounter" value="334" />
+    <task id="LOCAL-00334" summary="for print aruco">
+      <option name="closed" value="true" />
+      <created>1765521934989</created>
+      <option name="number" value="00334" />
+      <option name="presentableId" value="LOCAL-00334" />
+      <option name="project" value="LOCAL" />
+      <updated>1765521934989</updated>
+    </task>
+    <task id="LOCAL-00335" summary="with aruco bg">
+      <option name="closed" value="true" />
+      <created>1765521977723</created>
+      <option name="number" value="00335" />
+      <option name="presentableId" value="LOCAL-00335" />
+      <option name="project" value="LOCAL" />
+      <updated>1765521977723</updated>
+    </task>
+    <option name="localTasksCounter" value="336" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -647,8 +648,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added new file coin calib" />
-    <MESSAGE value="created coin calib code" />
     <MESSAGE value="updated coin calib" />
     <MESSAGE value="thinner boxes" />
     <MESSAGE value="use fit elipse for more accurate reading of coin" />
@@ -672,7 +671,9 @@
     <MESSAGE value="removed plus .3" />
     <MESSAGE value="created new file for new approach" />
     <MESSAGE value="added code for new approach" />
-    <option name="LAST_COMMIT_MESSAGE" value="added code for new approach" />
+    <MESSAGE value="for print aruco" />
+    <MESSAGE value="with aruco bg" />
+    <option name="LAST_COMMIT_MESSAGE" value="with aruco bg" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
