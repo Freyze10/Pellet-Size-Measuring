@@ -585,7 +585,7 @@ def main():
                 result = analyze_structure(frame, zone)
                 current_tick_data = result
                 if result and result['px_per_mm'] > 0:
-                    PIXELS_PER_MM = result['px_per_mm'] + 0.35
+                    PIXELS_PER_MM = result['px_per_mm']
                     is_calibrated = True
                     update_ranges()
             else:

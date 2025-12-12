@@ -228,22 +228,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00280" summary="added lock on reading pellet">
-      <option name="closed" value="true" />
-      <created>1764745586099</created>
-      <option name="number" value="00280" />
-      <option name="presentableId" value="LOCAL-00280" />
-      <option name="project" value="LOCAL" />
-      <updated>1764745586099</updated>
-    </task>
-    <task id="LOCAL-00281" summary="modifying">
-      <option name="closed" value="true" />
-      <created>1764745802824</created>
-      <option name="number" value="00281" />
-      <option name="presentableId" value="LOCAL-00281" />
-      <option name="project" value="LOCAL" />
-      <updated>1764745802824</updated>
-    </task>
     <task id="LOCAL-00282" summary="revert to stable">
       <option name="closed" value="true" />
       <created>1764745831033</created>
@@ -620,7 +604,23 @@
       <option name="project" value="LOCAL" />
       <updated>1765510358006</updated>
     </task>
-    <option name="localTasksCounter" value="329" />
+    <task id="LOCAL-00329" summary="calibrate once">
+      <option name="closed" value="true" />
+      <created>1765510983488</created>
+      <option name="number" value="00329" />
+      <option name="presentableId" value="LOCAL-00329" />
+      <option name="project" value="LOCAL" />
+      <updated>1765510983488</updated>
+    </task>
+    <task id="LOCAL-00330" summary="added escape on frozen">
+      <option name="closed" value="true" />
+      <created>1765511208996</created>
+      <option name="number" value="00330" />
+      <option name="presentableId" value="LOCAL-00330" />
+      <option name="project" value="LOCAL" />
+      <updated>1765511208996</updated>
+    </task>
+    <option name="localTasksCounter" value="331" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -647,8 +647,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="modifying to add the manual calib" />
-    <MESSAGE value="added debug" />
     <MESSAGE value="working manual interface" />
     <MESSAGE value="updated calibrated after manual calibration" />
     <MESSAGE value="fixed in/out text in main" />
@@ -672,7 +670,9 @@
     <MESSAGE value="added overlay in the auuto calib" />
     <MESSAGE value="updating functions" />
     <MESSAGE value="updating new capture" />
-    <option name="LAST_COMMIT_MESSAGE" value="updating new capture" />
+    <MESSAGE value="calibrate once" />
+    <MESSAGE value="added escape on frozen" />
+    <option name="LAST_COMMIT_MESSAGE" value="added escape on frozen" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
