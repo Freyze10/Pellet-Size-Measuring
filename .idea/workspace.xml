@@ -229,14 +229,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00287" summary="added pellet count in main screen">
-      <option name="closed" value="true" />
-      <created>1764831791572</created>
-      <option name="number" value="00287" />
-      <option name="presentableId" value="LOCAL-00287" />
-      <option name="project" value="LOCAL" />
-      <updated>1764831791572</updated>
-    </task>
     <task id="LOCAL-00288" summary="revert back tthe main">
       <option name="closed" value="true" />
       <created>1764831802570</created>
@@ -621,7 +613,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765521977723</updated>
     </task>
-    <option name="localTasksCounter" value="336" />
+    <task id="LOCAL-00336" summary="for marker">
+      <option name="closed" value="true" />
+      <created>1765523403739</created>
+      <option name="number" value="00336" />
+      <option name="presentableId" value="LOCAL-00336" />
+      <option name="project" value="LOCAL" />
+      <updated>1765523403739</updated>
+    </task>
+    <option name="localTasksCounter" value="337" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -648,7 +648,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="updated coin calib" />
     <MESSAGE value="thinner boxes" />
     <MESSAGE value="use fit elipse for more accurate reading of coin" />
     <MESSAGE value="set 23mm for peso coin base from bsp" />
@@ -673,7 +672,8 @@
     <MESSAGE value="added code for new approach" />
     <MESSAGE value="for print aruco" />
     <MESSAGE value="with aruco bg" />
-    <option name="LAST_COMMIT_MESSAGE" value="with aruco bg" />
+    <MESSAGE value="for marker" />
+    <option name="LAST_COMMIT_MESSAGE" value="for marker" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

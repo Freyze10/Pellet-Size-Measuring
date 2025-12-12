@@ -16,7 +16,7 @@ def create_small_calibration_sheet():
     WORK_AREA_HEIGHT_MM = 60
 
     # Size of the ArUco markers (Reduced from 40mm to 20mm)
-    MARKER_SIZE_MM = 20
+    MARKER_SIZE_MM = 10
 
     # ---------------------
 
