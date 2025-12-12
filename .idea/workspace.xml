@@ -228,22 +228,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00282" summary="revert to stable">
-      <option name="closed" value="true" />
-      <created>1764745831033</created>
-      <option name="number" value="00282" />
-      <option name="presentableId" value="LOCAL-00282" />
-      <option name="project" value="LOCAL" />
-      <updated>1764745831033</updated>
-    </task>
-    <task id="LOCAL-00283" summary="added freeze pellet size reading">
-      <option name="closed" value="true" />
-      <created>1764751716741</created>
-      <option name="number" value="00283" />
-      <option name="presentableId" value="LOCAL-00283" />
-      <option name="project" value="LOCAL" />
-      <updated>1764751716741</updated>
-    </task>
     <task id="LOCAL-00284" summary="modified">
       <option name="closed" value="true" />
       <created>1764809996160</created>
@@ -620,7 +604,23 @@
       <option name="project" value="LOCAL" />
       <updated>1765511208996</updated>
     </task>
-    <option name="localTasksCounter" value="331" />
+    <task id="LOCAL-00331" summary="removed plus .3">
+      <option name="closed" value="true" />
+      <created>1765517881348</created>
+      <option name="number" value="00331" />
+      <option name="presentableId" value="LOCAL-00331" />
+      <option name="project" value="LOCAL" />
+      <updated>1765517881348</updated>
+    </task>
+    <task id="LOCAL-00332" summary="created new file for new approach">
+      <option name="closed" value="true" />
+      <created>1765519151288</created>
+      <option name="number" value="00332" />
+      <option name="presentableId" value="LOCAL-00332" />
+      <option name="project" value="LOCAL" />
+      <updated>1765519151288</updated>
+    </task>
+    <option name="localTasksCounter" value="333" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -647,8 +647,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="working manual interface" />
-    <MESSAGE value="updated calibrated after manual calibration" />
     <MESSAGE value="fixed in/out text in main" />
     <MESSAGE value="added new file coin calib" />
     <MESSAGE value="created coin calib code" />
@@ -672,7 +670,9 @@
     <MESSAGE value="updating new capture" />
     <MESSAGE value="calibrate once" />
     <MESSAGE value="added escape on frozen" />
-    <option name="LAST_COMMIT_MESSAGE" value="added escape on frozen" />
+    <MESSAGE value="removed plus .3" />
+    <MESSAGE value="created new file for new approach" />
+    <option name="LAST_COMMIT_MESSAGE" value="created new file for new approach" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
