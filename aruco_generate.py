@@ -1,0 +1,101 @@
+import cv2
+import numpy as np
+import cv2.aruco as aruco
+
+
+def create_small_calibration_sheet():
+    # --- Configuration ---
+    # A4 Size at 300 DPI (Landscape)
+    PAGE_WIDTH_MM = 297
+    PAGE_HEIGHT_MM = 210
+    DPI = 300
+
+    # Distance between marker CENTERS (Your requested size)
+    # This creates the exact "box" you will place pellets inside
+    WORK_AREA_WIDTH_MM = 80
+    WORK_AREA_HEIGHT_MM = 60
+
+    # Size of the ArUco markers (Reduced from 40mm to 20mm)
+    MARKER_SIZE_MM = 10
+
+    # ---------------------
+
+    # Conversion factor (Pixels per millimeter)
+    MM_TO_PX = DPI / 25.4
+
+    # Create white blank A4 image
+    width_px = int(PAGE_WIDTH_MM * MM_TO_PX)
+    height_px = int(PAGE_HEIGHT_MM * MM_TO_PX)
+    img = np.ones((height_px, width_px), dtype=np.uint8) * 255
+
+    # Define Dictionary (4x4_50)
+    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+
+    # Calculate Center of Page
+    cx = width_px // 2
+    cy = height_px // 2
+
+    # Calculate Offsets (half of the work area size)
+    dx = int((WORK_AREA_WIDTH_MM * MM_TO_PX) / 2)
+    dy = int((WORK_AREA_HEIGHT_MM * MM_TO_PX) / 2)
+
+    # Marker size in pixels
+    m_px = int(MARKER_SIZE_MM * MM_TO_PX)
+    half_m = m_px // 2
+
+    # Positions (Center of markers):
+    # ID 0: Top-Left, ID 1: Top-Right, ID 2: Bottom-Right, ID 3: Bottom-Left
+    positions = {
+        0: (cx - dx, cy - dy),  # TL
+        1: (cx + dx, cy - dy),  # TR
+        2: (cx + dx, cy + dy),  # BR
+        3: (cx - dx, cy + dy)  # BL
+    }
+
+    print(f"Generating sheet...")
+    print(f"Distance between centers: {WORK_AREA_WIDTH_MM}mm x {WORK_AREA_HEIGHT_MM}mm")
+    print(f"Marker Size: {MARKER_SIZE_MM}mm")
+
+    for marker_id, (px, py) in positions.items():
+        # Generate marker
+        marker_img = aruco.generateImageMarker(aruco_dict, marker_id, m_px)
+
+        # Calculate top-left corner for pasting
+        y1 = py - half_m
+        y2 = py + half_m
+        x1 = px - half_m
+        x2 = px + half_m
+
+        # Paste into image
+        img[y1:y2, x1:x2] = marker_img
+
+        # Add Text Label (made font smaller to fit)
+        cv2.putText(img, f"ID: {marker_id}", (x1, y1 - 5),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+
+    # Draw Helper Lines (Light gray, to verify print accuracy)
+    # Horizontal Center Line
+    pt1 = positions[0]
+    pt2 = positions[1]
+    cv2.line(img, pt1, pt2, (220, 220, 220), 1)
+
+    # Vertical Center Line
+    pt3 = positions[0]
+    pt4 = positions[3]
+    cv2.line(img, pt3, pt4, (220, 220, 220), 1)
+
+    # Add Dimension Labels
+    cv2.putText(img, f"{WORK_AREA_WIDTH_MM} mm", (cx - 30, pt1[1] - 15),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 150, 150), 2)
+    cv2.putText(img, f"{WORK_AREA_HEIGHT_MM} mm", (pt3[0] - 80, cy),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 150, 150), 2)
+
+    # Save
+    filename = "calibration_sheet_small_80x60.png"
+    cv2.imwrite(filename, img)
+    print(f"✓ Saved to {filename}")
+    print("IMPORTANT: Print at 100% Scale (Do not Scale to Fit)")
+
+
+if __name__ == "__main__":
+    create_small_calibration_sheet()

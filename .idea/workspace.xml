@@ -229,14 +229,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00293" summary="modify comments">
-      <option name="closed" value="true" />
-      <created>1764837820591</created>
-      <option name="number" value="00293" />
-      <option name="presentableId" value="LOCAL-00293" />
-      <option name="project" value="LOCAL" />
-      <updated>1764837820591</updated>
-    </task>
     <task id="LOCAL-00294" summary="removed unnecessary comments">
       <option name="closed" value="true" />
       <created>1764837860147</created>
@@ -621,7 +613,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765595963466</updated>
     </task>
-    <option name="localTasksCounter" value="342" />
+    <task id="LOCAL-00342" summary="debug cam">
+      <option name="closed" value="true" />
+      <created>1765597463396</created>
+      <option name="number" value="00342" />
+      <option name="presentableId" value="LOCAL-00342" />
+      <option name="project" value="LOCAL" />
+      <updated>1765597463396</updated>
+    </task>
+    <option name="localTasksCounter" value="343" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -648,7 +648,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="return auto to original" />
     <MESSAGE value="use space to capture" />
     <MESSAGE value="updated spacebar" />
     <MESSAGE value="addded debug window" />
@@ -673,7 +672,8 @@
     <MESSAGE value="updated aruco function call" />
     <MESSAGE value="2 aruco workspacec" />
     <MESSAGE value="combined aruco and the pellet detection auto" />
-    <option name="LAST_COMMIT_MESSAGE" value="combined aruco and the pellet detection auto" />
+    <MESSAGE value="debug cam" />
+    <option name="LAST_COMMIT_MESSAGE" value="debug cam" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
