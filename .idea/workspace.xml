@@ -93,7 +93,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.aruco_generate">
+  <component name="RunManager" selected="Python.aruco">
     <configuration name="aruco" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -206,8 +206,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.aruco_generate" />
         <item itemvalue="Python.aruco" />
+        <item itemvalue="Python.aruco_generate" />
         <item itemvalue="Python.try-auto" />
         <item itemvalue="Python.coin_calib" />
         <item itemvalue="Python.main" />
@@ -229,14 +229,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00299" summary="used 85 for rectangle background">
-      <option name="closed" value="true" />
-      <created>1764838294863</created>
-      <option name="number" value="00299" />
-      <option name="presentableId" value="LOCAL-00299" />
-      <option name="project" value="LOCAL" />
-      <updated>1764838294863</updated>
     </task>
     <task id="LOCAL-00300" summary="modifying to add the manual calib">
       <option name="closed" value="true" />
@@ -622,7 +614,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765604463972</updated>
     </task>
-    <option name="localTasksCounter" value="348" />
+    <task id="LOCAL-00348" summary="updated the detection">
+      <option name="closed" value="true" />
+      <created>1765604647150</created>
+      <option name="number" value="00348" />
+      <option name="presentableId" value="LOCAL-00348" />
+      <option name="project" value="LOCAL" />
+      <updated>1765604647150</updated>
+    </task>
+    <option name="localTasksCounter" value="349" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -649,7 +649,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added calibrate first before belets" />
     <MESSAGE value="calculate height and length" />
     <MESSAGE value="try auto with capture" />
     <MESSAGE value="return back" />
@@ -674,7 +673,8 @@
     <MESSAGE value="added generate aruco workspace" />
     <MESSAGE value="80 by 80 mm" />
     <MESSAGE value="80 by 80 mm image" />
-    <option name="LAST_COMMIT_MESSAGE" value="80 by 80 mm image" />
+    <MESSAGE value="updated the detection" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated the detection" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
