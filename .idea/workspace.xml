@@ -230,14 +230,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00301" summary="modifying to add the manual calib">
-      <option name="closed" value="true" />
-      <created>1764903106971</created>
-      <option name="number" value="00301" />
-      <option name="presentableId" value="LOCAL-00301" />
-      <option name="project" value="LOCAL" />
-      <updated>1764903106971</updated>
-    </task>
     <task id="LOCAL-00302" summary="added debug">
       <option name="closed" value="true" />
       <created>1764903409006</created>
@@ -622,7 +614,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765605185843</updated>
     </task>
-    <option name="localTasksCounter" value="350" />
+    <task id="LOCAL-00350" summary="black and white dedbugging">
+      <option name="closed" value="true" />
+      <created>1765606292299</created>
+      <option name="number" value="00350" />
+      <option name="presentableId" value="LOCAL-00350" />
+      <option name="project" value="LOCAL" />
+      <updated>1765606292299</updated>
+    </task>
+    <option name="localTasksCounter" value="351" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -649,8 +649,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="try auto with capture" />
-    <MESSAGE value="return back" />
     <MESSAGE value="added spacebar capture and improved" />
     <MESSAGE value="updated, added calibration on frzen" />
     <MESSAGE value="added overlay in the auuto calib" />
@@ -674,7 +672,9 @@
     <MESSAGE value="80 by 80 mm image" />
     <MESSAGE value="updated the detection" />
     <MESSAGE value="debugging aruco" />
-    <option name="LAST_COMMIT_MESSAGE" value="debugging aruco" />
+    <MESSAGE value="black and white dedbugging" />
+    <MESSAGE value="minarearect pellet detect" />
+    <option name="LAST_COMMIT_MESSAGE" value="minarearect pellet detect" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
