@@ -158,7 +158,7 @@ def draw_ui(image, results, is_frozen=False):
         instr = "Press 'SPACE' to Capture"
         col = (200, 200, 200)
 
-    cv2.putText(output, status, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, col, 2)
+    cv2.putText(output, status, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, col, 1)
     cv2.putText(output, instr, (20, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
 
     return output
