@@ -91,7 +91,7 @@ def create_small_calibration_sheet():
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 150, 150), 2)
 
     # Save
-    filename = "calibration_sheet_small_80x60.png"
+    filename = "calibration_sheet_small_80x80.png"
     cv2.imwrite(filename, img)
     print(f"✓ Saved to {filename}")
     print("IMPORTANT: Print at 100% Scale (Do not Scale to Fit)")
