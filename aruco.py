@@ -6,8 +6,9 @@ import cv2.aruco as aruco
 # Configuration
 # ----------------------------------------------------------------------
 # Real-world dimensions of the printed ArUco Sheet (Inner rectangle)
+# UPDATED: Now set to 80x80 mm square
 REAL_WIDTH_MM = 80.0
-REAL_HEIGHT_MM = 60.0
+REAL_HEIGHT_MM = 80.0
 
 # Target Pellet Dimensions (mm)
 TARGET_DIAMETER = 3.0
@@ -54,10 +55,11 @@ class PrecisionMeasure:
             c = np.mean(corners[i][0], axis=0)
             id_map[id_val[0]] = c
 
+        # Check if IDs 0, 1, 2, 3 are present
         if not all(k in id_map for k in [0, 1, 2, 3]):
             return False, corners, ids
 
-        # Source points (from camera)
+        # Source points (from camera image)
         src_pts = np.float32([id_map[0], id_map[1], id_map[2], id_map[3]])
 
         # Destination points (flat top-down view)
@@ -181,7 +183,11 @@ def draw_results(image, results):
 # ----------------------------------------------------------------------
 def main():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    # ... (Keep your camera settings here) ...
+    if not cap.isOpened(): cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, DESIRED_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, DESIRED_HEIGHT)
+    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Crucial to disable AF
 
     engine = PrecisionMeasure()
 

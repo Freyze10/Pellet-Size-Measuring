@@ -47,38 +47,39 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.Main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.aruco.executor&quot;: &quot;Run&quot;,
-    &quot;Python.coin_calib.executor&quot;: &quot;Run&quot;,
-    &quot;Python.env.executor&quot;: &quot;Run&quot;,
-    &quot;Python.label.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.newOpencv.executor&quot;: &quot;Run&quot;,
-    &quot;Python.new_scanner.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_coco (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_coco.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_no_ml.executor&quot;: &quot;Run&quot;,
-    &quot;Python.scanner_yolo.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_new.executor&quot;: &quot;Run&quot;,
-    &quot;Python.try-auto.executor&quot;: &quot;Run&quot;,
-    &quot;Python.yolo_cv_scanner (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.yolo_cv_scanner.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Brant/PycharmProjects/File&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.Main.executor": "Run",
+    "Python.aruco.executor": "Run",
+    "Python.aruco_generate.executor": "Run",
+    "Python.coin_calib.executor": "Run",
+    "Python.env.executor": "Run",
+    "Python.label.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.newOpencv.executor": "Run",
+    "Python.new_scanner.executor": "Run",
+    "Python.scanner.executor": "Run",
+    "Python.scanner_coco (1).executor": "Run",
+    "Python.scanner_coco.executor": "Run",
+    "Python.scanner_no_ml.executor": "Run",
+    "Python.scanner_yolo.executor": "Run",
+    "Python.test_new.executor": "Run",
+    "Python.try-auto.executor": "Run",
+    "Python.yolo_cv_scanner (1).executor": "Run",
+    "Python.yolo_cv_scanner.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "C:/Users/Brant/PycharmProjects/File",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;GitStage.ChangesTree.GroupingKeys&quot;: [
-      &quot;directory&quot;,
-      &quot;module&quot;,
-      &quot;repository&quot;
+  "keyToStringList": {
+    "GitStage.ChangesTree.GroupingKeys": [
+      "directory",
+      "module",
+      "repository"
     ]
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\yolo" />
@@ -92,7 +93,7 @@
       <recent name="C:\Users\Brant\PycharmProjects\Pellet_Measure\images" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.aruco">
+  <component name="RunManager" selected="Python.aruco_generate">
     <configuration name="aruco" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Pellet_Measure" />
       <option name="ENV_FILES" value="" />
@@ -107,6 +108,28 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/aruco.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="aruco_generate" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Pellet_Measure" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/aruco_generate.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -181,35 +204,13 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="yolo_cv_scanner" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="Pellet_Measure" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/yolo_cv_scanner.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.aruco_generate" />
         <item itemvalue="Python.aruco" />
         <item itemvalue="Python.try-auto" />
         <item itemvalue="Python.coin_calib" />
         <item itemvalue="Python.main" />
-        <item itemvalue="Python.yolo_cv_scanner" />
       </list>
     </recent_temporary>
   </component>
@@ -228,46 +229,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
-    </task>
-    <task id="LOCAL-00294" summary="removed unnecessary comments">
-      <option name="closed" value="true" />
-      <created>1764837860147</created>
-      <option name="number" value="00294" />
-      <option name="presentableId" value="LOCAL-00294" />
-      <option name="project" value="LOCAL" />
-      <updated>1764837860147</updated>
-    </task>
-    <task id="LOCAL-00295" summary="removed some coments">
-      <option name="closed" value="true" />
-      <created>1764837908727</created>
-      <option name="number" value="00295" />
-      <option name="presentableId" value="LOCAL-00295" />
-      <option name="project" value="LOCAL" />
-      <updated>1764837908727</updated>
-    </task>
-    <task id="LOCAL-00296" summary="modified some comments">
-      <option name="closed" value="true" />
-      <created>1764837949770</created>
-      <option name="number" value="00296" />
-      <option name="presentableId" value="LOCAL-00296" />
-      <option name="project" value="LOCAL" />
-      <updated>1764837949770</updated>
-    </task>
-    <task id="LOCAL-00297" summary="reduced height of rectangular background">
-      <option name="closed" value="true" />
-      <created>1764838220637</created>
-      <option name="number" value="00297" />
-      <option name="presentableId" value="LOCAL-00297" />
-      <option name="project" value="LOCAL" />
-      <updated>1764838220637</updated>
-    </task>
-    <task id="LOCAL-00298" summary="reduced height of rectangular background">
-      <option name="closed" value="true" />
-      <created>1764838227202</created>
-      <option name="number" value="00298" />
-      <option name="presentableId" value="LOCAL-00298" />
-      <option name="project" value="LOCAL" />
-      <updated>1764838227202</updated>
     </task>
     <task id="LOCAL-00299" summary="used 85 for rectangle background">
       <option name="closed" value="true" />
@@ -621,7 +582,47 @@
       <option name="project" value="LOCAL" />
       <updated>1765597463396</updated>
     </task>
-    <option name="localTasksCounter" value="343" />
+    <task id="LOCAL-00343" summary="added generate aruco workspace">
+      <option name="closed" value="true" />
+      <created>1765604040154</created>
+      <option name="number" value="00343" />
+      <option name="presentableId" value="LOCAL-00343" />
+      <option name="project" value="LOCAL" />
+      <updated>1765604040154</updated>
+    </task>
+    <task id="LOCAL-00344" summary="added generate aruco workspace">
+      <option name="closed" value="true" />
+      <created>1765604046854</created>
+      <option name="number" value="00344" />
+      <option name="presentableId" value="LOCAL-00344" />
+      <option name="project" value="LOCAL" />
+      <updated>1765604046854</updated>
+    </task>
+    <task id="LOCAL-00345" summary="80 by 80 mm">
+      <option name="closed" value="true" />
+      <created>1765604100606</created>
+      <option name="number" value="00345" />
+      <option name="presentableId" value="LOCAL-00345" />
+      <option name="project" value="LOCAL" />
+      <updated>1765604100606</updated>
+    </task>
+    <task id="LOCAL-00346" summary="80 by 80 mm">
+      <option name="closed" value="true" />
+      <created>1765604123170</created>
+      <option name="number" value="00346" />
+      <option name="presentableId" value="LOCAL-00346" />
+      <option name="project" value="LOCAL" />
+      <updated>1765604123172</updated>
+    </task>
+    <task id="LOCAL-00347" summary="80 by 80 mm image">
+      <option name="closed" value="true" />
+      <created>1765604463972</created>
+      <option name="number" value="00347" />
+      <option name="presentableId" value="LOCAL-00347" />
+      <option name="project" value="LOCAL" />
+      <updated>1765604463972</updated>
+    </task>
+    <option name="localTasksCounter" value="348" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -648,9 +649,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="use space to capture" />
-    <MESSAGE value="updated spacebar" />
-    <MESSAGE value="addded debug window" />
     <MESSAGE value="added calibrate first before belets" />
     <MESSAGE value="calculate height and length" />
     <MESSAGE value="try auto with capture" />
@@ -673,7 +671,10 @@
     <MESSAGE value="2 aruco workspacec" />
     <MESSAGE value="combined aruco and the pellet detection auto" />
     <MESSAGE value="debug cam" />
-    <option name="LAST_COMMIT_MESSAGE" value="debug cam" />
+    <MESSAGE value="added generate aruco workspace" />
+    <MESSAGE value="80 by 80 mm" />
+    <MESSAGE value="80 by 80 mm image" />
+    <option name="LAST_COMMIT_MESSAGE" value="80 by 80 mm image" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
