@@ -181,80 +181,36 @@ def draw_results(image, results):
 # ----------------------------------------------------------------------
 def main():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    if not cap.isOpened(): cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, DESIRED_WIDTH)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, DESIRED_HEIGHT)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Crucial: Disable Autofocus
+    # ... (Keep your camera settings here) ...
 
     engine = PrecisionMeasure()
 
-    # State
-    captured_result = None
-    in_capture_mode = False
-
-    window_name = "Pellet Inspector - ArUco Edition"
-    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-
-    print("=" * 60)
-    print("ARUCO PRECISION INSPECTOR")
-    print("=" * 60)
-    print("  SPACE  - Capture & Measure")
-    print("  ESC    - Return to Live View / Quit")
-    print("=" * 60)
-
     while True:
-        if not in_capture_mode:
-            # --- LIVE VIEW ---
-            ret, frame = cap.read()
-            if not ret: break
+        ret, frame = cap.read()
+        if not ret: break
 
-            # Detect markers to verify alignment
-            is_calibrated, corners, ids = engine.detect_markers(frame)
+        # 1. Detect Markers
+        is_calibrated, corners, ids = engine.detect_markers(frame)
 
-            # Draw UI
-            if is_calibrated:
-                aruco.drawDetectedMarkers(frame, corners, ids)
-                cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 60), (0, 200, 0), -1)
-                cv2.putText(frame, "SYSTEM READY - Press SPACE to Capture", (30, 40),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-            else:
-                cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 60), (0, 0, 255), -1)
-                cv2.putText(frame, "ALIGN MARKERS (Need 4 visible)", (30, 40),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        if is_calibrated:
+            # 2. Get the Flattened View IMMEDIATELY (for debugging)
+            warped, pellets = engine.analyze_pellets(frame)
 
-            cv2.imshow(window_name, frame)
+            # 3. Draw results on the flattened view
+            output_view = draw_results(warped, pellets)
 
+            # Show the "Top-Down" view so you can see if it is twisted
+            cv2.imshow("DEBUG VIEW (Top-Down)", output_view)
+
+            # Draw markers on raw frame
+            aruco.drawDetectedMarkers(frame, corners, ids)
         else:
-            # --- CAPTURE/RESULT VIEW ---
-            # Just keep showing the processed image
-            if captured_result is not None:
-                cv2.imshow(window_name, captured_result)
+            cv2.putText(frame, "Need IDs: 0(TL), 1(TR), 2(BR), 3(BL)", (50, 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-        # Inputs
-        key = cv2.waitKey(1) & 0xFF
+        cv2.imshow("Raw Camera", frame)
 
-        if key == 27:  # ESC
-            if in_capture_mode:
-                in_capture_mode = False
-                print("Returned to Live View")
-            else:
-                break  # Quit
-
-        elif key == ord(' '):  # SPACE
-            if not in_capture_mode:
-                # Capture current frame
-                ret, frame = cap.read()
-                if ret:
-                    is_valid, _, _ = engine.detect_markers(frame)
-                    if is_valid:
-                        print("Processing...")
-                        warped, pellets = engine.analyze_pellets(frame)
-                        captured_result = draw_results(warped, pellets)
-                        in_capture_mode = True
-                        print(f"Captured! Found {len(pellets)} pellets.")
-                    else:
-                        print("Cannot capture: Markers not visible.")
+        if cv2.waitKey(1) & 0xFF == 27: break
 
     cap.release()
     cv2.destroyAllWindows()
