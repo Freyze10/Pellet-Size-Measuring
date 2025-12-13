@@ -13,7 +13,7 @@ def create_small_calibration_sheet():
     # Distance between marker CENTERS (Your requested size)
     # This creates the exact "box" you will place pellets inside
     WORK_AREA_WIDTH_MM = 80
-    WORK_AREA_HEIGHT_MM = 60
+    WORK_AREA_HEIGHT_MM = 80
 
     # Size of the ArUco markers (Reduced from 40mm to 20mm)
     MARKER_SIZE_MM = 10
