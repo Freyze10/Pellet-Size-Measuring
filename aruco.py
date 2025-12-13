@@ -7,19 +7,21 @@ import cv2.aruco as aruco
 # ----------------------------------------------------------------------
 REAL_WIDTH_MM = 80.0
 REAL_HEIGHT_MM = 80.0
-TARGET_DIAMETER = 3.0
-TARGET_LENGTH = 3.0
-TOLERANCE = 0.5
 DESIRED_WIDTH = 1280
 DESIRED_HEIGHT = 720
 
 
+# ----------------------------------------------------------------------
+# Debug Engine
+# ----------------------------------------------------------------------
 class PrecisionMeasure:
     def __init__(self):
         self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
         self.aruco_params = aruco.DetectorParameters()
         self.detector = aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
         self.matrix = None
+
+        # Scale: 10 pixels = 1 millimeter
         self.scale_factor = 10
         self.width_px = int(REAL_WIDTH_MM * self.scale_factor)
         self.height_px = int(REAL_HEIGHT_MM * self.scale_factor)
@@ -45,56 +47,57 @@ class PrecisionMeasure:
         # 1. Warp
         warped = cv2.warpPerspective(frame, self.matrix, (self.width_px, self.height_px))
 
-        # 2. Pre-process (Grayscale)
+        # 2. Threshold
         gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-        # 3. Threshold (The most critical part)
-        # Using OTSU to automatically separate dark objects from light background
+        # Assuming LIGHT Background and DARK Pellets.
+        # If Pellets are WHITE and background BLACK, remove "cv2.THRESH_BINARY_INV +"
         _, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-        # 4. Watershed
-        kernel = np.ones((3, 3), np.uint8)
-        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
-        sure_bg = cv2.dilate(opening, kernel, iterations=3)
-        dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
-        _, sure_fg = cv2.threshold(dist_transform, 0.5 * dist_transform.max(), 255, 0)
-        sure_fg = np.uint8(sure_fg)
-        unknown = cv2.subtract(sure_bg, sure_fg)
-        _, markers = cv2.connectedComponents(sure_fg)
-        markers = markers + 1
-        markers[unknown == 255] = 0
-        markers = cv2.watershed(warped, markers)
+        # 3. Simple Contour Detection (No Watershed)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         results = []
-        unique_markers = np.unique(markers)
-        for mark in unique_markers:
-            if mark <= 1: continue
-            mask = np.zeros(gray.shape, dtype=np.uint8)
-            mask[markers == mark] = 255
-            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            if not contours: continue
-            cnt = contours[0]
 
-            # SIZE FILTER: Check if pellet is being deleted here
+        print(f"\n--- Frame Scan ---")
+        print(f"Contours found: {len(contours)}")
+
+        for i, cnt in enumerate(contours):
             area = cv2.contourArea(cnt)
-            min_area = (1.0 * self.px_per_mm) ** 2  # Reduced filter size
 
-            if area < min_area:
-                # Uncomment to debug small noise
-                # print(f"Ignored small blob: {area:.2f}")
+            # --- DEBUG INFO ---
+            # We calculate what the size is in mm^2 just to show you
+            area_mm = area / (self.px_per_mm ** 2)
+
+            # This is the filter. I lowered it to ALMOST ZERO (10 pixels)
+            # A 3mm pellet should be around 700 pixels.
+            if area < 20:
+                print(f"#{i}: IGNORED (Too small: {area:.0f} px)")
                 continue
 
             if len(cnt) >= 5:
                 (x, y), (MA, ma), angle = cv2.fitEllipse(cnt)
-                dim1, dim2 = ma / self.px_per_mm, MA / self.px_per_mm
-                length_mm, diameter_mm = max(dim1, dim2), min(dim1, dim2)
-                is_good = (abs(diameter_mm - TARGET_DIAMETER) <= TOLERANCE and abs(
-                    length_mm - TARGET_LENGTH) <= TOLERANCE)
-                results.append({'pos': (x, y), 'shape': ((x, y), (MA, ma), angle), 'd': diameter_mm, 'l': length_mm,
-                                'ok': is_good})
 
-        # Return the 'thresh' image so user can see what computer sees
+                dim1 = ma / self.px_per_mm
+                dim2 = MA / self.px_per_mm
+
+                # Ellipse logic: shortest side is diameter, longest is length
+                length_mm = max(dim1, dim2)
+                diameter_mm = min(dim1, dim2)
+
+                print(f"#{i}: MEASURED! D:{diameter_mm:.2f}mm L:{length_mm:.2f}mm (Area: {area:.0f} px)")
+
+                results.append({
+                    'pos': (x, y),
+                    'shape': ((x, y), (MA, ma), angle),
+                    'd': diameter_mm,
+                    'l': length_mm,
+                    'ok': True
+                })
+            else:
+                print(f"#{i}: IGNORED (Shape weird, points: {len(cnt)})")
+
         return warped, results, thresh
 
 
@@ -102,10 +105,9 @@ def draw_results(image, results):
     output = image.copy()
     for r in results:
         (x, y), (MA, ma), angle = r['shape']
-        color = (0, 255, 0) if r['ok'] else (0, 0, 255)
-        cv2.ellipse(output, ((x, y), (MA, ma), angle), color, 2)
+        cv2.ellipse(output, ((x, y), (MA, ma), angle), (0, 255, 0), 2)
         label = f"{r['d']:.2f}x{r['l']:.2f}"
-        cv2.putText(output, label, (int(x) - 30, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        cv2.putText(output, label, (int(x) - 30, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
     return output
 
 
@@ -120,22 +122,15 @@ def main():
     while True:
         ret, frame = cap.read()
         if not ret: break
+
         is_calibrated, corners, ids = engine.detect_markers(frame)
 
         if is_calibrated:
-            # Get the threshold image for debugging
             warped, pellets, debug_thresh = engine.analyze_pellets(frame)
             output_view = draw_results(warped, pellets)
 
-            # SHOW 3 WINDOWS
-            cv2.imshow("1. RESULT (Top-Down)", output_view)
-
-            # THIS IS THE IMPORTANT WINDOW:
-            # White = Object, Black = Background.
-            # If your pellet is Black here, the computer can't see it.
-            if debug_thresh is not None:
-                cv2.imshow("2. X-RAY (Threshold)", debug_thresh)
-
+            cv2.imshow("1. MEASUREMENT", output_view)
+            cv2.imshow("2. X-RAY (White = Pellet)", debug_thresh)
             aruco.drawDetectedMarkers(frame, corners, ids)
         else:
             cv2.putText(frame, "ALIGN MARKERS", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)

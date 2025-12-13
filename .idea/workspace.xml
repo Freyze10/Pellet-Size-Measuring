@@ -230,14 +230,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00300" summary="modifying to add the manual calib">
-      <option name="closed" value="true" />
-      <created>1764902906165</created>
-      <option name="number" value="00300" />
-      <option name="presentableId" value="LOCAL-00300" />
-      <option name="project" value="LOCAL" />
-      <updated>1764902906165</updated>
-    </task>
     <task id="LOCAL-00301" summary="modifying to add the manual calib">
       <option name="closed" value="true" />
       <created>1764903106971</created>
@@ -622,7 +614,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765604647150</updated>
     </task>
-    <option name="localTasksCounter" value="349" />
+    <task id="LOCAL-00349" summary="debugging aruco">
+      <option name="closed" value="true" />
+      <created>1765605185843</created>
+      <option name="number" value="00349" />
+      <option name="presentableId" value="LOCAL-00349" />
+      <option name="project" value="LOCAL" />
+      <updated>1765605185843</updated>
+    </task>
+    <option name="localTasksCounter" value="350" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -649,7 +649,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="calculate height and length" />
     <MESSAGE value="try auto with capture" />
     <MESSAGE value="return back" />
     <MESSAGE value="added spacebar capture and improved" />
@@ -674,7 +673,8 @@
     <MESSAGE value="80 by 80 mm" />
     <MESSAGE value="80 by 80 mm image" />
     <MESSAGE value="updated the detection" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated the detection" />
+    <MESSAGE value="debugging aruco" />
+    <option name="LAST_COMMIT_MESSAGE" value="debugging aruco" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
