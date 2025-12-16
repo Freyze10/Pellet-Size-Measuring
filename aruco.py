@@ -1,284 +1,237 @@
-import cv2
+yimport cv2
 import numpy as np
 import cv2.aruco as aruco
 
 # ----------------------------------------------------------------------
-# CONFIGURATION
+# Configuration
 # ----------------------------------------------------------------------
+# WORKSPACE: The distance between ArUco markers (Inner rectangle)
+REAL_WIDTH_MM = 80.0
+REAL_HEIGHT_MM = 80.0
 
-# 1. PHYSICAL DIMENSIONS (For Aspect Ratio Only)
-# This keeps the image "square". It doesn't affect measurement accuracy,
-# but ensures circles look like circles, not ovals.
-# Distance between Marker 0 (Top-Left) and Marker 1 (Top-Right)
-WORKSPACE_WIDTH_MM = 80.0
-# Distance between Marker 0 (Top-Left) and Marker 3 (Bottom-Left)
-WORKSPACE_HEIGHT_MM = 80.0
-
-# 2. REFERENCE OBJECT (The "Key" to Accuracy)
-# Exact diameter of the coin/washer you place INSIDE the workspace.
-# US Quarter = 24.26mm, 1 Euro = 23.25mm
-REFERENCE_DIAMETER_MM = 24.26
-
-# 3. PELLET TARGETS
+# TARGETS
 TARGET_DIAMETER = 3.0
 TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 
+# CAMERA
+DESIRED_WIDTH = 1280
+DESIRED_HEIGHT = 720
+
 
 # ----------------------------------------------------------------------
-# SYSTEM STATE
+# Measurement Engine (ArUco + Bounding Box)
 # ----------------------------------------------------------------------
-class AppState:
+class PrecisionMeasure:
     def __init__(self):
-        self.mode = 'LIVE'  # LIVE or ANALYSIS
-        self.frame = None
-        self.warped_view = None
-
-        # Calibration Data
-        self.pixels_per_mm = None
-        self.reference_contour = None
-
-        # Results
-        self.contours = []
-        self.results = []
-
-        # ArUco
+        # ArUco Setup
         self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
         self.aruco_params = aruco.DetectorParameters()
         self.detector = aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
 
+        self.matrix = None
 
-state = AppState()
+        # Scale: High resolution (10 px = 1 mm)
+        self.scale_factor = 10
+        self.width_px = int(REAL_WIDTH_MM * self.scale_factor)
+        self.height_px = int(REAL_HEIGHT_MM * self.scale_factor)
+        self.px_per_mm = self.scale_factor
 
+    def detect_markers(self, frame):
+        """Detects markers to establish the workspace."""
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        corners, ids, _ = self.detector.detectMarkers(gray)
 
-# ----------------------------------------------------------------------
-# IMAGE PROCESSING
-# ----------------------------------------------------------------------
-def get_warped_workspace(frame):
-    """
-    Detects ArUco markers and flattens the image (Top-Down View).
-    """
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    corners, ids, _ = state.detector.detectMarkers(gray)
+        if ids is None or len(ids) < 4:
+            return False, corners, ids
 
-    if ids is None or len(ids) < 4:
-        return None, "Markers not found"
+        id_map = {}
+        for i, id_val in enumerate(ids):
+            c = np.mean(corners[i][0], axis=0)
+            id_map[id_val[0]] = c
 
-    # Map IDs to corners
-    id_map = {}
-    for i, id_val in enumerate(ids):
-        c = np.mean(corners[i][0], axis=0)
-        id_map[id_val[0]] = c
+        if not all(k in id_map for k in [0, 1, 2, 3]):
+            return False, corners, ids
 
-    if not all(k in id_map for k in [0, 1, 2, 3]):
-        return None, "Missing ID 0,1,2, or 3"
+        # Order: TL, TR, BR, BL
+        src_pts = np.float32([id_map[0], id_map[1], id_map[2], id_map[3]])
+        dst_pts = np.float32([[0, 0], [self.width_px, 0],
+                              [self.width_px, self.height_px], [0, self.height_px]])
 
-    # Define Resolution (High Res for Accuracy)
-    # We map the physical workspace to a 1000px wide image
-    target_width = 1000
-    ratio = WORKSPACE_HEIGHT_MM / WORKSPACE_WIDTH_MM
-    target_height = int(target_width * ratio)
+        self.matrix = cv2.getPerspectiveTransform(src_pts, dst_pts)
+        return True, corners, ids
 
-    # Source Points (From Camera)
-    src = np.float32([id_map[0], id_map[1], id_map[2], id_map[3]])
+    def measure_pellets(self, frame):
+        """Warps the view and detects pellets using Bounding Boxes."""
+        if self.matrix is None:
+            return None, []
 
-    # Dest Points (Flat Image)
-    dst = np.float32([
-        [0, 0],
-        [target_width, 0],
-        [target_width, target_height],
-        [0, target_height]
-    ])
+        # 1. Warp Perspective (Flatten image)
+        warped = cv2.warpPerspective(frame, self.matrix, (self.width_px, self.height_px))
 
-    matrix = cv2.getPerspectiveTransform(src, dst)
-    warped = cv2.warpPerspective(frame, matrix, (target_width, target_height))
+        # 2. Pre-processing
+        gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    return warped, "OK"
+        # 3. Threshold (Otsu is usually best for calibration sheets)
+        _, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
+        # Clean up noise
+        kernel = np.ones((3, 3), np.uint8)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
 
-def find_objects(img):
-    """
-    Finds all blobs in the warped image.
-    """
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur = cv2.bilateralFilter(gray, 9, 75, 75)
-    thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 15, 3)
+        # 4. Find Contours
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    clean = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
+        results = []
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            # Filter tiny noise (approx 1mm^2)
+            if area < (1.0 * self.px_per_mm) ** 2: continue
 
-    contours, _ = cv2.findContours(clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # --- BOUNDING BOX LOGIC ---
+            rect = cv2.minAreaRect(cnt)
+            (center_x, center_y), (w, h), angle = rect
 
-    valid_contours = []
-    for c in contours:
-        area = cv2.contourArea(c)
-        if area > 100:  # Filter noise
-            valid_contours.append(c)
+            # Convert px to mm
+            dim1 = w / self.px_per_mm
+            dim2 = h / self.px_per_mm
 
-    return valid_contours
+            # Assumption: Longest side is Length
+            length_mm = max(dim1, dim2)
+            diameter_mm = min(dim1, dim2)
 
+            # Tolerance Check
+            is_good = (abs(diameter_mm - TARGET_DIAMETER) <= TOLERANCE and
+                       abs(length_mm - TARGET_LENGTH) <= TOLERANCE)
 
-def measure_results():
-    """
-    Calculates sizes based on the reference coin.
-    """
-    if state.pixels_per_mm is None: return
+            # Get box points for drawing
+            box = np.intp(cv2.boxPoints(rect))
 
-    state.results = []
+            results.append({
+                'box': box,
+                'center': (int(center_x), int(center_y)),
+                'd': diameter_mm,
+                'l': length_mm,
+                'ok': is_good
+            })
 
-    for c in state.contours:
-        # Skip the reference coin itself
-        if c is state.reference_contour: continue
-
-        rect = cv2.minAreaRect(c)
-        (cx, cy), (w, h), angle = rect
-
-        # Convert to MM
-        dim1 = min(w, h) / state.pixels_per_mm
-        dim2 = max(w, h) / state.pixels_per_mm
-
-        # Filter Logic (Is it a pellet?)
-        if dim1 < 0.5: continue  # Too small
-        aspect = dim2 / dim1
-        if aspect > 4.0: continue  # Too long (scratch/hair)
-
-        is_good = (
-                abs(dim1 - TARGET_DIAMETER) <= TOLERANCE and
-                abs(dim2 - TARGET_LENGTH) <= TOLERANCE
-        )
-
-        box = np.intp(cv2.boxPoints(rect))
-        state.results.append({
-            'box': box, 'cx': int(cx), 'cy': int(cy),
-            'd': dim1, 'l': dim2, 'ok': is_good
-        })
+        return warped, results
 
 
 # ----------------------------------------------------------------------
-# MOUSE INPUT
+# UI / Drawing
 # ----------------------------------------------------------------------
-def mouse_callback(event, x, y, flags, param):
-    if state.mode != 'ANALYSIS': return
+def draw_ui(image, results, is_frozen=False):
+    output = image.copy()
 
-    if event == cv2.EVENT_LBUTTONDOWN:
-        # Check which contour was clicked
-        clicked = None
-        for c in state.contours:
-            if cv2.pointPolygonTest(c, (x, y), False) >= 0:
-                clicked = c
-                break
+    good_count = 0
+    bad_count = 0
 
-        if clicked is not None:
-            state.reference_contour = clicked
+    # Draw Pellets
+    if results:
+        for r in results:
+            color = (0, 255, 0) if r['ok'] else (0, 0, 255)  # Green vs Red
+            if r['ok']:
+                good_count += 1
+            else:
+                bad_count += 1
 
-            # Calculate Scale
-            rect = cv2.minAreaRect(clicked)
-            # Use average of width/height for circular coin
-            avg_px = (rect[1][0] + rect[1][1]) / 2.0
+            # Draw Rectangle
+            cv2.drawContours(output, [r['box']], 0, color, 2)
 
-            state.pixels_per_mm = avg_px / REFERENCE_DIAMETER_MM
-            print(f"✓ Calibrated off Coin: {state.pixels_per_mm:.2f} px/mm")
+            # Draw Text
+            cx, cy = r['center']
+            label = f"{r['d']:.2f}x{r['l']:.2f}"
+            cv2.putText(output, label, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 4)  # Outline
+            cv2.putText(output, label, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
 
-            # Update Measurements
-            measure_results()
+    # Draw Status Bar
+    cv2.rectangle(output, (0, 0), (output.shape[1], 60), (30, 30, 30), -1)
+
+    if is_frozen:
+        status = f"CAPTURED | Total: {len(results)} | Good: {good_count} | Bad: {bad_count}"
+        instr = "Press 'ESC' for Live View"
+        col = (0, 255, 0)
+    else:
+        status = "LIVE VIEW - Align Markers"
+        instr = "Press 'SPACE' to Capture"
+        col = (200, 200, 200)
+
+    cv2.putText(output, status, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, col, 1)
+    cv2.putText(output, instr, (20, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
+
+    return output
 
 
 # ----------------------------------------------------------------------
-# MAIN UI
+# Main Application
 # ----------------------------------------------------------------------
 def main():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+    if not cap.isOpened(): cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 
-    cv2.namedWindow("Hybrid Inspector", cv2.WINDOW_NORMAL)
-    cv2.setMouseCallback("Hybrid Inspector", mouse_callback)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, DESIRED_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, DESIRED_HEIGHT)
+    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Important
 
-    print("--- HYBRID ACCURACY SYSTEM ---")
-    print("1. Place ArUco markers to define workspace.")
-    print(f"2. Place Coin ({REFERENCE_DIAMETER_MM}mm) and Pellets inside.")
-    print("3. Press SPACE to Flatten & Capture.")
-    print("4. Click the Coin to calibrate.")
+    engine = PrecisionMeasure()
+
+    # State
+    in_capture_mode = False
+    captured_view = None
+
+    print("=" * 60)
+    print("ARUCO PELLET INSPECTOR")
+    print("Align 4 markers (IDs 0,1,2,3)")
+    print("SPACE: Capture | ESC: Live View")
+    print("=" * 60)
 
     while True:
-        if state.mode == 'LIVE':
-            ret, frame = cap.read()
-            if not ret: break
-            state.frame = frame.copy()
-
-            # Visualize Markers
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            corners, ids, _ = state.detector.detectMarkers(gray)
-            aruco.drawDetectedMarkers(frame, corners, ids)
-
-            cv2.putText(frame, "LIVE: Press SPACE to Capture", (20, 40),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-            cv2.imshow("Hybrid Inspector", frame)
-
-        elif state.mode == 'ANALYSIS':
-            output = state.warped_view.copy()
-
-            # Draw Instructions
-            if state.pixels_per_mm is None:
-                cv2.putText(output, "CLICK ON THE COIN", (20, 40),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            else:
-                # Draw Reference Coin
-                rect = cv2.minAreaRect(state.reference_contour)
-                box = np.intp(cv2.boxPoints(rect))
-                cv2.drawContours(output, [box], 0, (0, 255, 255), 2)
-                cv2.putText(output, "REF", (int(rect[0][0]), int(rect[0][1])),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-
-                # Draw Pellets
-                good_cnt = 0
-                bad_cnt = 0
-                for r in state.results:
-                    col = (0, 255, 0) if r['ok'] else (0, 0, 255)
-                    cv2.drawContours(output, [r['box']], 0, col, 2)
-                    lbl = f"{r['d']:.2f}x{r['l']:.2f}"
-                    cv2.putText(output, lbl, (r['cx'] - 30, r['cy'] - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 3)
-                    cv2.putText(output, lbl, (r['cx'] - 30, r['cy'] - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-
-                    if r['ok']:
-                        good_cnt += 1
-                    else:
-                        bad_cnt += 1
-
-                # Stats
-                h = output.shape[0]
-                cv2.rectangle(output, (0, h - 60), (1000, h), (30, 30, 30), -1)
-                cv2.putText(output, f"GOOD: {good_cnt} | BAD: {bad_cnt}", (20, h - 20),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-
-            cv2.imshow("Hybrid Inspector", output)
-
-        # Inputs
+        # User Interaction
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
-        elif key == ord('r'):  # Reset
-            state.mode = 'LIVE'
-            state.pixels_per_mm = None
-            state.reference_contour = None
-            state.results = []
+        elif key == 27:  # ESC
+            in_capture_mode = False
+            print("Returned to Live View")
+        elif key == ord(' '):  # SPACE
+            if not in_capture_mode:
+                ret, frame = cap.read()
+                if ret:
+                    is_valid, _, _ = engine.detect_markers(frame)
+                    if is_valid:
+                        warped, results = engine.measure_pellets(frame)
+                        captured_view = draw_ui(warped, results, is_frozen=True)
+                        in_capture_mode = True
+                        print(f"Captured {len(results)} pellets.")
+                    else:
+                        print("Cannot capture: Markers not aligned.")
 
-        elif key == 32:  # SPACE
-            if state.mode == 'LIVE':
-                # Warp Image (Flatten)
-                warped, msg = get_warped_workspace(state.frame)
-                if warped is not None:
-                    state.warped_view = warped
-                    state.mode = 'ANALYSIS'
-                    # Pre-calculate contours
-                    state.contours = find_objects(state.warped_view)
-                    print("View Warped. Finding objects...")
-                else:
-                    print(f"Cannot capture: {msg}")
+        # Display Logic
+        if in_capture_mode and captured_view is not None:
+            cv2.imshow("Inspector", captured_view)
+        else:
+            ret, frame = cap.read()
+            if not ret: break
+
+            # Detect markers just for visual feedback
+            is_valid, corners, ids = engine.detect_markers(frame)
+
+            # Show Raw Feed with Markers
+            if is_valid:
+                aruco.drawDetectedMarkers(frame, corners, ids)
+
+            # Draw simple overlay
+            cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 60), (30, 30, 30), -1)
+            cv2.putText(frame, "LIVE VIEW - Press SPACE to Capture", (20, 35),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
+
+            if not is_valid:
+                cv2.putText(frame, "MARKERS NOT DETECTED", (20, 85),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+            cv2.imshow("Inspector", frame)
 
     cap.release()
     cv2.destroyAllWindows()
