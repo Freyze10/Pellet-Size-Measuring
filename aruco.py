@@ -9,9 +9,10 @@ import cv2.aruco as aruco
 REAL_WIDTH_MM = 80.0
 REAL_HEIGHT_MM = 80.0
 
-# TARGETS - Updated for accuracy
-TARGET_DIAMETER = 3.0  # 3mm diameter cylindrical pellets
-TOLERANCE = 0.3  # Tighter tolerance for better accuracy
+# TARGETS - Pellet dimensions
+TARGET_DIAMETER = 3.0  # 3mm diameter (width when viewed from top)
+TARGET_LENGTH = 3.0  # 3mm length (assuming cylindrical pellets)
+TOLERANCE = 0.3  # Tolerance for measurements
 
 # CAMERA
 DESIRED_WIDTH = 1280
@@ -19,7 +20,7 @@ DESIRED_HEIGHT = 720
 
 
 # ----------------------------------------------------------------------
-# Measurement Engine (ArUco + Circle Detection)
+# Measurement Engine (ArUco + Dimension Detection)
 # ----------------------------------------------------------------------
 class PrecisionMeasure:
     def __init__(self):
@@ -62,14 +63,14 @@ class PrecisionMeasure:
         return True, corners, ids
 
     def measure_pellets(self, frame):
-        """Warps the view and detects circular pellets using enhanced methods."""
+        """Warps the view and measures pellet width and length."""
         if self.matrix is None:
             return None, []
 
         # 1. Warp Perspective (Flatten image)
         warped = cv2.warpPerspective(frame, self.matrix, (self.width_px, self.height_px))
 
-        # 2. Enhanced Pre-processing for circular objects
+        # 2. Enhanced Pre-processing
         gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
 
         # Apply CLAHE for better contrast
@@ -92,56 +93,58 @@ class PrecisionMeasure:
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         results = []
-        expected_area = np.pi * (TARGET_DIAMETER / 2) ** 2  # Area in mm²
-        expected_area_px = expected_area * (self.px_per_mm ** 2)
 
         for cnt in contours:
             area = cv2.contourArea(cnt)
 
-            # Filter by area - should be roughly circular
-            if area < (0.5 * self.px_per_mm) ** 2:  # Too small
+            # Filter by area - reasonable pellet size
+            if area < (0.5 * self.px_per_mm) ** 2:  # Too small (< 0.5mm²)
                 continue
-            if area > (6.0 * self.px_per_mm) ** 2:  # Too large
+            if area > (20.0 * self.px_per_mm) ** 2:  # Too large (> 20mm²)
                 continue
 
-            # Calculate circularity (4π * area / perimeter²)
-            # Perfect circle = 1.0, lower values = less circular
+            # Use minAreaRect to get the minimum bounding rectangle
+            # This gives us the width and length of the pellet
+            rect = cv2.minAreaRect(cnt)
+            (center_x, center_y), (w_px, h_px), angle = rect
+
+            # Convert dimensions from pixels to mm
+            width_mm = w_px / self.px_per_mm
+            height_mm = h_px / self.px_per_mm
+
+            # Determine which is length and which is width
+            # For cylindrical pellets viewed from top: smallest dimension is diameter
+            if width_mm < height_mm:
+                diameter_mm = width_mm
+                length_mm = height_mm
+            else:
+                diameter_mm = height_mm
+                length_mm = width_mm
+
+            # Calculate circularity for quality check
             perimeter = cv2.arcLength(cnt, True)
-            if perimeter == 0:
-                continue
+            circularity = 4 * np.pi * area / (perimeter ** 2) if perimeter > 0 else 0
 
-            circularity = 4 * np.pi * area / (perimeter ** 2)
+            # Tolerance Check - both dimensions should be within spec
+            diameter_ok = abs(diameter_mm - TARGET_DIAMETER) <= TOLERANCE
+            length_ok = abs(length_mm - TARGET_LENGTH) <= TOLERANCE
+            is_good = diameter_ok and length_ok
 
-            # Only consider reasonably circular objects
-            if circularity < 0.6:  # Threshold for circularity
-                continue
-
-            # Fit minimum enclosing circle (best for circular pellets)
-            (center_x, center_y), radius_px = cv2.minEnclosingCircle(cnt)
-
-            # Calculate diameter in mm
-            diameter_mm = (radius_px * 2) / self.px_per_mm
-
-            # Also get equivalent diameter from area (more accurate for perfect circles)
-            equivalent_diameter = 2 * np.sqrt(area / np.pi) / self.px_per_mm
-
-            # Use average of both methods for better accuracy
-            avg_diameter = (diameter_mm + equivalent_diameter) / 2
-
-            # Tolerance Check
-            is_good = abs(avg_diameter - TARGET_DIAMETER) <= TOLERANCE
-
-            # Get bounding circle for drawing
+            # Get box points for drawing the rotated rectangle
+            box = np.intp(cv2.boxPoints(rect))
             center = (int(center_x), int(center_y))
-            radius = int(radius_px)
 
             results.append({
+                'box': box,
                 'center': center,
-                'radius': radius,
-                'diameter': avg_diameter,
+                'width': diameter_mm,  # Width (diameter)
+                'length': length_mm,  # Length
+                'angle': angle,
                 'circularity': circularity,
                 'area_mm2': area / (self.px_per_mm ** 2),
-                'ok': is_good
+                'ok': is_good,
+                'width_ok': diameter_ok,
+                'length_ok': length_ok
             })
 
         return warped, results
@@ -165,37 +168,50 @@ def draw_ui(image, results, is_frozen=False):
             else:
                 bad_count += 1
 
-            # Draw Circle
-            cv2.circle(output, r['center'], r['radius'], color, 2)
+            # Draw rotated rectangle (bounding box)
+            cv2.drawContours(output, [r['box']], 0, color, 2)
 
             # Draw center point
-            cv2.circle(output, r['center'], 2, color, -1)
+            cv2.circle(output, r['center'], 3, color, -1)
 
-            # Draw Text with measurement
+            # Draw crosshair to show orientation
             cx, cy = r['center']
-            label = f"{r['diameter']:.2f}mm"
+            angle_rad = np.deg2rad(r['angle'])
+            line_len = 15
+            dx = int(line_len * np.cos(angle_rad))
+            dy = int(line_len * np.sin(angle_rad))
+            cv2.line(output, (cx - dx, cy - dy), (cx + dx, cy + dy), color, 1)
 
-            # Add circularity if showing bad pellets
+            # Draw Text with measurements (Width x Length)
+            label = f"W:{r['width']:.2f} L:{r['length']:.2f}"
+
+            # Add quality indicators if bad
             if not r['ok']:
-                label += f" (C:{r['circularity']:.2f})"
+                issues = []
+                if not r['width_ok']:
+                    issues.append('W')
+                if not r['length_ok']:
+                    issues.append('L')
+                label += f" [{'/'.join(issues)}]"
 
             # White outline for readability
-            cv2.putText(output, label, (cx - 35, cy - r['radius'] - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 3)
-            cv2.putText(output, label, (cx - 35, cy - r['radius'] - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
+            text_y = cy - 20
+            cv2.putText(output, label, (cx - 50, text_y),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 3)
+            cv2.putText(output, label, (cx - 50, text_y),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
     # Draw Status Bar
     cv2.rectangle(output, (0, 0), (output.shape[1], 80), (30, 30, 30), -1)
 
     if is_frozen:
         status = f"CAPTURED | Total: {len(results)} | Good: {good_count} | Bad: {bad_count}"
-        detail = f"Target: {TARGET_DIAMETER}mm ± {TOLERANCE}mm"
+        detail = f"Target: W={TARGET_DIAMETER}mm, L={TARGET_LENGTH}mm (±{TOLERANCE}mm)"
         instr = "Press 'ESC' for Live View | 'S' to Save"
         col = (0, 255, 0)
     else:
         status = "LIVE VIEW - Align Markers (IDs 0,1,2,3)"
-        detail = f"Measuring {TARGET_DIAMETER}mm diameter pellets"
+        detail = f"Measuring pellet dimensions: W={TARGET_DIAMETER}mm, L={TARGET_LENGTH}mm"
         instr = "Press 'SPACE' to Capture"
         col = (200, 200, 200)
 
@@ -229,9 +245,10 @@ def main():
     captured_results = None
 
     print("=" * 60)
-    print("ARUCO PELLET INSPECTOR - Enhanced Circle Detection")
+    print("ARUCO PELLET INSPECTOR - Width & Length Measurement")
     print("=" * 60)
-    print(f"Target: {TARGET_DIAMETER}mm diameter pellets")
+    print(f"Target Width (Diameter): {TARGET_DIAMETER}mm")
+    print(f"Target Length: {TARGET_LENGTH}mm")
     print(f"Tolerance: ±{TOLERANCE}mm")
     print(f"Workspace: {REAL_WIDTH_MM}mm x {REAL_HEIGHT_MM}mm")
     print("=" * 60)
@@ -270,9 +287,12 @@ def main():
                         print(f"\n✓ Captured {len(results)} pellets: {good} good, {bad} bad")
 
                         if results:
-                            diameters = [r['diameter'] for r in results]
-                            print(f"  Diameter range: {min(diameters):.2f} - {max(diameters):.2f}mm")
-                            print(f"  Average: {np.mean(diameters):.2f}mm (±{np.std(diameters):.2f}mm)")
+                            widths = [r['width'] for r in results]
+                            lengths = [r['length'] for r in results]
+                            print(f"  Width range:  {min(widths):.2f} - {max(widths):.2f}mm")
+                            print(f"  Width avg:    {np.mean(widths):.2f}mm (±{np.std(widths):.2f}mm)")
+                            print(f"  Length range: {min(lengths):.2f} - {max(lengths):.2f}mm")
+                            print(f"  Length avg:   {np.mean(lengths):.2f}mm (±{np.std(lengths):.2f}mm)")
                     else:
                         print("⚠ Cannot capture: Markers not aligned (need IDs 0,1,2,3)")
         elif key == ord('s') and in_capture_mode and captured_view is not None:

@@ -230,14 +230,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00311" summary="use fit elipse for more accurate reading of coin">
-      <option name="closed" value="true" />
-      <created>1765423540112</created>
-      <option name="number" value="00311" />
-      <option name="presentableId" value="LOCAL-00311" />
-      <option name="project" value="LOCAL" />
-      <updated>1765423540112</updated>
-    </task>
     <task id="LOCAL-00312" summary="use fit elipse for more accurate reading of coin">
       <option name="closed" value="true" />
       <created>1765424362556</created>
@@ -622,7 +614,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765867873699</updated>
     </task>
-    <option name="localTasksCounter" value="360" />
+    <task id="LOCAL-00360" summary="try circle detection">
+      <option name="closed" value="true" />
+      <created>1765868379291</created>
+      <option name="number" value="00360" />
+      <option name="presentableId" value="LOCAL-00360" />
+      <option name="project" value="LOCAL" />
+      <updated>1765868379291</updated>
+    </task>
+    <option name="localTasksCounter" value="361" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -649,7 +649,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="created new file for new approach" />
     <MESSAGE value="added code for new approach" />
     <MESSAGE value="for print aruco" />
     <MESSAGE value="with aruco bg" />
@@ -674,7 +673,8 @@
     <MESSAGE value="return back" />
     <MESSAGE value="auto calc cam height" />
     <MESSAGE value="returned" />
-    <option name="LAST_COMMIT_MESSAGE" value="returned" />
+    <MESSAGE value="try circle detection" />
+    <option name="LAST_COMMIT_MESSAGE" value="try circle detection" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
