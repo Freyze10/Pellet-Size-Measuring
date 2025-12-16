@@ -8,8 +8,8 @@ import cv2.aruco as aruco
 # 1. PHYSICAL SETUP
 # The distance between the specific corners of the markers (Outer dimensions usually)
 # Measure the distance from the Top-Left corner of Marker 0 to Top-Right of Marker 1
-WORK_WIDTH_MM = 100.0
-WORK_HEIGHT_MM = 100.0
+WORK_WIDTH_MM = 80.0
+WORK_HEIGHT_MM = 80.0
 
 # 2. PARALLAX COMPENSATION (Crucial for Accuracy)
 # Because the pellet surface is closer to the camera than the table, it looks bigger.
