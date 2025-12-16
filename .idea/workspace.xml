@@ -230,22 +230,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00304" summary="updated calibrated after manual calibration">
-      <option name="closed" value="true" />
-      <created>1764903715398</created>
-      <option name="number" value="00304" />
-      <option name="presentableId" value="LOCAL-00304" />
-      <option name="project" value="LOCAL" />
-      <updated>1764903715398</updated>
-    </task>
-    <task id="LOCAL-00305" summary="fixed in/out text in main">
-      <option name="closed" value="true" />
-      <created>1764904034384</created>
-      <option name="number" value="00305" />
-      <option name="presentableId" value="LOCAL-00305" />
-      <option name="project" value="LOCAL" />
-      <updated>1764904034384</updated>
-    </task>
     <task id="LOCAL-00306" summary="fixed in/out text in main">
       <option name="closed" value="true" />
       <created>1764925563772</created>
@@ -622,7 +606,23 @@
       <option name="project" value="LOCAL" />
       <updated>1765606731024</updated>
     </task>
-    <option name="localTasksCounter" value="353" />
+    <task id="LOCAL-00353" summary="added height compensation">
+      <option name="closed" value="true" />
+      <created>1765844737720</created>
+      <option name="number" value="00353" />
+      <option name="presentableId" value="LOCAL-00353" />
+      <option name="project" value="LOCAL" />
+      <updated>1765844737720</updated>
+    </task>
+    <task id="LOCAL-00354" summary="set width height to 80mm">
+      <option name="closed" value="true" />
+      <created>1765844759551</created>
+      <option name="number" value="00354" />
+      <option name="presentableId" value="LOCAL-00354" />
+      <option name="project" value="LOCAL" />
+      <updated>1765844759551</updated>
+    </task>
+    <option name="localTasksCounter" value="355" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -649,8 +649,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added overlay in the auuto calib" />
-    <MESSAGE value="updating functions" />
     <MESSAGE value="updating new capture" />
     <MESSAGE value="calibrate once" />
     <MESSAGE value="added escape on frozen" />
@@ -674,7 +672,9 @@
     <MESSAGE value="minarearect pellet detect" />
     <MESSAGE value="used pellet detection  of auto" />
     <MESSAGE value="thinner outlinbe" />
-    <option name="LAST_COMMIT_MESSAGE" value="thinner outlinbe" />
+    <MESSAGE value="added height compensation" />
+    <MESSAGE value="set width height to 80mm" />
+    <option name="LAST_COMMIT_MESSAGE" value="set width height to 80mm" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
