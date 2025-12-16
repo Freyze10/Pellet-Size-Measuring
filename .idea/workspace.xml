@@ -230,14 +230,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00309" summary="updated coin calib">
-      <option name="closed" value="true" />
-      <created>1765422356405</created>
-      <option name="number" value="00309" />
-      <option name="presentableId" value="LOCAL-00309" />
-      <option name="project" value="LOCAL" />
-      <updated>1765422356405</updated>
-    </task>
     <task id="LOCAL-00310" summary="thinner boxes">
       <option name="closed" value="true" />
       <created>1765422902779</created>
@@ -622,7 +614,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765865319124</updated>
     </task>
-    <option name="localTasksCounter" value="358" />
+    <task id="LOCAL-00358" summary="auto calc cam height">
+      <option name="closed" value="true" />
+      <created>1765866994646</created>
+      <option name="number" value="00358" />
+      <option name="presentableId" value="LOCAL-00358" />
+      <option name="project" value="LOCAL" />
+      <updated>1765866994646</updated>
+    </task>
+    <option name="localTasksCounter" value="359" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -649,7 +649,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added escape on frozen" />
     <MESSAGE value="removed plus .3" />
     <MESSAGE value="created new file for new approach" />
     <MESSAGE value="added code for new approach" />
@@ -674,7 +673,8 @@
     <MESSAGE value="set width height to 80mm" />
     <MESSAGE value="trying coin calib on aruco" />
     <MESSAGE value="return back" />
-    <option name="LAST_COMMIT_MESSAGE" value="return back" />
+    <MESSAGE value="auto calc cam height" />
+    <option name="LAST_COMMIT_MESSAGE" value="auto calc cam height" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
