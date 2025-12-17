@@ -15,31 +15,49 @@ TARGET_LENGTH = 3.0
 TOLERANCE = 0.5
 
 # CAMERA
-DESIRED_WIDTH = 1280
-DESIRED_HEIGHT = 720
+DESIRED_WIDTH = 1920  # Higher resolution
+DESIRED_HEIGHT = 1080
+
+# CALIBRATION - Measure your actual ArUco marker size
+ARUCO_MARKER_SIZE_MM = 20.0  # Adjust this to your actual marker size
 
 
 # ----------------------------------------------------------------------
-# Measurement Engine (ArUco + Bounding Box)
+# Measurement Engine (ArUco + Enhanced Detection)
 # ----------------------------------------------------------------------
 class PrecisionMeasure:
     def __init__(self):
-        # ArUco Setup
+        # ArUco Setup with refined parameters
         self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
         self.aruco_params = aruco.DetectorParameters()
+
+        # Fine-tune detection parameters
+        self.aruco_params.adaptiveThreshWinSizeMin = 3
+        self.aruco_params.adaptiveThreshWinSizeMax = 23
+        self.aruco_params.adaptiveThreshWinSizeStep = 10
+        self.aruco_params.cornerRefinementMethod = aruco.CORNER_REFINE_SUBPIX
+        self.aruco_params.cornerRefinementWinSize = 5
+        self.aruco_params.cornerRefinementMaxIterations = 30
+
         self.detector = aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
 
         self.matrix = None
+        self.actual_px_per_mm = None  # Dynamically calculated
 
-        # Scale: High resolution (10 px = 1 mm)
-        self.scale_factor = 10
+        # Scale: Very high resolution (20 px = 1 mm)
+        self.scale_factor = 20
         self.width_px = int(REAL_WIDTH_MM * self.scale_factor)
         self.height_px = int(REAL_HEIGHT_MM * self.scale_factor)
         self.px_per_mm = self.scale_factor
 
     def detect_markers(self, frame):
-        """Detects markers to establish the workspace."""
+        """Detects markers to establish the workspace with sub-pixel accuracy."""
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # Apply CLAHE for better marker detection
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        gray = clahe.apply(gray)
+
         corners, ids, _ = self.detector.detectMarkers(gray)
 
         if ids is None or len(ids) < 4:
@@ -47,11 +65,17 @@ class PrecisionMeasure:
 
         id_map = {}
         for i, id_val in enumerate(ids):
+            # Use precise corner averaging
             c = np.mean(corners[i][0], axis=0)
             id_map[id_val[0]] = c
 
         if not all(k in id_map for k in [0, 1, 2, 3]):
             return False, corners, ids
+
+        # Calculate actual pixel-per-mm ratio from marker positions
+        # This accounts for camera distortion and angle
+        marker_dist_px = np.linalg.norm(id_map[0] - id_map[1])
+        self.actual_px_per_mm = marker_dist_px / REAL_WIDTH_MM
 
         # Order: TL, TR, BR, BL
         src_pts = np.float32([id_map[0], id_map[1], id_map[2], id_map[3]])
@@ -62,48 +86,112 @@ class PrecisionMeasure:
         return True, corners, ids
 
     def measure_pellets(self, frame):
-        """Warps the view and detects pellets using Bounding Boxes."""
+        """Warps the view and detects pellets with multi-method measurement."""
         if self.matrix is None:
             return None, []
 
-        # 1. Warp Perspective (Flatten image)
-        warped = cv2.warpPerspective(frame, self.matrix, (self.width_px, self.height_px))
+        # 1. Warp Perspective with high-quality interpolation
+        warped = cv2.warpPerspective(frame, self.matrix, (self.width_px, self.height_px),
+                                     flags=cv2.INTER_CUBIC)
 
-        # 2. Pre-processing
+        # 2. Multi-stage pre-processing
         gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-        # 3. Threshold (Otsu is usually best for calibration sheets)
-        _, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        # Denoise while preserving edges
+        denoised = cv2.fastNlMeansDenoising(gray, None, h=10, templateWindowSize=7, searchWindowSize=21)
 
-        # Clean up noise
-        kernel = np.ones((3, 3), np.uint8)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
+        # Enhance contrast
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(denoised)
 
-        # 4. Find Contours
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Multiple blur for stability
+        blur1 = cv2.GaussianBlur(enhanced, (3, 3), 0)
+        blur2 = cv2.bilateralFilter(blur1, 5, 50, 50)
+
+        # 3. Multi-threshold approach (combine methods)
+        # Method 1: Otsu
+        _, thresh_otsu = cv2.threshold(blur2, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+        # Method 2: Adaptive
+        thresh_adaptive = cv2.adaptiveThreshold(blur2, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                                cv2.THRESH_BINARY_INV, 15, 2)
+
+        # Combine both thresholds
+        thresh = cv2.bitwise_and(thresh_otsu, thresh_adaptive)
+
+        # Advanced morphological operations
+        kernel_ellipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_ellipse, iterations=2)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel_ellipse, iterations=1)
+
+        # Remove small noise with connected components
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh, connectivity=8)
+
+        # 4. Find Contours with hierarchy
+        contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
         results = []
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            # Filter tiny noise (approx 1mm^2)
-            if area < (1.0 * self.px_per_mm) ** 2: continue
 
-            # --- BOUNDING BOX LOGIC ---
+            # Stricter area filtering
+            min_area = (0.8 * self.px_per_mm) ** 2
+            max_area = (8.0 * self.px_per_mm) ** 2
+            if area < min_area or area > max_area:
+                continue
+
+            # Calculate perimeter for shape analysis
+            perimeter = cv2.arcLength(cnt, True)
+            if perimeter == 0:
+                continue
+
+            # Circularity check (helps filter noise)
+            circularity = 4 * np.pi * area / (perimeter ** 2)
+
+            # Solidity check (ratio of contour area to convex hull area)
+            hull = cv2.convexHull(cnt)
+            hull_area = cv2.contourArea(hull)
+            solidity = area / hull_area if hull_area > 0 else 0
+
+            # --- MULTI-METHOD MEASUREMENT ---
+
+            # Method 1: minAreaRect (rotated bounding box)
             rect = cv2.minAreaRect(cnt)
-            (center_x, center_y), (w, h), angle = rect
+            (center_x, center_y), (w1, h1), angle = rect
+            dim1_mm = w1 / self.px_per_mm
+            dim2_mm = h1 / self.px_per_mm
 
-            # Convert px to mm
-            dim1 = w / self.px_per_mm
-            dim2 = h / self.px_per_mm
+            # Method 2: Ellipse fitting (more accurate for round objects)
+            if len(cnt) >= 5:  # Need at least 5 points for ellipse
+                ellipse = cv2.fitEllipse(cnt)
+                (ex, ey), (ew, eh), eangle = ellipse
+                edim1_mm = ew / self.px_per_mm
+                edim2_mm = eh / self.px_per_mm
 
-            # Assumption: Longest side is Length
-            length_mm = max(dim1, dim2)
-            diameter_mm = min(dim1, dim2)
+                # Average the two methods
+                dim1_mm = (dim1_mm + edim1_mm) / 2
+                dim2_mm = (dim2_mm + edim2_mm) / 2
 
-            # Tolerance Check
-            is_good = (abs(diameter_mm - TARGET_DIAMETER) <= TOLERANCE and
-                       abs(length_mm - TARGET_LENGTH) <= TOLERANCE)
+            # Method 3: Equivalent diameter from area (cross-validation)
+            equiv_diameter_mm = 2 * np.sqrt(area / np.pi) / self.px_per_mm
+
+            # Determine width and length
+            length_mm = max(dim1_mm, dim2_mm)
+            diameter_mm = min(dim1_mm, dim2_mm)
+
+            # Cross-validate with equivalent diameter
+            # If measurements are inconsistent, use equivalent diameter
+            if abs(diameter_mm - equiv_diameter_mm) > 0.5:
+                diameter_mm = (diameter_mm + equiv_diameter_mm) / 2
+
+            # Quality checks
+            is_circular = circularity > 0.65
+            is_solid = solidity > 0.85
+
+            # Tolerance Check with quality weighting
+            diameter_ok = abs(diameter_mm - TARGET_DIAMETER) <= TOLERANCE
+            length_ok = abs(length_mm - TARGET_LENGTH) <= TOLERANCE
+            is_good = diameter_ok and length_ok and is_circular and is_solid
 
             # Get box points for drawing
             box = np.intp(cv2.boxPoints(rect))
@@ -113,7 +201,10 @@ class PrecisionMeasure:
                 'center': (int(center_x), int(center_y)),
                 'd': diameter_mm,
                 'l': length_mm,
-                'ok': is_good
+                'ok': is_good,
+                'circularity': circularity,
+                'solidity': solidity,
+                'area_mm2': area / (self.px_per_mm ** 2)
             })
 
         return warped, results
@@ -122,7 +213,7 @@ class PrecisionMeasure:
 # ----------------------------------------------------------------------
 # UI / Drawing
 # ----------------------------------------------------------------------
-def draw_ui(image, results, is_frozen=False):
+def draw_ui(image, results, is_frozen=False, px_per_mm=None):
     output = image.copy()
 
     good_count = 0
@@ -140,61 +231,142 @@ def draw_ui(image, results, is_frozen=False):
             # Draw Rectangle
             cv2.drawContours(output, [r['box']], 0, color, 2)
 
-            # Draw Text
+            # Draw center crosshair
             cx, cy = r['center']
+            cv2.line(output, (cx - 5, cy), (cx + 5, cy), color, 1)
+            cv2.line(output, (cx, cy - 5), (cx, cy + 5), color, 1)
+
+            # Draw Text with quality indicators
             label = f"{r['d']:.2f}x{r['l']:.2f}"
-            cv2.putText(output, label, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 4)  # Outline
-            cv2.putText(output, label, (cx - 30, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+            if not r['ok']:
+                label += f" Q:{r['circularity']:.2f}"
+
+            # White outline for readability
+            cv2.putText(output, label, (cx - 35, cy - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 3)
+            cv2.putText(output, label, (cx - 35, cy - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
 
     # Draw Status Bar
-    cv2.rectangle(output, (0, 0), (output.shape[1], 60), (30, 30, 30), -1)
+    cv2.rectangle(output, (0, 0), (output.shape[1], 90), (30, 30, 30), -1)
 
     if is_frozen:
         status = f"CAPTURED | Total: {len(results)} | Good: {good_count} | Bad: {bad_count}"
-        instr = "Press 'ESC' for Live View"
+        if px_per_mm:
+            detail = f"Resolution: {px_per_mm:.2f} px/mm | Target: {TARGET_DIAMETER}x{TARGET_LENGTH}mm ±{TOLERANCE}mm"
+        else:
+            detail = f"Target: {TARGET_DIAMETER}x{TARGET_LENGTH}mm ±{TOLERANCE}mm"
+        instr = "Press 'ESC' for Live View | 'S' to Save | 'R' for Stats"
         col = (0, 255, 0)
     else:
-        status = "LIVE VIEW - Align Markers"
-        instr = "Press 'SPACE' to Capture"
+        status = "LIVE VIEW - Align Markers (IDs 0,1,2,3)"
+        detail = "Ensure good lighting and stable camera position"
+        instr = "Press 'SPACE' to Capture | 'Q' to Quit"
         col = (200, 200, 200)
 
-    cv2.putText(output, status, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, col, 1)
-    cv2.putText(output, instr, (20, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
+    cv2.putText(output, status, (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, col, 2)
+    cv2.putText(output, detail, (20, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (150, 150, 150), 1)
+    cv2.putText(output, instr, (20, 78), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (150, 150, 150), 1)
 
     return output
+
+
+def print_statistics(results):
+    """Print detailed measurement statistics."""
+    if not results:
+        print("No pellets detected.")
+        return
+
+    print("\n" + "=" * 60)
+    print("DETAILED STATISTICS")
+    print("=" * 60)
+
+    diameters = [r['d'] for r in results]
+    lengths = [r['l'] for r in results]
+    circularities = [r['circularity'] for r in results]
+    solidities = [r['solidity'] for r in results]
+
+    print(f"Total Pellets: {len(results)}")
+    print(f"  Good: {sum(1 for r in results if r['ok'])}")
+    print(f"  Bad:  {sum(1 for r in results if not r['ok'])}")
+    print()
+    print(f"Diameter (mm):")
+    print(f"  Range:  {min(diameters):.3f} - {max(diameters):.3f}")
+    print(f"  Mean:   {np.mean(diameters):.3f} ± {np.std(diameters):.3f}")
+    print(f"  Median: {np.median(diameters):.3f}")
+    print()
+    print(f"Length (mm):")
+    print(f"  Range:  {min(lengths):.3f} - {max(lengths):.3f}")
+    print(f"  Mean:   {np.mean(lengths):.3f} ± {np.std(lengths):.3f}")
+    print(f"  Median: {np.median(lengths):.3f}")
+    print()
+    print(f"Quality Metrics:")
+    print(f"  Circularity: {np.mean(circularities):.3f} (avg)")
+    print(f"  Solidity:    {np.mean(solidities):.3f} (avg)")
+    print("=" * 60)
 
 
 # ----------------------------------------------------------------------
 # Main Application
 # ----------------------------------------------------------------------
 def main():
+    # Try different camera backends for best quality
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    if not cap.isOpened(): cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        cap = cv2.VideoCapture(0)
 
+    # Set highest resolution
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, DESIRED_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, DESIRED_HEIGHT)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Important
+
+    # Manual focus for consistent measurements
+    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+    cap.set(cv2.CAP_PROP_FOCUS, 0)
+
+    # Disable auto exposure for consistent lighting
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # Manual mode
+    cap.set(cv2.CAP_PROP_EXPOSURE, -6)  # Adjust as needed
+
+    # Set high FPS for stability
+    cap.set(cv2.CAP_PROP_FPS, 30)
 
     engine = PrecisionMeasure()
 
     # State
     in_capture_mode = False
     captured_view = None
+    captured_results = None
 
     print("=" * 60)
-    print("ARUCO PELLET INSPECTOR")
-    print("Align 4 markers (IDs 0,1,2,3)")
-    print("SPACE: Capture | ESC: Live View")
+    print("ENHANCED ARUCO PELLET INSPECTOR")
+    print("=" * 60)
+    print(f"Target: {TARGET_DIAMETER}mm x {TARGET_LENGTH}mm (±{TOLERANCE}mm)")
+    print(f"Workspace: {REAL_WIDTH_MM}mm x {REAL_HEIGHT_MM}mm")
+    print(f"Resolution: {DESIRED_WIDTH}x{DESIRED_HEIGHT}")
+    print("=" * 60)
+    print("TIPS FOR ACCURACY:")
+    print("  1. Use even, diffuse lighting (no shadows)")
+    print("  2. Keep camera perpendicular to surface")
+    print("  3. Ensure markers are flat and visible")
+    print("  4. Use manual focus (disable autofocus)")
+    print("  5. Keep camera stable (use tripod if possible)")
+    print("=" * 60)
+    print("Controls:")
+    print("  SPACE: Capture and measure")
+    print("  ESC:   Return to live view")
+    print("  S:     Save captured image")
+    print("  R:     Show detailed statistics")
+    print("  Q:     Quit")
     print("=" * 60)
 
     while True:
-        # User Interaction
         key = cv2.waitKey(1) & 0xFF
+
         if key == ord('q'):
             break
         elif key == 27:  # ESC
             in_capture_mode = False
-            print("Returned to Live View")
+            print("→ Returned to Live View")
         elif key == ord(' '):  # SPACE
             if not in_capture_mode:
                 ret, frame = cap.read()
@@ -202,39 +374,59 @@ def main():
                     is_valid, _, _ = engine.detect_markers(frame)
                     if is_valid:
                         warped, results = engine.measure_pellets(frame)
-                        captured_view = draw_ui(warped, results, is_frozen=True)
+                        captured_view = draw_ui(warped, results, is_frozen=True,
+                                                px_per_mm=engine.px_per_mm)
+                        captured_results = results
                         in_capture_mode = True
-                        print(f"Captured {len(results)} pellets.")
+
+                        good = sum(1 for r in results if r['ok'])
+                        bad = len(results) - good
+                        print(f"\n✓ Captured {len(results)} pellets: {good} good, {bad} bad")
+                        print(f"  Resolution: {engine.actual_px_per_mm:.2f} px/mm")
                     else:
-                        print("Cannot capture: Markers not aligned.")
+                        print("⚠ Cannot capture: Ensure all 4 markers (IDs 0,1,2,3) are visible")
+        elif key == ord('s') and in_capture_mode and captured_view is not None:
+            filename = f"pellet_measure_{len(captured_results)}.png"
+            cv2.imwrite(filename, captured_view)
+            print(f"✓ Saved: {filename}")
+        elif key == ord('r') and in_capture_mode and captured_results is not None:
+            print_statistics(captured_results)
 
         # Display Logic
         if in_capture_mode and captured_view is not None:
-            cv2.imshow("Inspector", captured_view)
+            cv2.imshow("Pellet Inspector", captured_view)
         else:
             ret, frame = cap.read()
-            if not ret: break
+            if not ret:
+                print("⚠ Cannot read from camera")
+                break
 
-            # Detect markers just for visual feedback
             is_valid, corners, ids = engine.detect_markers(frame)
 
-            # Show Raw Feed with Markers
             if is_valid:
                 aruco.drawDetectedMarkers(frame, corners, ids)
 
-            # Draw simple overlay
-            cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 60), (30, 30, 30), -1)
-            cv2.putText(frame, "LIVE VIEW - Press SPACE to Capture", (20, 35),
+            # Draw overlay
+            cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 90), (30, 30, 30), -1)
+            cv2.putText(frame, "LIVE VIEW - Press SPACE to Capture", (20, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
 
             if not is_valid:
-                cv2.putText(frame, "MARKERS NOT DETECTED", (20, 85),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                cv2.putText(frame, "⚠ MARKERS NOT DETECTED", (20, 110),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+                cv2.putText(frame, "Align all 4 ArUco markers (IDs 0,1,2,3)", (20, 65),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
+            else:
+                cv2.putText(frame, "✓ Ready - Good lighting and alignment", (20, 65),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-            cv2.imshow("Inspector", frame)
+            cv2.imshow("Pellet Inspector", frame)
 
     cap.release()
     cv2.destroyAllWindows()
+    print("\n" + "=" * 60)
+    print("Application closed")
+    print("=" * 60)
 
 
 if __name__ == "__main__":

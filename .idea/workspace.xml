@@ -230,22 +230,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00312" summary="use fit elipse for more accurate reading of coin">
-      <option name="closed" value="true" />
-      <created>1765424362556</created>
-      <option name="number" value="00312" />
-      <option name="presentableId" value="LOCAL-00312" />
-      <option name="project" value="LOCAL" />
-      <updated>1765424362556</updated>
-    </task>
-    <task id="LOCAL-00313" summary="set 23mm for peso coin base from bsp">
-      <option name="closed" value="true" />
-      <created>1765424393585</created>
-      <option name="number" value="00313" />
-      <option name="presentableId" value="LOCAL-00313" />
-      <option name="project" value="LOCAL" />
-      <updated>1765424393585</updated>
-    </task>
     <task id="LOCAL-00314" summary="added capture">
       <option name="closed" value="true" />
       <created>1765424913359</created>
@@ -622,7 +606,23 @@
       <option name="project" value="LOCAL" />
       <updated>1765868379291</updated>
     </task>
-    <option name="localTasksCounter" value="361" />
+    <task id="LOCAL-00361" summary="try minarearect">
+      <option name="closed" value="true" />
+      <created>1765868768686</created>
+      <option name="number" value="00361" />
+      <option name="presentableId" value="LOCAL-00361" />
+      <option name="project" value="LOCAL" />
+      <updated>1765868768686</updated>
+    </task>
+    <task id="LOCAL-00362" summary="returned">
+      <option name="closed" value="true" />
+      <created>1765868785853</created>
+      <option name="number" value="00362" />
+      <option name="presentableId" value="LOCAL-00362" />
+      <option name="project" value="LOCAL" />
+      <updated>1765868785853</updated>
+    </task>
+    <option name="localTasksCounter" value="363" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -649,7 +649,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added code for new approach" />
     <MESSAGE value="for print aruco" />
     <MESSAGE value="with aruco bg" />
     <MESSAGE value="for marker" />
@@ -672,9 +671,10 @@
     <MESSAGE value="trying coin calib on aruco" />
     <MESSAGE value="return back" />
     <MESSAGE value="auto calc cam height" />
-    <MESSAGE value="returned" />
     <MESSAGE value="try circle detection" />
-    <option name="LAST_COMMIT_MESSAGE" value="try circle detection" />
+    <MESSAGE value="try minarearect" />
+    <MESSAGE value="returned" />
+    <option name="LAST_COMMIT_MESSAGE" value="returned" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
