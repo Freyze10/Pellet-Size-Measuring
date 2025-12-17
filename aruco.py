@@ -9,10 +9,11 @@ import cv2.aruco as aruco
 REAL_WIDTH_MM = 80.0
 REAL_HEIGHT_MM = 80.0
 
-# TARGETS
-TARGET_DIAMETER = 3.0
-TARGET_LENGTH = 3.0
-TOLERANCE = 0.5
+# TARGETS - Pellet is 3mm THICK (height), measuring top-down view
+# We're measuring the LENGTH and WIDTH of the pellet from above
+TARGET_WIDTH = 3.0  # Width of pellet (mm) - viewed from top
+TARGET_LENGTH = 3.0  # Length of pellet (mm) - viewed from top
+TOLERANCE = 0.3  # Tighter tolerance
 
 # CAMERA
 DESIRED_WIDTH = 1920  # Higher resolution
@@ -175,23 +176,22 @@ class PrecisionMeasure:
             # Method 3: Equivalent diameter from area (cross-validation)
             equiv_diameter_mm = 2 * np.sqrt(area / np.pi) / self.px_per_mm
 
-            # Determine width and length
+            # Determine width and length (both are face dimensions, not thickness)
+            # For rectangular pellets: smaller dimension = width, larger = length
+            width_mm = min(dim1_mm, dim2_mm)
             length_mm = max(dim1_mm, dim2_mm)
-            diameter_mm = min(dim1_mm, dim2_mm)
 
-            # Cross-validate with equivalent diameter
-            # If measurements are inconsistent, use equivalent diameter
-            if abs(diameter_mm - equiv_diameter_mm) > 0.5:
-                diameter_mm = (diameter_mm + equiv_diameter_mm) / 2
+            # Note: 3mm thickness is NOT measured (it's the height perpendicular to table)
+            # We only measure the top rectangular face: width x length
 
             # Quality checks
             is_circular = circularity > 0.65
             is_solid = solidity > 0.85
 
             # Tolerance Check with quality weighting
-            diameter_ok = abs(diameter_mm - TARGET_DIAMETER) <= TOLERANCE
+            width_ok = abs(width_mm - TARGET_WIDTH) <= TOLERANCE
             length_ok = abs(length_mm - TARGET_LENGTH) <= TOLERANCE
-            is_good = diameter_ok and length_ok and is_circular and is_solid
+            is_good = width_ok and length_ok and is_circular and is_solid
 
             # Get box points for drawing
             box = np.intp(cv2.boxPoints(rect))
@@ -199,8 +199,8 @@ class PrecisionMeasure:
             results.append({
                 'box': box,
                 'center': (int(center_x), int(center_y)),
-                'd': diameter_mm,
-                'l': length_mm,
+                'w': width_mm,  # Width (smaller dimension)
+                'l': length_mm,  # Length (larger dimension)
                 'ok': is_good,
                 'circularity': circularity,
                 'solidity': solidity,
@@ -237,7 +237,7 @@ def draw_ui(image, results, is_frozen=False, px_per_mm=None):
             cv2.line(output, (cx, cy - 5), (cx, cy + 5), color, 1)
 
             # Draw Text with quality indicators
-            label = f"{r['d']:.2f}x{r['l']:.2f}"
+            label = f"W:{r['w']:.2f} L:{r['l']:.2f}"
             if not r['ok']:
                 label += f" Q:{r['circularity']:.2f}"
 
@@ -251,14 +251,14 @@ def draw_ui(image, results, is_frozen=False, px_per_mm=None):
     if is_frozen:
         status = f"CAPTURED | Total: {len(results)} | Good: {good_count} | Bad: {bad_count}"
         if px_per_mm:
-            detail = f"Resolution: {px_per_mm:.2f} px/mm | Target: {TARGET_DIAMETER}x{TARGET_LENGTH}mm ±{TOLERANCE}mm"
+            detail = f"Resolution: {px_per_mm:.2f} px/mm | Target: {TARGET_WIDTH}x{TARGET_LENGTH}mm ±{TOLERANCE}mm"
         else:
-            detail = f"Target: {TARGET_DIAMETER}x{TARGET_LENGTH}mm ±{TOLERANCE}mm"
+            detail = f"Target: W={TARGET_WIDTH}mm L={TARGET_LENGTH}mm ±{TOLERANCE}mm"
         instr = "Press 'ESC' for Live View | 'S' to Save | 'R' for Stats"
         col = (0, 255, 0)
     else:
         status = "LIVE VIEW - Align Markers (IDs 0,1,2,3)"
-        detail = "Ensure good lighting and stable camera position"
+        detail = "Measuring pellet top face (3mm thickness perpendicular to table)"
         instr = "Press 'SPACE' to Capture | 'Q' to Quit"
         col = (200, 200, 200)
 
@@ -279,7 +279,7 @@ def print_statistics(results):
     print("DETAILED STATISTICS")
     print("=" * 60)
 
-    diameters = [r['d'] for r in results]
+    diameters = [r['w'] for r in results]  # Width measurements
     lengths = [r['l'] for r in results]
     circularities = [r['circularity'] for r in results]
     solidities = [r['solidity'] for r in results]
@@ -288,15 +288,17 @@ def print_statistics(results):
     print(f"  Good: {sum(1 for r in results if r['ok'])}")
     print(f"  Bad:  {sum(1 for r in results if not r['ok'])}")
     print()
-    print(f"Diameter (mm):")
+    print(f"Width (mm) - top face measurement:")
     print(f"  Range:  {min(diameters):.3f} - {max(diameters):.3f}")
     print(f"  Mean:   {np.mean(diameters):.3f} ± {np.std(diameters):.3f}")
     print(f"  Median: {np.median(diameters):.3f}")
     print()
-    print(f"Length (mm):")
+    print(f"Length (mm) - top face measurement:")
     print(f"  Range:  {min(lengths):.3f} - {max(lengths):.3f}")
     print(f"  Mean:   {np.mean(lengths):.3f} ± {np.std(lengths):.3f}")
     print(f"  Median: {np.median(lengths):.3f}")
+    print()
+    print(f"Note: 3mm thickness (height) is perpendicular to table, not measured")
     print()
     print(f"Quality Metrics:")
     print(f"  Circularity: {np.mean(circularities):.3f} (avg)")
@@ -340,16 +342,18 @@ def main():
     print("=" * 60)
     print("ENHANCED ARUCO PELLET INSPECTOR")
     print("=" * 60)
-    print(f"Target: {TARGET_DIAMETER}mm x {TARGET_LENGTH}mm (±{TOLERANCE}mm)")
+    print(f"Target: Width={TARGET_WIDTH}mm, Length={TARGET_LENGTH}mm (±{TOLERANCE}mm)")
+    print(f"Note: Pellet is 3mm THICK (perpendicular to table)")
+    print(f"      We measure the TOP FACE width x length")
     print(f"Workspace: {REAL_WIDTH_MM}mm x {REAL_HEIGHT_MM}mm")
     print(f"Resolution: {DESIRED_WIDTH}x{DESIRED_HEIGHT}")
     print("=" * 60)
-    print("TIPS FOR ACCURACY:")
-    print("  1. Use even, diffuse lighting (no shadows)")
-    print("  2. Keep camera perpendicular to surface")
-    print("  3. Ensure markers are flat and visible")
-    print("  4. Use manual focus (disable autofocus)")
-    print("  5. Keep camera stable (use tripod if possible)")
+    print("SETUP REQUIREMENTS:")
+    print("  • ArUco markers flat on table (same level as pellets)")
+    print("  • Camera positioned directly above (perpendicular)")
+    print("  • Even, diffuse lighting (no shadows)")
+    print("  • Manual focus enabled (disable autofocus)")
+    print("  • Stable camera (tripod recommended)")
     print("=" * 60)
     print("Controls:")
     print("  SPACE: Capture and measure")
