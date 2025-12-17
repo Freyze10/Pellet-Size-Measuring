@@ -45,11 +45,11 @@ class PrecisionMeasure:
         self.matrix = None
         self.actual_px_per_mm = None  # Dynamically calculated
 
-        # Scale: High resolution (12 px = 1 mm) - balanced for display
+        # Scale: Fixed at 12 px/mm for optimal balance
         self.scale_factor = 12
         self.width_px = int(REAL_WIDTH_MM * self.scale_factor)
         self.height_px = int(REAL_HEIGHT_MM * self.scale_factor)
-        self.px_per_mm = self.scale_factor
+        self.px_per_mm = self.scale_factor  # Fixed at 12
 
     def detect_markers(self, frame):
         """Detects markers to establish the workspace with sub-pixel accuracy."""
@@ -216,6 +216,11 @@ class PrecisionMeasure:
 def draw_ui(image, results, is_frozen=False, px_per_mm=None):
     output = image.copy()
 
+    # Resize output for smaller display window (50% scale)
+    display_scale = 0.6
+    display_width = int(output.shape[1] * display_scale)
+    display_height = int(output.shape[0] * display_scale)
+
     good_count = 0
     bad_count = 0
 
@@ -250,10 +255,7 @@ def draw_ui(image, results, is_frozen=False, px_per_mm=None):
 
     if is_frozen:
         status = f"CAPTURED | Total: {len(results)} | Good: {good_count} | Bad: {bad_count}"
-        if px_per_mm:
-            detail = f"Resolution: {px_per_mm:.2f} px/mm | Target: {TARGET_WIDTH}x{TARGET_LENGTH}mm ±{TOLERANCE}mm"
-        else:
-            detail = f"Target: W={TARGET_WIDTH}mm L={TARGET_LENGTH}mm ±{TOLERANCE}mm"
+        detail = f"Resolution: 12 px/mm | Target: {TARGET_WIDTH}x{TARGET_LENGTH}mm ±{TOLERANCE}mm"
         instr = "Press 'ESC' for Live View | 'S' to Save | 'R' for Stats"
         col = (0, 255, 0)
     else:
@@ -266,7 +268,9 @@ def draw_ui(image, results, is_frozen=False, px_per_mm=None):
     cv2.putText(output, detail, (20, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (150, 150, 150), 1)
     cv2.putText(output, instr, (20, 78), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (150, 150, 150), 1)
 
-    return output
+    # Resize for display
+    output_display = cv2.resize(output, (display_width, display_height), interpolation=cv2.INTER_AREA)
+    return output_display
 
 
 def print_statistics(results):
@@ -379,14 +383,14 @@ def main():
                     if is_valid:
                         warped, results = engine.measure_pellets(frame)
                         captured_view = draw_ui(warped, results, is_frozen=True,
-                                                px_per_mm=engine.px_per_mm)
+                                                px_per_mm=12)  # Fixed at 12 px/mm
                         captured_results = results
                         in_capture_mode = True
 
                         good = sum(1 for r in results if r['ok'])
                         bad = len(results) - good
                         print(f"\n✓ Captured {len(results)} pellets: {good} good, {bad} bad")
-                        print(f"  Resolution: {engine.actual_px_per_mm:.2f} px/mm")
+                        print(f"  Resolution: 12 px/mm (fixed)")
                     else:
                         print("⚠ Cannot capture: Ensure all 4 markers (IDs 0,1,2,3) are visible")
         elif key == ord('s') and in_capture_mode and captured_view is not None:
@@ -410,21 +414,26 @@ def main():
             if is_valid:
                 aruco.drawDetectedMarkers(frame, corners, ids)
 
-            # Draw overlay
-            cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, 90), (30, 30, 30), -1)
-            cv2.putText(frame, "LIVE VIEW - Press SPACE to Capture", (20, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
+            # Draw overlay with smaller display
+            overlay_height = 70
+            cv2.rectangle(frame, (0, 0), (DESIRED_WIDTH, overlay_height), (30, 30, 30), -1)
+            cv2.putText(frame, "LIVE VIEW - Press SPACE to Capture", (20, 28),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 2)
 
             if not is_valid:
-                cv2.putText(frame, "⚠ MARKERS NOT DETECTED", (20, 110),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
-                cv2.putText(frame, "Align all 4 ArUco markers (IDs 0,1,2,3)", (20, 65),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
+                cv2.putText(frame, "⚠ MARKERS NOT DETECTED", (20, 100),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                cv2.putText(frame, "Align all 4 ArUco markers (IDs 0,1,2,3)", (20, 58),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, (150, 150, 150), 1)
             else:
-                cv2.putText(frame, "✓ Ready - Good lighting and alignment", (20, 65),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                cv2.putText(frame, "✓ Ready - Good alignment", (20, 58),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
-            cv2.imshow("Pellet Inspector", frame)
+            # Resize live view for smaller display
+            display_width = 640
+            display_height = 360
+            frame_display = cv2.resize(frame, (display_width, display_height), interpolation=cv2.INTER_AREA)
+            cv2.imshow("Pellet Inspector", frame_display)
 
     cap.release()
     cv2.destroyAllWindows()
