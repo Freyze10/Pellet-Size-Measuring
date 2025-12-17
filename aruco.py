@@ -44,8 +44,8 @@ class PrecisionMeasure:
         self.matrix = None
         self.actual_px_per_mm = None  # Dynamically calculated
 
-        # Scale: Very high resolution (20 px = 1 mm)
-        self.scale_factor = 20
+        # Scale: High resolution (12 px = 1 mm) - balanced for display
+        self.scale_factor = 12
         self.width_px = int(REAL_WIDTH_MM * self.scale_factor)
         self.height_px = int(REAL_HEIGHT_MM * self.scale_factor)
         self.px_per_mm = self.scale_factor

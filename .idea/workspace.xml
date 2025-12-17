@@ -230,14 +230,6 @@
       <option name="presentableId" value="Default" />
       <updated>1762938125291</updated>
     </task>
-    <task id="LOCAL-00314" summary="added capture">
-      <option name="closed" value="true" />
-      <created>1765424913359</created>
-      <option name="number" value="00314" />
-      <option name="presentableId" value="LOCAL-00314" />
-      <option name="project" value="LOCAL" />
-      <updated>1765424913359</updated>
-    </task>
     <task id="LOCAL-00315" summary="return auto to original">
       <option name="closed" value="true" />
       <created>1765430644294</created>
@@ -622,7 +614,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765868785853</updated>
     </task>
-    <option name="localTasksCounter" value="363" />
+    <task id="LOCAL-00363" summary="combined measurement ave">
+      <option name="closed" value="true" />
+      <created>1765937499925</created>
+      <option name="number" value="00363" />
+      <option name="presentableId" value="LOCAL-00363" />
+      <option name="project" value="LOCAL" />
+      <updated>1765937499925</updated>
+    </task>
+    <option name="localTasksCounter" value="364" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -649,7 +649,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="for print aruco" />
     <MESSAGE value="with aruco bg" />
     <MESSAGE value="for marker" />
     <MESSAGE value="measuring" />
@@ -674,7 +673,8 @@
     <MESSAGE value="try circle detection" />
     <MESSAGE value="try minarearect" />
     <MESSAGE value="returned" />
-    <option name="LAST_COMMIT_MESSAGE" value="returned" />
+    <MESSAGE value="combined measurement ave" />
+    <option name="LAST_COMMIT_MESSAGE" value="combined measurement ave" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
